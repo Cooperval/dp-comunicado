@@ -10,6 +10,7 @@ import Ocorrencias from "./pages/Ocorrencias";
 import Colaboradores from "./pages/Colaboradores";
 import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
+import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -18,17 +19,16 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <BrowserRouter>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/ocorrencia" element={<NovaOcorrencia />} />
-            <Route path="/ocorrencias" element={<Ocorrencias />} />
-            <Route path="/colaboradores" element={<Colaboradores />} />
-            <Route path="/relatorios" element={<Relatorios />} />
-            <Route path="/configuracoes" element={<Configuracoes />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Layout>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/" element={<Layout><Dashboard /></Layout>} />
+          <Route path="/ocorrencia" element={<Layout><NovaOcorrencia /></Layout>} />
+          <Route path="/ocorrencias" element={<Layout><Ocorrencias /></Layout>} />
+          <Route path="/colaboradores" element={<Layout><Colaboradores /></Layout>} />
+          <Route path="/relatorios" element={<Layout><Relatorios /></Layout>} />
+          <Route path="/configuracoes" element={<Layout><Configuracoes /></Layout>} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </BrowserRouter>
       <Toaster />
       <Sonner />

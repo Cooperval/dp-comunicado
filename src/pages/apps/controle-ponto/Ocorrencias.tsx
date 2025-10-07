@@ -129,7 +129,7 @@ export default function Ocorrencias() {
         </div>
         <Button 
           className="bg-gradient-primary hover:bg-primary-hover"
-          onClick={() => navigate("/ocorrencia")}
+          onClick={() => navigate("/apps/controle-ponto/ocorrencia")}
         >
           <FileText className="w-4 h-4 mr-2" />
           Nova Ocorrência

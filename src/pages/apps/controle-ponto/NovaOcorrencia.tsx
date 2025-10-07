@@ -92,7 +92,7 @@ export default function NovaOcorrencia() {
           className: "border-primary bg-primary/5 animate-in slide-in-from-top-5 duration-300",
         });
         
-        setTimeout(() => navigate("/"), 1500);
+        setTimeout(() => navigate("/apps/controle-ponto"), 1500);
       } else {
         throw new Error("Falha na comunicação");
       }
@@ -261,7 +261,7 @@ export default function NovaOcorrencia() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/apps/controle-ponto")}
             >
               Cancelar
             </Button>

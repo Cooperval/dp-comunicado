@@ -10,6 +10,7 @@ import {
   FileText,
   Calendar
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const recentOccurrences = [
   {
@@ -45,6 +46,8 @@ const recentOccurrences = [
 ];
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -55,7 +58,10 @@ export default function Dashboard() {
             Visão geral das ocorrências do ponto eletrônico
           </p>
         </div>
-        <Button className="bg-gradient-primary hover:bg-primary-hover">
+        <Button 
+          className="bg-gradient-primary hover:bg-primary-hover"
+          onClick={() => navigate('/apps/controle-ponto/ocorrencia')}
+        >
           <FileText className="w-4 h-4 mr-2" />
           Nova Ocorrência
         </Button>
@@ -100,7 +106,11 @@ export default function Dashboard() {
               <h2 className="text-xl font-semibold text-foreground">
                 Ocorrências Recentes
               </h2>
-              <Button variant="outline" size="sm">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate('/apps/controle-ponto/ocorrencias')}
+              >
                 Ver Todas
               </Button>
             </div>
@@ -152,15 +162,27 @@ export default function Dashboard() {
               Ações Rápidas
             </h3>
             <div className="space-y-3">
-              <Button className="w-full justify-start" variant="outline">
+              <Button 
+                className="w-full justify-start" 
+                variant="outline"
+                onClick={() => navigate('/apps/controle-ponto/ocorrencia')}
+              >
                 <FileText className="w-4 h-4 mr-2" />
                 Registrar Ocorrência
               </Button>
-              <Button className="w-full justify-start" variant="outline">
+              <Button 
+                className="w-full justify-start" 
+                variant="outline"
+                onClick={() => navigate('/apps/controle-ponto/colaboradores')}
+              >
                 <Users className="w-4 h-4 mr-2" />
                 Gerenciar Colaboradores
               </Button>
-              <Button className="w-full justify-start" variant="outline">
+              <Button 
+                className="w-full justify-start" 
+                variant="outline"
+                onClick={() => navigate('/apps/controle-ponto/ocorrencias')}
+              >
                 <AlertTriangle className="w-4 h-4 mr-2" />
                 Pendências Urgentes
               </Button>

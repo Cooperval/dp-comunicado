@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Save, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const tiposOcorrencia = [
   "Mudança de Escala",
@@ -63,6 +64,7 @@ const motivosPredefinidos = {
 
 export default function NovaOcorrencia() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [formData, setFormData] = useState({
     colaborador: "",
     codigo: "",
@@ -75,11 +77,33 @@ export default function NovaOcorrencia() {
 
   const motivosDisponiveis = formData.tipo ? motivosPredefinidos[formData.tipo as keyof typeof motivosPredefinidos] || [] : [];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Aqui você adicionaria a lógica para salvar a ocorrência
-    console.log("Dados da ocorrência:", formData);
-    navigate("/");
+    
+    try {
+      // Simula uma chamada de API
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      
+      // Simula sucesso (90% das vezes)
+      if (Math.random() > 0.1) {
+        toast({
+          title: "✓ Ocorrência registrada",
+          description: "A ocorrência foi salva com sucesso e o RH foi notificado.",
+          className: "border-primary bg-primary/5 animate-in slide-in-from-top-5 duration-300",
+        });
+        
+        setTimeout(() => navigate("/"), 1500);
+      } else {
+        throw new Error("Falha na comunicação");
+      }
+    } catch (error) {
+      toast({
+        title: "✗ Erro ao registrar",
+        description: "Não foi possível salvar a ocorrência. Tente novamente.",
+        variant: "destructive",
+        className: "animate-in slide-in-from-top-5 duration-300",
+      });
+    }
   };
 
   return (

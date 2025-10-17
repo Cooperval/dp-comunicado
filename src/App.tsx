@@ -8,14 +8,20 @@ import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { PortalLayout } from "./components/layout/PortalLayout";
 import { AppLayout } from "./components/layout/AppLayout";
 import { ControlePontoSidebar } from "./components/layout/ControlePontoSidebar";
+import { AvaliacaoSidebar } from "./components/layout/AvaliacaoSidebar";
 import Portal from "./pages/Portal";
 import Login from "./pages/auth/Login";
-import Dashboard from "./pages/apps/controle-ponto/Dashboard";
+import ControlePontoDashboard from "./pages/apps/controle-ponto/Dashboard";
 import NovaOcorrencia from "./pages/apps/controle-ponto/NovaOcorrencia";
 import Ocorrencias from "./pages/apps/controle-ponto/Ocorrencias";
 import Colaboradores from "./pages/apps/controle-ponto/Colaboradores";
 import Relatorios from "./pages/apps/controle-ponto/Relatorios";
 import Configuracoes from "./pages/apps/controle-ponto/Configuracoes";
+import AvaliacaoDashboard from "./pages/apps/avaliacao/Dashboard";
+import NovaAvaliacao from "./pages/apps/avaliacao/NovaAvaliacao";
+import ListaAvaliacoes from "./pages/apps/avaliacao/ListaAvaliacoes";
+import RealizarAvaliacao from "./pages/apps/avaliacao/RealizarAvaliacao";
+import DetalhesAvaliacao from "./pages/apps/avaliacao/DetalhesAvaliacao";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,7 +63,7 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <AppLayout sidebar={<ControlePontoSidebar />} appName="Controle de Ponto">
-                    <Dashboard />
+                    <ControlePontoDashboard />
                   </AppLayout>
                 </ProtectedRoute>
               }
@@ -108,6 +114,58 @@ const App = () => (
                 <ProtectedRoute>
                   <AppLayout sidebar={<ControlePontoSidebar />} appName="Controle de Ponto">
                     <Configuracoes />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Avaliação app routes */}
+            <Route
+              path="/apps/avaliacao"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
+                    <AvaliacaoDashboard />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apps/avaliacao/nova"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
+                    <NovaAvaliacao />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apps/avaliacao/lista"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
+                    <ListaAvaliacoes />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apps/avaliacao/avaliar/:id"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
+                    <RealizarAvaliacao />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apps/avaliacao/detalhes/:id"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
+                    <DetalhesAvaliacao />
                   </AppLayout>
                 </ProtectedRoute>
               }

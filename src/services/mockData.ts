@@ -79,4 +79,85 @@ export const mockAPI = {
       },
     ];
   },
+
+  // Avaliações
+  getAvaliacoesStats: async (userId: string | undefined, isRH: boolean) => {
+    await delay(300);
+    if (isRH) {
+      return { total: 15, pendentes: 8, concluidas: 5, atrasadas: 2 };
+    }
+    return { total: 3, pendentes: 2, concluidas: 1, atrasadas: 0 };
+  },
+
+  getAvaliacoes: async (userId: string | undefined, isRH: boolean) => {
+    await delay(400);
+    const avaliacoes = [
+      {
+        id: '1',
+        aprendiz: 'João Oliveira',
+        gestor: 'Carlos Silva',
+        prazo: '15/02/2025',
+        status: 'pendente' as const,
+        dataCriacao: '01/02/2025',
+      },
+      {
+        id: '2',
+        aprendiz: 'Maria Souza',
+        gestor: 'Carlos Silva',
+        prazo: '10/02/2025',
+        status: 'concluida' as const,
+        dataCriacao: '25/01/2025',
+        dataConclusao: '08/02/2025',
+      },
+      {
+        id: '3',
+        aprendiz: 'Lucas Ferreira',
+        gestor: 'Ana Costa',
+        prazo: '20/02/2025',
+        status: 'pendente' as const,
+        dataCriacao: '05/02/2025',
+      },
+    ];
+    return isRH ? avaliacoes : avaliacoes.filter(a => a.gestor === 'Carlos Silva');
+  },
+
+  createAvaliacao: async (data: any) => {
+    await delay(600);
+    return { success: true, id: Date.now().toString() };
+  },
+
+  getAvaliacaoById: async (id: string) => {
+    await delay(300);
+    return {
+      id,
+      aprendiz: 'João Oliveira',
+      gestor: 'Carlos Silva',
+      prazo: '15/02/2025',
+      dataCriacao: '01/02/2025',
+      observacoes: 'Primeira avaliação do aprendiz',
+    };
+  },
+
+  submitAvaliacao: async (id: string, data: any) => {
+    await delay(600);
+    return { success: true };
+  },
+
+  getAvaliacaoDetalhes: async (id: string) => {
+    await delay(300);
+    return {
+      id,
+      aprendiz: 'João Oliveira',
+      gestor: 'Carlos Silva',
+      dataConclusao: '08/02/2025',
+      notas: {
+        'Pontualidade': 5,
+        'Assiduidade': 5,
+        'Proatividade': 4,
+        'Trabalho em Equipe': 5,
+        'Aprendizado': 4,
+      },
+      observacoes: 'Excelente desempenho. Demonstra muita dedicação e vontade de aprender.',
+    };
+  },
 };

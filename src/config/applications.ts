@@ -1,4 +1,4 @@
-import { Clock, Calendar, FileText, GraduationCap, LucideIcon } from 'lucide-react';
+import { Clock, Calendar, FileText, GraduationCap, ClipboardCheck, LucideIcon } from 'lucide-react';
 
 export interface Application {
   id: string;
@@ -18,6 +18,15 @@ export const applications: Application[] = [
     icon: Clock,
     route: '/apps/controle-ponto',
     color: 'hsl(140 86% 22%)',
+    status: 'active',
+  },
+  {
+    id: 'avaliacao',
+    name: 'Avaliação de Aprendizes',
+    description: 'Gerencie e realize avaliações de jovens aprendizes',
+    icon: ClipboardCheck,
+    route: '/apps/avaliacao',
+    color: 'hsl(260 70% 50%)',
     status: 'active',
   },
   {

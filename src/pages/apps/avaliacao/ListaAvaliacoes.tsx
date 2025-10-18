@@ -135,7 +135,7 @@ export default function ListaAvaliacoes() {
                             <Button
                               size="sm"
                               onClick={() =>
-                                navigate(`/apps/avaliacao/avaliar/${avaliacao.id}`)
+                                navigate(`/apps/avaliacao/realizar/${avaliacao.id}`)
                               }
                             >
                               <Edit className="h-4 w-4 mr-1" />

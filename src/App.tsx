@@ -18,7 +18,9 @@ import Colaboradores from "./pages/apps/controle-ponto/Colaboradores";
 import Relatorios from "./pages/apps/controle-ponto/Relatorios";
 import Configuracoes from "./pages/apps/controle-ponto/Configuracoes";
 import AvaliacaoDashboard from "./pages/apps/avaliacao/Dashboard";
-import NovaAvaliacao from "./pages/apps/avaliacao/NovaAvaliacao";
+import GerenciarAvaliacoes from "./pages/apps/avaliacao/GerenciarAvaliacoes";
+import NovoModeloAvaliacao from "./pages/apps/avaliacao/NovoModeloAvaliacao";
+import AtribuirAvaliacao from "./pages/apps/avaliacao/AtribuirAvaliacao";
 import ListaAvaliacoes from "./pages/apps/avaliacao/ListaAvaliacoes";
 import RealizarAvaliacao from "./pages/apps/avaliacao/RealizarAvaliacao";
 import DetalhesAvaliacao from "./pages/apps/avaliacao/DetalhesAvaliacao";
@@ -131,11 +133,41 @@ const App = () => (
               }
             />
             <Route
-              path="/apps/avaliacao/nova"
+              path="/apps/avaliacao/modelos"
               element={
                 <ProtectedRoute>
                   <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
-                    <NovaAvaliacao />
+                    <GerenciarAvaliacoes />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apps/avaliacao/modelos/novo"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
+                    <NovoModeloAvaliacao />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apps/avaliacao/modelos/editar/:id"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
+                    <NovoModeloAvaliacao />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apps/avaliacao/atribuir"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
+                    <AtribuirAvaliacao />
                   </AppLayout>
                 </ProtectedRoute>
               }
@@ -151,7 +183,7 @@ const App = () => (
               }
             />
             <Route
-              path="/apps/avaliacao/avaliar/:id"
+              path="/apps/avaliacao/realizar/:id"
               element={
                 <ProtectedRoute>
                   <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">

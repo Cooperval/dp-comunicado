@@ -9,51 +9,16 @@ import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { mockAPI } from '@/services/mockData';
 
-interface Criterio {
-  id: string;
-  titulo: string;
-  descricao: string;
-}
-
-const criterios: Criterio[] = [
-  {
-    id: '1',
-    titulo: 'Pontualidade',
-    descricao: 'Comparece no horário estabelecido',
-  },
-  {
-    id: '2',
-    titulo: 'Assiduidade',
-    descricao: 'Presença regular no trabalho',
-  },
-  {
-    id: '3',
-    titulo: 'Proatividade',
-    descricao: 'Toma iniciativa e busca soluções',
-  },
-  {
-    id: '4',
-    titulo: 'Trabalho em Equipe',
-    descricao: 'Colabora e se comunica bem com o time',
-  },
-  {
-    id: '5',
-    titulo: 'Aprendizado',
-    descricao: 'Demonstra evolução e absorção de conhecimento',
-  },
-];
-
 export default function RealizarAvaliacao() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [avaliacao, setAvaliacao] = useState<any>(null);
-  const [notas, setNotas] = useState<Record<string, string>>({});
-  const [observacoes, setObservacoes] = useState('');
+  const [respostas, setRespostas] = useState<Record<string, any>>({});
 
   useEffect(() => {
     const loadAvaliacao = async () => {
-      const data = await mockAPI.getAvaliacaoById(id!);
+      const data = await mockAPI.getAvaliacaoParaResponder(id!);
       setAvaliacao(data);
     };
     loadAvaliacao();
@@ -62,11 +27,20 @@ export default function RealizarAvaliacao() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const todasPreenchidas = criterios.every((c) => notas[c.id]);
+    // Validar perguntas obrigatórias
+    const perguntasObrigatorias = avaliacao.modelo.perguntas.filter((p: any) => p.obrigatoria);
+    const todasPreenchidas = perguntasObrigatorias.every((p: any) => {
+      const resposta = respostas[p.id];
+      if (p.tipo === 'multipla_escolha') {
+        return resposta !== undefined && resposta !== '';
+      }
+      return resposta && resposta.trim() !== '';
+    });
+
     if (!todasPreenchidas) {
       toast({
         title: 'Erro',
-        description: 'Avalie todos os critérios antes de enviar',
+        description: 'Responda todas as perguntas obrigatórias antes de enviar',
         variant: 'destructive',
       });
       return;
@@ -74,7 +48,7 @@ export default function RealizarAvaliacao() {
 
     setLoading(true);
     try {
-      await mockAPI.submitAvaliacao(id!, { notas, observacoes });
+      await mockAPI.submitAvaliacaoResposta(id!, { respostas });
 
       toast({
         title: 'Sucesso',
@@ -115,7 +89,15 @@ export default function RealizarAvaliacao() {
         <CardHeader>
           <CardTitle>Informações da Avaliação</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-4">
+          <div>
+            <h3 className="font-semibold text-lg">{avaliacao.modelo.titulo}</h3>
+            {avaliacao.modelo.descricao && (
+              <p className="text-sm text-muted-foreground mt-1">
+                {avaliacao.modelo.descricao}
+              </p>
+            )}
+          </div>
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-muted-foreground">Aprendiz</p>
@@ -138,47 +120,64 @@ export default function RealizarAvaliacao() {
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Critérios de Avaliação</CardTitle>
+            <CardTitle>Perguntas</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {criterios.map((criterio) => (
-              <div key={criterio.id} className="space-y-3 pb-6 border-b last:border-0">
+            {avaliacao.modelo.perguntas.map((pergunta: any, index: number) => (
+              <div key={pergunta.id} className="space-y-3 pb-6 border-b last:border-0">
                 <div>
-                  <h3 className="font-semibold">{criterio.titulo}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {criterio.descricao}
-                  </p>
+                  <h3 className="font-semibold">
+                    {index + 1}. {pergunta.titulo}
+                    {pergunta.obrigatoria && (
+                      <span className="text-destructive ml-1">*</span>
+                    )}
+                  </h3>
+                  {pergunta.descricao && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {pergunta.descricao}
+                    </p>
+                  )}
                 </div>
-                <RadioGroup
-                  value={notas[criterio.id]}
-                  onValueChange={(value) =>
-                    setNotas({ ...notas, [criterio.id]: value })
-                  }
-                  className="flex gap-4"
-                >
-                  {['1', '2', '3', '4', '5'].map((nota) => (
-                    <div key={nota} className="flex items-center space-x-2">
-                      <RadioGroupItem value={nota} id={`${criterio.id}-${nota}`} />
-                      <Label htmlFor={`${criterio.id}-${nota}`}>{nota}</Label>
+
+                {pergunta.tipo === 'multipla_escolha' ? (
+                  <RadioGroup
+                    value={respostas[pergunta.id]?.toString()}
+                    onValueChange={(value) =>
+                      setRespostas({ ...respostas, [pergunta.id]: parseInt(value) })
+                    }
+                  >
+                    <div className="grid grid-cols-5 gap-3">
+                      {pergunta.opcoes.map((opcao: any) => (
+                        <div
+                          key={opcao.valor}
+                          className="flex flex-col items-center space-y-2"
+                        >
+                          <RadioGroupItem
+                            value={opcao.valor.toString()}
+                            id={`${pergunta.id}-${opcao.valor}`}
+                          />
+                          <Label
+                            htmlFor={`${pergunta.id}-${opcao.valor}`}
+                            className="text-center text-xs leading-tight cursor-pointer"
+                          >
+                            {opcao.texto}
+                          </Label>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </RadioGroup>
+                  </RadioGroup>
+                ) : (
+                  <Textarea
+                    placeholder="Digite sua resposta..."
+                    value={respostas[pergunta.id] || ''}
+                    onChange={(e) =>
+                      setRespostas({ ...respostas, [pergunta.id]: e.target.value })
+                    }
+                    rows={4}
+                  />
+                )}
               </div>
             ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Observações Gerais</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              placeholder="Adicione comentários sobre o desempenho do aprendiz..."
-              value={observacoes}
-              onChange={(e) => setObservacoes(e.target.value)}
-              rows={6}
-            />
           </CardContent>
         </Card>
 

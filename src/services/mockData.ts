@@ -160,4 +160,139 @@ export const mockAPI = {
       observacoes: 'Excelente desempenho. Demonstra muita dedicação e vontade de aprender.',
     };
   },
+
+  // Modelos de Avaliação
+  getModelosAvaliacao: async () => {
+    await delay(400);
+    return [
+      {
+        id: '1',
+        titulo: 'Avaliação de Desempenho Trimestral',
+        descricao: 'Modelo padrão para avaliação trimestral de aprendizes',
+        ativo: true,
+        perguntas: [
+          {
+            id: 'p1',
+            tipo: 'multipla_escolha',
+            titulo: 'Pontualidade',
+            descricao: 'Como você avalia a pontualidade do aprendiz?',
+            obrigatoria: true,
+            opcoes: [
+              { texto: 'Insatisfatório', valor: 1 },
+              { texto: 'Regular', valor: 2 },
+              { texto: 'Bom', valor: 3 },
+              { texto: 'Muito Bom', valor: 4 },
+              { texto: 'Excelente', valor: 5 },
+            ],
+          },
+          {
+            id: 'p2',
+            tipo: 'multipla_escolha',
+            titulo: 'Proatividade',
+            descricao: 'Avalie o nível de iniciativa e busca por soluções',
+            obrigatoria: true,
+            opcoes: [
+              { texto: 'Insatisfatório', valor: 1 },
+              { texto: 'Regular', valor: 2 },
+              { texto: 'Bom', valor: 3 },
+              { texto: 'Muito Bom', valor: 4 },
+              { texto: 'Excelente', valor: 5 },
+            ],
+          },
+          {
+            id: 'p3',
+            tipo: 'descritiva',
+            titulo: 'Pontos Fortes',
+            descricao: 'Descreva os principais pontos fortes observados',
+            obrigatoria: true,
+          },
+          {
+            id: 'p4',
+            tipo: 'descritiva',
+            titulo: 'Áreas de Melhoria',
+            descricao: 'Identifique áreas onde o aprendiz pode melhorar',
+            obrigatoria: false,
+          },
+        ],
+      },
+      {
+        id: '2',
+        titulo: 'Avaliação de Integração (30 dias)',
+        descricao: 'Modelo para avaliar primeiros 30 dias do aprendiz',
+        ativo: true,
+        perguntas: [
+          {
+            id: 'p1',
+            tipo: 'multipla_escolha',
+            titulo: 'Adaptação à Equipe',
+            descricao: 'Como foi a integração com a equipe?',
+            obrigatoria: true,
+            opcoes: [
+              { texto: 'Insatisfatório', valor: 1 },
+              { texto: 'Regular', valor: 2 },
+              { texto: 'Bom', valor: 3 },
+              { texto: 'Muito Bom', valor: 4 },
+              { texto: 'Excelente', valor: 5 },
+            ],
+          },
+          {
+            id: 'p2',
+            tipo: 'descritiva',
+            titulo: 'Observações Gerais',
+            descricao: 'Comentários sobre o período de integração',
+            obrigatoria: true,
+          },
+        ],
+      },
+    ];
+  },
+
+  getModeloAvaliacaoById: async (id: string) => {
+    await delay(300);
+    const modelos = await mockAPI.getModelosAvaliacao();
+    return modelos.find((m) => m.id === id);
+  },
+
+  createModeloAvaliacao: async (data: any) => {
+    await delay(600);
+    return { success: true, id: Date.now().toString() };
+  },
+
+  updateModeloAvaliacao: async (id: string, data: any) => {
+    await delay(600);
+    return { success: true };
+  },
+
+  deleteModeloAvaliacao: async (id: string) => {
+    await delay(500);
+    return { success: true };
+  },
+
+  duplicateModeloAvaliacao: async (id: string) => {
+    await delay(500);
+    return { success: true, id: Date.now().toString() };
+  },
+
+  atribuirAvaliacao: async (data: any) => {
+    await delay(600);
+    return { success: true, id: Date.now().toString() };
+  },
+
+  getAvaliacaoParaResponder: async (id: string) => {
+    await delay(300);
+    const modelos = await mockAPI.getModelosAvaliacao();
+    return {
+      id,
+      aprendiz: 'João Oliveira',
+      gestor: 'Carlos Silva',
+      prazo: '15/02/2025',
+      observacoes: 'Primeira avaliação do aprendiz',
+      modelo: modelos[0],
+    };
+  },
+
+  submitAvaliacaoResposta: async (id: string, data: any) => {
+    await delay(600);
+    return { success: true };
+  },
 };

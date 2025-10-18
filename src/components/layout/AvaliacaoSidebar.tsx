@@ -1,4 +1,4 @@
-import { Home, ClipboardCheck, Plus, List } from 'lucide-react';
+import { Home, ClipboardCheck, Plus, List, FileText, UserPlus } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import {
   Sidebar,
@@ -55,14 +55,24 @@ export function AvaliacaoSidebar() {
               </SidebarMenuItem>
 
               {isRH && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <NavLink to="/apps/avaliacao/nova">
-                      <Plus className="h-4 w-4" />
-                      <span>Nova Avaliação</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                <>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                      <NavLink to="/apps/avaliacao/modelos">
+                        <FileText className="h-4 w-4" />
+                        <span>Gerenciar Modelos</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                      <NavLink to="/apps/avaliacao/atribuir">
+                        <UserPlus className="h-4 w-4" />
+                        <span>Atribuir Avaliação</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </>
               )}
 
               <SidebarMenuItem>

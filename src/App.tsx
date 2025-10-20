@@ -20,6 +20,7 @@ import Configuracoes from "./pages/apps/controle-ponto/Configuracoes";
 import AvaliacaoDashboard from "./pages/apps/avaliacao/Dashboard";
 import GerenciarAvaliacoes from "./pages/apps/avaliacao/GerenciarAvaliacoes";
 import NovoModeloAvaliacao from "./pages/apps/avaliacao/NovoModeloAvaliacao";
+import VisualizarModelo from "./pages/apps/avaliacao/VisualizarModelo";
 import AtribuirAvaliacao from "./pages/apps/avaliacao/AtribuirAvaliacao";
 import ListaAvaliacoes from "./pages/apps/avaliacao/ListaAvaliacoes";
 import RealizarAvaliacao from "./pages/apps/avaliacao/RealizarAvaliacao";
@@ -158,6 +159,16 @@ const App = () => (
                 <ProtectedRoute>
                   <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
                     <NovoModeloAvaliacao />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apps/avaliacao/modelos/visualizar/:id"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
+                    <VisualizarModelo />
                   </AppLayout>
                 </ProtectedRoute>
               }

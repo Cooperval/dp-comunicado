@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit, Trash2, Copy } from 'lucide-react';
+import { Plus, Edit, Trash2, Copy, Eye } from 'lucide-react';
 import { mockAPI } from '@/services/mockData';
 import { toast } from '@/hooks/use-toast';
 import {
@@ -126,15 +126,20 @@ export default function GerenciarAvaliacoes() {
                     {modelo.perguntas.filter((p: any) => p.tipo === 'descritiva').length} descritivas
                   </span>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1"
+                    onClick={() => navigate(`/apps/avaliacao/modelos/visualizar/${modelo.id}`)}
+                  >
+                    <Eye className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => navigate(`/apps/avaliacao/modelos/editar/${modelo.id}`)}
                   >
-                    <Edit className="h-3 w-3 mr-1" />
-                    Editar
+                    <Edit className="h-3 w-3" />
                   </Button>
                   <Button
                     variant="outline"

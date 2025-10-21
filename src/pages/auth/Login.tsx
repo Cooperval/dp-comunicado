@@ -103,6 +103,7 @@ export default function Login() {
           <div className="mt-6 p-4 bg-muted rounded-lg">
             <p className="text-xs text-muted-foreground mb-2 font-semibold">Usuários de teste:</p>
             <div className="space-y-1 text-xs text-muted-foreground">
+              <p>• admin@empresa.com / admin123</p>
               <p>• gestor@empresa.com / senha123</p>
               <p>• rh@empresa.com / senha123</p>
               <p>• dp@empresa.com / senha123</p>

@@ -5,6 +5,13 @@ import { applications } from '@/config/applications';
 export default function Portal() {
   const { user } = useAuth();
 
+  const userApps = applications.filter((app) => {
+    if (app.adminOnly && user?.role !== 'admin') {
+      return false;
+    }
+    return user?.allowedApps?.includes(app.id) || false;
+  });
+
   return (
     <div className="space-y-8 animate-fade-in">
       <div>
@@ -17,7 +24,7 @@ export default function Portal() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {applications.map((app) => (
+        {userApps.map((app) => (
           <AppCard
             key={app.id}
             name={app.name}

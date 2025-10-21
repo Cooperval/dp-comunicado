@@ -295,4 +295,103 @@ export const mockAPI = {
     await delay(600);
     return { success: true };
   },
+
+  // User Management
+  getUsuarios: async () => {
+    await delay(400);
+    const storedUsers = localStorage.getItem('mock_users');
+    if (storedUsers) {
+      return JSON.parse(storedUsers);
+    }
+    
+    const defaultUsers = [
+      {
+        id: '0',
+        matricula: '0001',
+        name: 'Admin Sistema',
+        email: 'admin@empresa.com',
+        role: 'admin',
+        department: 'Tecnologia da Informação',
+        allowedApps: ['controle-ponto', 'avaliacao', 'admin'],
+        active: true,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: '1',
+        matricula: '1001',
+        name: 'João Silva',
+        email: 'gestor@empresa.com',
+        role: 'gestor',
+        department: 'Vendas',
+        allowedApps: ['controle-ponto', 'avaliacao'],
+        active: true,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: '2',
+        matricula: '2001',
+        name: 'Maria Santos',
+        email: 'rh@empresa.com',
+        role: 'rh',
+        department: 'Recursos Humanos',
+        allowedApps: ['controle-ponto', 'avaliacao'],
+        active: true,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: '3',
+        matricula: '3001',
+        name: 'Carlos Oliveira',
+        email: 'dp@empresa.com',
+        role: 'dp',
+        department: 'Departamento Pessoal',
+        allowedApps: ['controle-ponto'],
+        active: true,
+        createdAt: new Date().toISOString(),
+      },
+    ];
+    
+    localStorage.setItem('mock_users', JSON.stringify(defaultUsers));
+    return defaultUsers;
+  },
+
+  getUsuarioById: async (id: string) => {
+    await delay(300);
+    const users = await mockAPI.getUsuarios();
+    return users.find((u: any) => u.id === id);
+  },
+
+  createUsuario: async (data: any) => {
+    await delay(600);
+    const users = await mockAPI.getUsuarios();
+    const newUser = {
+      ...data,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString(),
+      active: true,
+    };
+    users.push(newUser);
+    localStorage.setItem('mock_users', JSON.stringify(users));
+    return { success: true, user: newUser };
+  },
+
+  updateUsuario: async (id: string, data: any) => {
+    await delay(600);
+    const users = await mockAPI.getUsuarios();
+    const index = users.findIndex((u: any) => u.id === id);
+    if (index !== -1) {
+      users[index] = { ...users[index], ...data };
+      localStorage.setItem('mock_users', JSON.stringify(users));
+      return { success: true, user: users[index] };
+    }
+    return { success: false, error: 'Usuário não encontrado' };
+  },
+
+  deleteUsuario: async (id: string) => {
+    await delay(500);
+    const users = await mockAPI.getUsuarios();
+    const filtered = users.filter((u: any) => u.id !== id);
+    localStorage.setItem('mock_users', JSON.stringify(filtered));
+    return { success: true };
+  },
 };

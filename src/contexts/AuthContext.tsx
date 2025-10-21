@@ -3,11 +3,15 @@ import { useNavigate } from 'react-router-dom';
 
 interface User {
   id: string;
+  matricula: string;
   name: string;
   email: string;
-  role: 'gestor' | 'rh' | 'dp';
+  role: 'gestor' | 'rh' | 'dp' | 'admin';
   department: string;
   avatar?: string;
+  allowedApps: string[];
+  active: boolean;
+  createdAt?: string;
 }
 
 interface AuthContextType {
@@ -22,34 +26,60 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Mock users for frontend simulation
 const MOCK_USERS: Record<string, { password: string; user: User }> = {
+  'admin@empresa.com': {
+    password: 'admin123',
+    user: {
+      id: '0',
+      matricula: '0001',
+      name: 'Admin Sistema',
+      email: 'admin@empresa.com',
+      role: 'admin',
+      department: 'Tecnologia da Informação',
+      allowedApps: ['controle-ponto', 'avaliacao', 'admin'],
+      active: true,
+      createdAt: new Date().toISOString(),
+    },
+  },
   'gestor@empresa.com': {
     password: 'senha123',
     user: {
       id: '1',
+      matricula: '1001',
       name: 'João Silva',
       email: 'gestor@empresa.com',
       role: 'gestor',
       department: 'Vendas',
+      allowedApps: ['controle-ponto', 'avaliacao'],
+      active: true,
+      createdAt: new Date().toISOString(),
     },
   },
   'rh@empresa.com': {
     password: 'senha123',
     user: {
       id: '2',
+      matricula: '2001',
       name: 'Maria Santos',
       email: 'rh@empresa.com',
       role: 'rh',
       department: 'Recursos Humanos',
+      allowedApps: ['controle-ponto', 'avaliacao'],
+      active: true,
+      createdAt: new Date().toISOString(),
     },
   },
   'dp@empresa.com': {
     password: 'senha123',
     user: {
       id: '3',
+      matricula: '3001',
       name: 'Carlos Oliveira',
       email: 'dp@empresa.com',
       role: 'dp',
       department: 'Departamento Pessoal',
+      allowedApps: ['controle-ponto'],
+      active: true,
+      createdAt: new Date().toISOString(),
     },
   },
 };

@@ -1,4 +1,4 @@
-import { Clock, Calendar, FileText, GraduationCap, ClipboardCheck, LucideIcon } from 'lucide-react';
+import { Clock, Calendar, FileText, GraduationCap, ClipboardCheck, Shield, LucideIcon } from 'lucide-react';
 
 export interface Application {
   id: string;
@@ -8,6 +8,7 @@ export interface Application {
   route?: string;
   status: 'active' | 'coming-soon';
   color: string;
+  adminOnly?: boolean;
 }
 
 export const applications: Application[] = [
@@ -52,5 +53,15 @@ export const applications: Application[] = [
     icon: GraduationCap,
     color: 'hsl(30 90% 50%)',
     status: 'coming-soon',
+  },
+  {
+    id: 'admin',
+    name: 'Administração',
+    description: 'Gerencie usuários e permissões do sistema',
+    icon: Shield,
+    route: '/apps/admin',
+    color: 'hsl(0 70% 50%)',
+    status: 'active',
+    adminOnly: true,
   },
 ];

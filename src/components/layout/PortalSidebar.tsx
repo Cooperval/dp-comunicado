@@ -28,6 +28,13 @@ export function PortalSidebar() {
     navigate('/login');
   };
 
+  const userApps = applications.filter((app) => {
+    if (app.adminOnly && user?.role !== 'admin') {
+      return false;
+    }
+    return user?.allowedApps?.includes(app.id) || false;
+  });
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
@@ -66,7 +73,7 @@ export function PortalSidebar() {
           <SidebarGroupLabel>Aplicações</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {applications.map((app) => (
+              {userApps.map((app) => (
                 <SidebarMenuItem key={app.id}>
                   <SidebarMenuButton
                     asChild={app.status === 'active'}

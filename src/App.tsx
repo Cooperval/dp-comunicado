@@ -5,10 +5,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { AdminRoute } from "./components/auth/AdminRoute";
 import { PortalLayout } from "./components/layout/PortalLayout";
 import { AppLayout } from "./components/layout/AppLayout";
 import { ControlePontoSidebar } from "./components/layout/ControlePontoSidebar";
 import { AvaliacaoSidebar } from "./components/layout/AvaliacaoSidebar";
+import { AdminSidebar } from "./components/layout/AdminSidebar";
 import Portal from "./pages/Portal";
 import Login from "./pages/auth/Login";
 import ControlePontoDashboard from "./pages/apps/controle-ponto/Dashboard";
@@ -25,6 +27,8 @@ import AtribuirAvaliacao from "./pages/apps/avaliacao/AtribuirAvaliacao";
 import ListaAvaliacoes from "./pages/apps/avaliacao/ListaAvaliacoes";
 import RealizarAvaliacao from "./pages/apps/avaliacao/RealizarAvaliacao";
 import DetalhesAvaliacao from "./pages/apps/avaliacao/DetalhesAvaliacao";
+import AdminDashboard from "./pages/apps/admin/Dashboard";
+import GerenciarUsuarios from "./pages/apps/admin/GerenciarUsuarios";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -210,6 +214,32 @@ const App = () => (
                   <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
                     <DetalhesAvaliacao />
                   </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            
+            {/* Admin app routes */}
+            <Route
+              path="/apps/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminRoute>
+                    <AppLayout sidebar={<AdminSidebar />} appName="Administração">
+                      <AdminDashboard />
+                    </AppLayout>
+                  </AdminRoute>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apps/admin/usuarios"
+              element={
+                <ProtectedRoute>
+                  <AdminRoute>
+                    <AppLayout sidebar={<AdminSidebar />} appName="Administração">
+                      <GerenciarUsuarios />
+                    </AppLayout>
+                  </AdminRoute>
                 </ProtectedRoute>
               }
             />

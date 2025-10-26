@@ -26,9 +26,9 @@ export default function ListaNaoConformidades() {
   const [loading, setLoading] = useState(true);
 
   // Filtros
-  const [statusFiltro, setStatusFiltro] = useState('');
-  const [severidadeFiltro, setSeveridadeFiltro] = useState('');
-  const [departamentoFiltro, setDepartamentoFiltro] = useState('');
+  const [statusFiltro, setStatusFiltro] = useState('todos');
+  const [severidadeFiltro, setSeveridadeFiltro] = useState('todas');
+  const [departamentoFiltro, setDepartamentoFiltro] = useState('todos');
   const [dataInicio, setDataInicio] = useState<Date | undefined>();
   const [dataFim, setDataFim] = useState<Date | undefined>();
 
@@ -39,12 +39,12 @@ export default function ListaNaoConformidades() {
   const carregarDados = async () => {
     setLoading(true);
     let data = await getNaoConformidades({
-      status: statusFiltro || undefined,
-      severidade: severidadeFiltro || undefined,
+      status: statusFiltro !== 'todos' ? statusFiltro : undefined,
+      severidade: severidadeFiltro !== 'todas' ? severidadeFiltro : undefined,
     });
 
     // Filtro adicional por departamento
-    if (departamentoFiltro) {
+    if (departamentoFiltro && departamentoFiltro !== 'todos') {
       data = data.filter((nc) => nc.departamento === departamentoFiltro);
     }
 
@@ -63,9 +63,9 @@ export default function ListaNaoConformidades() {
   };
 
   const limparFiltros = () => {
-    setStatusFiltro('');
-    setSeveridadeFiltro('');
-    setDepartamentoFiltro('');
+    setStatusFiltro('todos');
+    setSeveridadeFiltro('todas');
+    setDepartamentoFiltro('todos');
     setDataInicio(undefined);
     setDataFim(undefined);
   };
@@ -129,8 +129,13 @@ export default function ListaNaoConformidades() {
   const departamentos = Array.from(new Set(ncs.map((nc) => nc.departamento)));
 
   const filtrosAtivos =
-    [statusFiltro, severidadeFiltro, departamentoFiltro, dataInicio, dataFim].filter(Boolean)
-      .length;
+    [
+      statusFiltro !== 'todos' ? statusFiltro : null,
+      severidadeFiltro !== 'todas' ? severidadeFiltro : null,
+      departamentoFiltro !== 'todos' ? departamentoFiltro : null,
+      dataInicio,
+      dataFim,
+    ].filter(Boolean).length;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -209,7 +214,7 @@ export default function ListaNaoConformidades() {
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os status</SelectItem>
+                  <SelectItem value="todos">Todos os status</SelectItem>
                   <SelectItem value="aberta">Aberta</SelectItem>
                   <SelectItem value="em-analise">Em Análise</SelectItem>
                   <SelectItem value="resolvida">Resolvida</SelectItem>
@@ -223,7 +228,7 @@ export default function ListaNaoConformidades() {
                   <SelectValue placeholder="Severidade" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas as severidades</SelectItem>
+                  <SelectItem value="todas">Todas as severidades</SelectItem>
                   <SelectItem value="critica">Crítica</SelectItem>
                   <SelectItem value="alta">Alta</SelectItem>
                   <SelectItem value="media">Média</SelectItem>
@@ -237,7 +242,7 @@ export default function ListaNaoConformidades() {
                   <SelectValue placeholder="Departamento" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os departamentos</SelectItem>
+                  <SelectItem value="todos">Todos os departamentos</SelectItem>
                   {departamentos.map((dept) => (
                     <SelectItem key={dept} value={dept}>
                       {dept}

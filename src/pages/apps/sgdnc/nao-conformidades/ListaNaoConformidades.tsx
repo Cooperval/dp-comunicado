@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -10,30 +11,63 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { AlertTriangle, Plus, Eye, Edit } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { AlertTriangle, Plus, Eye, Edit, Paperclip, CalendarIcon, X } from 'lucide-react';
 import { getNaoConformidades, type NaoConformidade } from '@/services/sgdncMockData';
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInDays, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 export default function ListaNaoConformidades() {
   const navigate = useNavigate();
   const [ncs, setNcs] = useState<NaoConformidade[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Filtros
   const [statusFiltro, setStatusFiltro] = useState('');
   const [severidadeFiltro, setSeveridadeFiltro] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [departamentoFiltro, setDepartamentoFiltro] = useState('');
+  const [dataInicio, setDataInicio] = useState<Date | undefined>();
+  const [dataFim, setDataFim] = useState<Date | undefined>();
 
   useEffect(() => {
     carregarDados();
-  }, [statusFiltro, severidadeFiltro]);
+  }, [statusFiltro, severidadeFiltro, departamentoFiltro, dataInicio, dataFim]);
 
   const carregarDados = async () => {
     setLoading(true);
-    const data = await getNaoConformidades({
+    let data = await getNaoConformidades({
       status: statusFiltro || undefined,
       severidade: severidadeFiltro || undefined,
     });
+
+    // Filtro adicional por departamento
+    if (departamentoFiltro) {
+      data = data.filter((nc) => nc.departamento === departamentoFiltro);
+    }
+
+    // Filtro por período
+    if (dataInicio && dataFim) {
+      data = data.filter((nc) =>
+        isWithinInterval(new Date(nc.dataOcorrencia), {
+          start: dataInicio,
+          end: dataFim,
+        })
+      );
+    }
+
     setNcs(data);
     setLoading(false);
+  };
+
+  const limparFiltros = () => {
+    setStatusFiltro('');
+    setSeveridadeFiltro('');
+    setDepartamentoFiltro('');
+    setDataInicio(undefined);
+    setDataFim(undefined);
   };
 
   const getStatusColor = (status: string) => {
@@ -58,19 +92,45 @@ export default function ListaNaoConformidades() {
 
   const getDiasRestantes = (prazo: string) => {
     const dias = differenceInDays(new Date(prazo), new Date());
-    if (dias < 0) return <span className="text-destructive">Vencido</span>;
-    if (dias === 0) return <span className="text-warning">Hoje</span>;
-    if (dias <= 2) return <span className="text-warning">{dias} dias</span>;
-    return <span>{dias} dias</span>;
+    if (dias < 0)
+      return (
+        <span className="text-destructive font-semibold">
+          Vencido há {Math.abs(dias)} dias
+        </span>
+      );
+    if (dias === 0) return <span className="text-warning font-semibold">Vence Hoje!</span>;
+    if (dias <= 2)
+      return (
+        <span className="text-warning font-semibold">
+          {dias} {dias === 1 ? 'dia' : 'dias'}
+        </span>
+      );
+    if (dias <= 7) return <span className="font-medium">{dias} dias</span>;
+    return <span className="text-muted-foreground">{dias} dias</span>;
   };
 
+  const handleAnexarEvidencia = (ncId: string) => {
+    toast.info('Funcionalidade de anexar evidência em desenvolvimento');
+  };
+
+  // KPIs
   const ncsAbertas = ncs.filter((nc) => nc.status === 'aberta').length;
   const ncsEmAnalise = ncs.filter((nc) => nc.status === 'em-analise').length;
-  const ncsResolvidas = ncs.filter(
+  const ncsResolvidasMes = ncs.filter(
     (nc) =>
       nc.status === 'resolvida' &&
-      new Date(nc.resolvidoEm || '').getMonth() === new Date().getMonth()
+      nc.resolvidoEm &&
+      new Date(nc.resolvidoEm).getMonth() === new Date().getMonth() &&
+      new Date(nc.resolvidoEm).getFullYear() === new Date().getFullYear()
   ).length;
+  const ncsTotal = ncs.length;
+  const taxaResolucao = ncsTotal > 0 ? Math.round((ncsResolvidasMes / ncsTotal) * 100) : 0;
+
+  const departamentos = Array.from(new Set(ncs.map((nc) => nc.departamento)));
+
+  const filtrosAtivos =
+    [statusFiltro, severidadeFiltro, departamentoFiltro, dataInicio, dataFim].filter(Boolean)
+      .length;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -95,7 +155,7 @@ export default function ListaNaoConformidades() {
             <CardTitle className="text-sm font-medium">NCs Abertas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">{ncsAbertas}</div>
+            <div className="text-3xl font-bold text-destructive">{ncsAbertas}</div>
           </CardContent>
         </Card>
         <Card>
@@ -103,7 +163,7 @@ export default function ListaNaoConformidades() {
             <CardTitle className="text-sm font-medium">Em Análise</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" style={{ color: 'hsl(45 93% 47%)' }}>
+            <div className="text-3xl font-bold" style={{ color: 'hsl(45 93% 47%)' }}>
               {ncsEmAnalise}
             </div>
           </CardContent>
@@ -113,8 +173,8 @@ export default function ListaNaoConformidades() {
             <CardTitle className="text-sm font-medium">Resolvidas Este Mês</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" style={{ color: 'hsl(142 76% 36%)' }}>
-              {ncsResolvidas}
+            <div className="text-3xl font-bold" style={{ color: 'hsl(142 76% 36%)' }}>
+              {ncsResolvidasMes}
             </div>
           </CardContent>
         </Card>
@@ -123,9 +183,7 @@ export default function ListaNaoConformidades() {
             <CardTitle className="text-sm font-medium">Taxa de Resolução</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {ncs.length > 0 ? Math.round((ncsResolvidas / ncs.length) * 100) : 0}%
-            </div>
+            <div className="text-3xl font-bold">{taxaResolucao}%</div>
           </CardContent>
         </Card>
       </div>
@@ -133,31 +191,101 @@ export default function ListaNaoConformidades() {
       {/* Filtros */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <Select value={statusFiltro} onValueChange={setStatusFiltro}>
-              <SelectTrigger className="w-full md:w-[200px]">
-                <SelectValue placeholder="Todos os status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Todos os status</SelectItem>
-                <SelectItem value="aberta">Aberta</SelectItem>
-                <SelectItem value="em-analise">Em Análise</SelectItem>
-                <SelectItem value="resolvida">Resolvida</SelectItem>
-                <SelectItem value="fechada">Fechada</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={severidadeFiltro} onValueChange={setSeveridadeFiltro}>
-              <SelectTrigger className="w-full md:w-[200px]">
-                <SelectValue placeholder="Todas as severidades" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Todas as severidades</SelectItem>
-                <SelectItem value="critica">Crítica</SelectItem>
-                <SelectItem value="alta">Alta</SelectItem>
-                <SelectItem value="media">Média</SelectItem>
-                <SelectItem value="baixa">Baixa</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Filtros</h3>
+              {filtrosAtivos > 0 && (
+                <Button variant="ghost" size="sm" onClick={limparFiltros}>
+                  <X className="h-3 w-3 mr-1" />
+                  Limpar ({filtrosAtivos})
+                </Button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Status */}
+              <Select value={statusFiltro} onValueChange={setStatusFiltro}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Todos os status</SelectItem>
+                  <SelectItem value="aberta">Aberta</SelectItem>
+                  <SelectItem value="em-analise">Em Análise</SelectItem>
+                  <SelectItem value="resolvida">Resolvida</SelectItem>
+                  <SelectItem value="fechada">Fechada</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Severidade */}
+              <Select value={severidadeFiltro} onValueChange={setSeveridadeFiltro}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Severidade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Todas as severidades</SelectItem>
+                  <SelectItem value="critica">Crítica</SelectItem>
+                  <SelectItem value="alta">Alta</SelectItem>
+                  <SelectItem value="media">Média</SelectItem>
+                  <SelectItem value="baixa">Baixa</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Departamento */}
+              <Select value={departamentoFiltro} onValueChange={setDepartamentoFiltro}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Departamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Todos os departamentos</SelectItem>
+                  {departamentos.map((dept) => (
+                    <SelectItem key={dept} value={dept}>
+                      {dept}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Período */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dataInicio && dataFim ? (
+                      <>
+                        {format(dataInicio, 'dd/MM', { locale: ptBR })} -{' '}
+                        {format(dataFim, 'dd/MM', { locale: ptBR })}
+                      </>
+                    ) : (
+                      <span>Período</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <div className="p-3 space-y-2">
+                    <div>
+                      <label className="text-xs font-medium">Data Início</label>
+                      <Calendar
+                        mode="single"
+                        selected={dataInicio}
+                        onSelect={setDataInicio}
+                        className="pointer-events-auto"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium">Data Fim</label>
+                      <Calendar
+                        mode="single"
+                        selected={dataFim}
+                        onSelect={setDataFim}
+                        disabled={(date) => (dataInicio ? date < dataInicio : false)}
+                        className="pointer-events-auto"
+                      />
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -174,10 +302,15 @@ export default function ListaNaoConformidades() {
             <AlertTriangle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">Nenhuma NC encontrada</h3>
             <p className="text-muted-foreground mb-4">
-              {statusFiltro || severidadeFiltro
+              {filtrosAtivos > 0
                 ? 'Tente ajustar os filtros'
                 : 'Nenhuma não conformidade registrada'}
             </p>
+            {filtrosAtivos > 0 && (
+              <Button variant="outline" onClick={limparFiltros}>
+                Limpar Filtros
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -185,45 +318,47 @@ export default function ListaNaoConformidades() {
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="border-b border-border">
+                <thead className="border-b border-border bg-muted/50">
                   <tr>
-                    <th className="text-left p-4 font-medium">ID</th>
-                    <th className="text-left p-4 font-medium">Título</th>
-                    <th className="text-left p-4 font-medium">Status</th>
-                    <th className="text-left p-4 font-medium">Severidade</th>
-                    <th className="text-left p-4 font-medium">Responsável</th>
-                    <th className="text-left p-4 font-medium">Data</th>
-                    <th className="text-left p-4 font-medium">Prazo</th>
-                    <th className="text-right p-4 font-medium">Ações</th>
+                    <th className="text-left p-4 font-medium text-xs uppercase">ID</th>
+                    <th className="text-left p-4 font-medium text-xs uppercase">Título</th>
+                    <th className="text-left p-4 font-medium text-xs uppercase">Status</th>
+                    <th className="text-left p-4 font-medium text-xs uppercase">Severidade</th>
+                    <th className="text-left p-4 font-medium text-xs uppercase">Responsável</th>
+                    <th className="text-left p-4 font-medium text-xs uppercase">Data Abertura</th>
+                    <th className="text-left p-4 font-medium text-xs uppercase">Prazo</th>
+                    <th className="text-right p-4 font-medium text-xs uppercase">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ncs.map((nc) => (
                     <tr key={nc.id} className="border-b border-border hover:bg-muted/50">
                       <td className="p-4">
-                        <span className="font-mono text-sm">{nc.codigo}</span>
+                        <span className="font-mono text-sm font-medium">{nc.codigo}</span>
                       </td>
                       <td className="p-4">
                         <div>
                           <p className="font-medium">{nc.titulo}</p>
-                          <p className="text-sm text-muted-foreground line-clamp-1">
+                          <p className="text-xs text-muted-foreground capitalize">
                             {nc.tipo}
                           </p>
                         </div>
                       </td>
                       <td className="p-4">
                         <Badge
+                          className="capitalize"
                           style={{
                             backgroundColor: `${getStatusColor(nc.status)}20`,
                             color: getStatusColor(nc.status),
                             borderColor: getStatusColor(nc.status),
                           }}
                         >
-                          {nc.status}
+                          {nc.status.replace('-', ' ')}
                         </Badge>
                       </td>
                       <td className="p-4">
                         <Badge
+                          className="capitalize"
                           style={{
                             backgroundColor: `${getSeveridadeColor(nc.severidade)}20`,
                             color: getSeveridadeColor(nc.severidade),
@@ -233,19 +368,25 @@ export default function ListaNaoConformidades() {
                           {nc.severidade}
                         </Badge>
                       </td>
-                      <td className="p-4 text-sm">{nc.responsavel}</td>
+                      <td className="p-4">
+                        <div>
+                          <p className="text-sm font-medium">{nc.responsavel}</p>
+                          <p className="text-xs text-muted-foreground">{nc.departamento}</p>
+                        </div>
+                      </td>
                       <td className="p-4 text-sm text-muted-foreground">
-                        {format(new Date(nc.dataOcorrencia), 'dd/MM/yy', { locale: ptBR })}
+                        {format(new Date(nc.dataOcorrencia), 'dd/MM/yyyy', { locale: ptBR })}
                       </td>
                       <td className="p-4 text-sm">{getDiasRestantes(nc.prazo)}</td>
                       <td className="p-4">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-1">
                           <Button
                             size="icon"
                             variant="ghost"
                             onClick={() =>
                               navigate(`/apps/sgdnc/nao-conformidades/${nc.id}`)
                             }
+                            title="Visualizar"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -255,8 +396,17 @@ export default function ListaNaoConformidades() {
                             onClick={() =>
                               navigate(`/apps/sgdnc/nao-conformidades/${nc.id}/editar`)
                             }
+                            title="Editar"
                           >
                             <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleAnexarEvidencia(nc.id)}
+                            title="Anexar Evidência"
+                          >
+                            <Paperclip className="h-4 w-4" />
                           </Button>
                         </div>
                       </td>

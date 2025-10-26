@@ -7,9 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -26,43 +30,90 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { createNaoConformidade } from '@/services/sgdncMockData';
 import { toast } from 'sonner';
+import { EvidenceUpload, Evidence } from '@/components/sgdnc/EvidenceUpload';
 
 const ncSchema = z.object({
+  // Step 1: Identificação
   titulo: z.string().min(3, 'Título deve ter no mínimo 3 caracteres'),
   descricao: z.string().min(10, 'Descrição deve ter no mínimo 10 caracteres'),
-  tipo: z.enum(['produto', 'processo', 'documental', 'hse']),
-  dataOcorrencia: z.date(),
+  tipo: z.enum(['produto', 'processo', 'documental', 'hse'], {
+    required_error: 'Selecione o tipo de desvio',
+  }),
+  dataOcorrencia: z.date({ required_error: 'Data de ocorrência é obrigatória' }),
   local: z.string().min(2, 'Local é obrigatório'),
-  severidade: z.enum(['critica', 'alta', 'media', 'baixa']),
-  impactos: z.array(z.string()).min(1, 'Selecione pelo menos um impacto'),
+
+  // Step 2: Classificação
+  severidade: z.enum(['critica', 'alta', 'media', 'baixa'], {
+    required_error: 'Selecione a severidade',
+  }),
+  impactos: z
+    .array(z.string())
+    .min(1, 'Selecione pelo menos um impacto'),
   causaRaiz: z.string().optional(),
   produtoLote: z.string().optional(),
+
+  // Step 3: Responsabilização
   responsavel: z.string().min(2, 'Responsável é obrigatório'),
   departamento: z.string().min(2, 'Departamento é obrigatório'),
-  prazo: z.date(),
+  prazo: z.date({ required_error: 'Prazo é obrigatório' }),
+  notificar: z.array(z.string()).optional(),
 });
 
 type NCFormData = z.infer<typeof ncSchema>;
+
+const STEPS = [
+  { number: 1, title: 'Identificação', description: 'Informações básicas da NC' },
+  { number: 2, title: 'Classificação', description: 'Severidade e impactos' },
+  { number: 3, title: 'Responsabilização', description: 'Atribuir responsáveis' },
+  { number: 4, title: 'Evidências', description: 'Anexar arquivos' },
+  { number: 5, title: 'Revisão', description: 'Confirmar informações' },
+];
+
+// Mock users for selects
+const mockUsuarios = [
+  'João Silva',
+  'Maria Santos',
+  'Pedro Costa',
+  'Ana Oliveira',
+  'Carlos Souza',
+];
+
+const mockDepartamentos = [
+  'Qualidade',
+  'Produção',
+  'Manutenção',
+  'Segurança',
+  'Logística',
+  'Administrativo',
+];
 
 export default function RegistrarNC() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [evidences, setEvidences] = useState<Evidence[]>([]);
 
   const form = useForm<NCFormData>({
     resolver: zodResolver(ncSchema),
     defaultValues: {
       impactos: [],
+      notificar: [],
     },
   });
 
   const onSubmit = async (data: NCFormData) => {
+    if (evidences.length === 0) {
+      toast.error('Anexe pelo menos uma evidência');
+      setStep(4);
+      return;
+    }
+
     setSubmitting(true);
     try {
       await createNaoConformidade({
@@ -79,7 +130,15 @@ export default function RegistrarNC() {
         departamento: data.departamento,
         prazo: data.prazo.toISOString(),
         status: 'aberta',
-        evidencias: [],
+        evidencias: evidences.map((e) => ({
+          id: e.id,
+          nome: e.file.name,
+          tipo: e.file.type,
+          tamanho: e.file.size,
+          url: URL.createObjectURL(e.file),
+          uploadPor: 'Usuário Atual',
+          uploadEm: new Date().toISOString(),
+        })),
         acoesCorretivas: [],
         historico: [
           {
@@ -90,7 +149,7 @@ export default function RegistrarNC() {
             data: new Date().toISOString(),
           },
         ],
-        notificar: [],
+        notificar: data.notificar || [],
         criadoPor: 'Usuário Atual',
       });
 
@@ -104,14 +163,26 @@ export default function RegistrarNC() {
   };
 
   const nextStep = async () => {
-    let fieldsToValidate: any[] = [];
-    
-    if (step === 1) {
-      fieldsToValidate = ['titulo', 'descricao', 'tipo', 'dataOcorrencia', 'local'];
-    } else if (step === 2) {
-      fieldsToValidate = ['severidade', 'impactos'];
-    } else if (step === 3) {
-      fieldsToValidate = ['responsavel', 'departamento', 'prazo'];
+    let fieldsToValidate: (keyof NCFormData)[] = [];
+
+    switch (step) {
+      case 1:
+        fieldsToValidate = ['titulo', 'descricao', 'tipo', 'dataOcorrencia', 'local'];
+        break;
+      case 2:
+        fieldsToValidate = ['severidade', 'impactos'];
+        break;
+      case 3:
+        fieldsToValidate = ['responsavel', 'departamento', 'prazo'];
+        // Validar que prazo é futuro
+        const prazoValue = form.getValues('prazo');
+        if (prazoValue && prazoValue < new Date()) {
+          form.setError('prazo', {
+            message: 'Prazo deve ser uma data futura',
+          });
+          return;
+        }
+        break;
     }
 
     const isValid = await form.trigger(fieldsToValidate);
@@ -120,28 +191,64 @@ export default function RegistrarNC() {
     }
   };
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Registrar Não Conformidade</h1>
-        <p className="text-muted-foreground mt-1">
-          Preencha os dados da não conformidade
-        </p>
-      </div>
+  const prevStep = () => {
+    setStep(step - 1);
+  };
 
-      {/* Progress */}
-      <div className="flex items-center gap-2">
-        {[1, 2, 3, 4].map((s) => (
-          <div key={s} className="flex-1">
-            <div
-              className={cn(
-                'h-2 rounded-full transition-colors',
-                s <= step ? 'bg-primary' : 'bg-muted'
-              )}
-            />
+  const progress = (step / STEPS.length) * 100;
+
+  return (
+    <div className="container max-w-4xl py-8">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/apps/sgdnc/nao-conformidades')}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Registrar Não Conformidade</h1>
+            <p className="text-muted-foreground">
+              Preencha as informações sobre a não conformidade identificada
+            </p>
           </div>
-        ))}
+        </div>
+
+        {/* Progress */}
+        <div className="space-y-2">
+          <Progress value={progress} className="h-2" />
+          <div className="flex justify-between">
+            {STEPS.map((s) => (
+              <div key={s.number} className="flex items-center gap-2">
+                <div
+                  className={cn(
+                    'flex items-center justify-center w-8 h-8 rounded-full border-2 text-xs font-bold',
+                    step > s.number
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : step === s.number
+                      ? 'border-primary text-primary'
+                      : 'border-muted-foreground/20 text-muted-foreground'
+                  )}
+                >
+                  {step > s.number ? <CheckCircle2 className="h-4 w-4" /> : s.number}
+                </div>
+                <div className="hidden md:block">
+                  <p
+                    className={cn(
+                      'text-xs font-medium',
+                      step >= s.number ? 'text-foreground' : 'text-muted-foreground'
+                    )}
+                  >
+                    {s.title}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       <Form {...form}>
@@ -151,7 +258,7 @@ export default function RegistrarNC() {
             <Card>
               <CardHeader>
                 <CardTitle>Identificação</CardTitle>
-                <CardDescription>Informações básicas da não conformidade</CardDescription>
+                <CardDescription>Informações básicas sobre a não conformidade</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <FormField
@@ -159,9 +266,9 @@ export default function RegistrarNC() {
                   name="titulo"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Título *</FormLabel>
+                      <FormLabel>Título da NC *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Ex: Desvio de temperatura..." {...field} />
+                        <Input placeholder="Ex: Defeito no produto X" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -176,11 +283,12 @@ export default function RegistrarNC() {
                       <FormLabel>Descrição Detalhada *</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Descreva o que aconteceu..."
-                          className="min-h-[100px]"
+                          placeholder="Descreva em detalhes a não conformidade identificada..."
+                          className="min-h-[120px]"
                           {...field}
                         />
                       </FormControl>
+                      <FormDescription>Mínimo 10 caracteres</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -202,7 +310,7 @@ export default function RegistrarNC() {
                           <SelectItem value="produto">Produto</SelectItem>
                           <SelectItem value="processo">Processo</SelectItem>
                           <SelectItem value="documental">Documental</SelectItem>
-                          <SelectItem value="hse">HSE (Segurança)</SelectItem>
+                          <SelectItem value="hse">HSE (Saúde, Segurança e Meio Ambiente)</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -210,61 +318,60 @@ export default function RegistrarNC() {
                   )}
                 />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="dataOcorrencia"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Data de Ocorrência *</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant="outline"
-                                className={cn(
-                                  'pl-3 text-left font-normal',
-                                  !field.value && 'text-muted-foreground'
-                                )}
-                              >
-                                {field.value ? (
-                                  format(field.value, 'PPP', { locale: ptBR })
-                                ) : (
-                                  <span>Selecione a data</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={field.onChange}
-                              disabled={(date) => date > new Date()}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <FormField
+                  control={form.control}
+                  name="dataOcorrencia"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Data de Ocorrência *</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                'w-full pl-3 text-left font-normal',
+                                !field.value && 'text-muted-foreground'
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, 'PPP', { locale: ptBR })
+                              ) : (
+                                <span>Selecione a data</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) => date > new Date()}
+                            initialFocus
+                            className="pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  <FormField
-                    control={form.control}
-                    name="local"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Local *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ex: Câmara Fria 01" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                <FormField
+                  control={form.control}
+                  name="local"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Local *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex: Linha de Produção 2, Setor B" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </CardContent>
             </Card>
           )}
@@ -274,7 +381,7 @@ export default function RegistrarNC() {
             <Card>
               <CardHeader>
                 <CardTitle>Classificação</CardTitle>
-                <CardDescription>Classifique a severidade e impacto</CardDescription>
+                <CardDescription>Avalie a severidade e impactos da NC</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <FormField
@@ -287,40 +394,71 @@ export default function RegistrarNC() {
                         <RadioGroup
                           onValueChange={field.onChange}
                           value={field.value}
-                          className="flex flex-col space-y-2"
+                          className="grid grid-cols-2 gap-4"
                         >
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem value="critica" />
-                            </FormControl>
-                            <FormLabel className="font-normal cursor-pointer">
-                              <span className="font-semibold text-destructive">Crítica</span> - Risco imediato
-                            </FormLabel>
-                          </FormItem>
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem value="alta" />
-                            </FormControl>
-                            <FormLabel className="font-normal cursor-pointer">
-                              <span className="font-semibold" style={{ color: 'hsl(25 95% 53%)' }}>Alta</span> - Requer ação urgente
-                            </FormLabel>
-                          </FormItem>
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem value="media" />
-                            </FormControl>
-                            <FormLabel className="font-normal cursor-pointer">
-                              <span className="font-semibold" style={{ color: 'hsl(45 93% 47%)' }}>Média</span> - Ação necessária
-                            </FormLabel>
-                          </FormItem>
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <RadioGroupItem value="baixa" />
-                            </FormControl>
-                            <FormLabel className="font-normal cursor-pointer">
-                              <span className="font-semibold" style={{ color: 'hsl(142 76% 36%)' }}>Baixa</span> - Monitorar
-                            </FormLabel>
-                          </FormItem>
+                          <div>
+                            <RadioGroupItem
+                              value="critica"
+                              id="critica"
+                              className="peer sr-only"
+                            />
+                            <label
+                              htmlFor="critica"
+                              className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-destructive [&:has([data-state=checked])]:border-destructive cursor-pointer"
+                            >
+                              <Badge variant="destructive" className="mb-2">
+                                Crítica
+                              </Badge>
+                              <span className="text-xs text-center text-muted-foreground">
+                                Impacto severo, ação imediata
+                              </span>
+                            </label>
+                          </div>
+
+                          <div>
+                            <RadioGroupItem value="alta" id="alta" className="peer sr-only" />
+                            <label
+                              htmlFor="alta"
+                              className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                            >
+                              <Badge className="mb-2" style={{ backgroundColor: 'hsl(25 95% 53%)' }}>
+                                Alta
+                              </Badge>
+                              <span className="text-xs text-center text-muted-foreground">
+                                Requer atenção urgente
+                              </span>
+                            </label>
+                          </div>
+
+                          <div>
+                            <RadioGroupItem value="media" id="media" className="peer sr-only" />
+                            <label
+                              htmlFor="media"
+                              className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                            >
+                              <Badge className="mb-2" style={{ backgroundColor: 'hsl(45 93% 47%)' }}>
+                                Média
+                              </Badge>
+                              <span className="text-xs text-center text-muted-foreground">
+                                Atenção moderada
+                              </span>
+                            </label>
+                          </div>
+
+                          <div>
+                            <RadioGroupItem value="baixa" id="baixa" className="peer sr-only" />
+                            <label
+                              htmlFor="baixa"
+                              className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                            >
+                              <Badge className="mb-2" variant="secondary">
+                                Baixa
+                              </Badge>
+                              <span className="text-xs text-center text-muted-foreground">
+                                Monitoramento
+                              </span>
+                            </label>
+                          </div>
                         </RadioGroup>
                       </FormControl>
                       <FormMessage />
@@ -335,34 +473,43 @@ export default function RegistrarNC() {
                     <FormItem>
                       <div className="mb-4">
                         <FormLabel>Impactos *</FormLabel>
+                        <FormDescription>
+                          Selecione todas as áreas impactadas
+                        </FormDescription>
                       </div>
-                      {['qualidade', 'producao', 'seguranca', 'regulatorio'].map((item) => (
-                        <FormField
-                          key={item}
-                          control={form.control}
-                          name="impactos"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value?.includes(item)}
-                                  onCheckedChange={(checked) => {
-                                    const value = field.value || [];
-                                    return checked
-                                      ? field.onChange([...value, item])
-                                      : field.onChange(
-                                          value.filter((val) => val !== item)
-                                        );
-                                  }}
-                                />
-                              </FormControl>
-                              <FormLabel className="font-normal cursor-pointer capitalize">
-                                {item}
-                              </FormLabel>
-                            </FormItem>
-                          )}
-                        />
-                      ))}
+                      <div className="space-y-2">
+                        {[
+                          { id: 'qualidade', label: 'Qualidade' },
+                          { id: 'producao', label: 'Produção' },
+                          { id: 'seguranca', label: 'Segurança' },
+                          { id: 'regulatorio', label: 'Regulatório' },
+                        ].map((impacto) => (
+                          <FormField
+                            key={impacto.id}
+                            control={form.control}
+                            name="impactos"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value?.includes(impacto.id)}
+                                    onCheckedChange={(checked) => {
+                                      return checked
+                                        ? field.onChange([...field.value, impacto.id])
+                                        : field.onChange(
+                                            field.value?.filter((value) => value !== impacto.id)
+                                          );
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormLabel className="font-normal cursor-pointer">
+                                  {impacto.label}
+                                </FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                        ))}
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -373,11 +520,14 @@ export default function RegistrarNC() {
                   name="causaRaiz"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Causa Raiz (Opcional)</FormLabel>
+                      <FormLabel>Causa Raiz</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Identifique a causa raiz..." {...field} />
+                        <Textarea
+                          placeholder="Descreva a causa raiz identificada (opcional)..."
+                          {...field}
+                        />
                       </FormControl>
-                      <FormMessage />
+                      <FormDescription>Campo opcional</FormDescription>
                     </FormItem>
                   )}
                 />
@@ -387,11 +537,11 @@ export default function RegistrarNC() {
                   name="produtoLote"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Produto/Lote Afetado (Opcional)</FormLabel>
+                      <FormLabel>Produto/Lote Afetado</FormLabel>
                       <FormControl>
-                        <Input placeholder="Ex: Lote 2024-10-A" {...field} />
+                        <Input placeholder="Ex: Lote 2024-001" {...field} />
                       </FormControl>
-                      <FormMessage />
+                      <FormDescription>Campo opcional</FormDescription>
                     </FormItem>
                   )}
                 />
@@ -404,7 +554,7 @@ export default function RegistrarNC() {
             <Card>
               <CardHeader>
                 <CardTitle>Responsabilização</CardTitle>
-                <CardDescription>Defina responsáveis e prazos</CardDescription>
+                <CardDescription>Atribua responsáveis e prazos</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <FormField
@@ -413,9 +563,20 @@ export default function RegistrarNC() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Responsável pela Ação Corretiva *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Nome do responsável" {...field} />
-                      </FormControl>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o responsável" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {mockUsuarios.map((usuario) => (
+                            <SelectItem key={usuario} value={usuario}>
+                              {usuario}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -434,10 +595,11 @@ export default function RegistrarNC() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="Qualidade">Qualidade</SelectItem>
-                          <SelectItem value="Produção">Produção</SelectItem>
-                          <SelectItem value="Manutenção">Manutenção</SelectItem>
-                          <SelectItem value="Logística">Logística</SelectItem>
+                          {mockDepartamentos.map((dept) => (
+                            <SelectItem key={dept} value={dept}>
+                              {dept}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -457,7 +619,7 @@ export default function RegistrarNC() {
                             <Button
                               variant="outline"
                               className={cn(
-                                'pl-3 text-left font-normal',
+                                'w-full pl-3 text-left font-normal',
                                 !field.value && 'text-muted-foreground'
                               )}
                             >
@@ -477,10 +639,55 @@ export default function RegistrarNC() {
                             onSelect={field.onChange}
                             disabled={(date) => date < new Date()}
                             initialFocus
+                            className="pointer-events-auto"
                           />
                         </PopoverContent>
                       </Popover>
+                      <FormDescription>O prazo deve ser uma data futura</FormDescription>
                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="notificar"
+                  render={() => (
+                    <FormItem>
+                      <div className="mb-4">
+                        <FormLabel>Notificar</FormLabel>
+                        <FormDescription>
+                          Selecione os usuários que devem ser notificados
+                        </FormDescription>
+                      </div>
+                      <div className="space-y-2 max-h-[200px] overflow-y-auto border rounded-md p-3">
+                        {mockUsuarios.map((usuario) => (
+                          <FormField
+                            key={usuario}
+                            control={form.control}
+                            name="notificar"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value?.includes(usuario)}
+                                    onCheckedChange={(checked) => {
+                                      return checked
+                                        ? field.onChange([...(field.value || []), usuario])
+                                        : field.onChange(
+                                            field.value?.filter((value) => value !== usuario)
+                                          );
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormLabel className="font-normal cursor-pointer">
+                                  {usuario}
+                                </FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                        ))}
+                      </div>
                     </FormItem>
                   )}
                 />
@@ -488,52 +695,162 @@ export default function RegistrarNC() {
             </Card>
           )}
 
-          {/* Step 4: Revisão */}
+          {/* Step 4: Evidências */}
           {step === 4 && (
             <Card>
               <CardHeader>
-                <CardTitle>Revisão</CardTitle>
-                <CardDescription>Confirme os dados antes de registrar</CardDescription>
+                <CardTitle>Evidências</CardTitle>
+                <CardDescription>
+                  Anexe fotos, vídeos ou documentos que comprovem a não conformidade (mínimo 1)
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Título</p>
-                    <p className="font-medium">{form.watch('titulo')}</p>
+              <CardContent>
+                <EvidenceUpload
+                  evidences={evidences}
+                  onChange={setEvidences}
+                  maxFiles={10}
+                  maxSizeMB={20}
+                />
+                {evidences.length === 0 && (
+                  <p className="text-sm text-destructive mt-2">
+                    Anexe pelo menos uma evidência antes de prosseguir
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Step 5: Revisão */}
+          {step === 5 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Revisão</CardTitle>
+                <CardDescription>
+                  Confira todas as informações antes de registrar a NC
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Identificação */}
+                <div>
+                  <h3 className="font-semibold mb-3">Identificação</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Título:</span>
+                      <span className="font-medium">{form.getValues('titulo')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Tipo:</span>
+                      <Badge variant="outline" className="capitalize">
+                        {form.getValues('tipo')}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Data:</span>
+                      <span>
+                        {form.getValues('dataOcorrencia') &&
+                          format(form.getValues('dataOcorrencia'), 'dd/MM/yyyy', {
+                            locale: ptBR,
+                          })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Local:</span>
+                      <span>{form.getValues('local')}</span>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground">Tipo</p>
-                    <p className="font-medium capitalize">{form.watch('tipo')}</p>
+                </div>
+
+                <Separator />
+
+                {/* Classificação */}
+                <div>
+                  <h3 className="font-semibold mb-3">Classificação</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Severidade:</span>
+                      <Badge variant="destructive" className="capitalize">
+                        {form.getValues('severidade')}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Impactos:</span>
+                      <div className="flex gap-1 flex-wrap justify-end">
+                        {form.getValues('impactos').map((impacto) => (
+                          <Badge key={impacto} variant="secondary" className="capitalize text-xs">
+                            {impacto}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground">Severidade</p>
-                    <p className="font-medium capitalize">{form.watch('severidade')}</p>
+                </div>
+
+                <Separator />
+
+                {/* Responsabilização */}
+                <div>
+                  <h3 className="font-semibold mb-3">Responsabilização</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Responsável:</span>
+                      <span className="font-medium">{form.getValues('responsavel')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Departamento:</span>
+                      <span>{form.getValues('departamento')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Prazo:</span>
+                      <span className="font-medium">
+                        {form.getValues('prazo') &&
+                          format(form.getValues('prazo'), 'dd/MM/yyyy', { locale: ptBR })}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground">Responsável</p>
-                    <p className="font-medium">{form.watch('responsavel')}</p>
-                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Evidências */}
+                <div>
+                  <h3 className="font-semibold mb-3">Evidências</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {evidences.length} arquivo(s) anexado(s)
+                  </p>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Botões */}
+          {/* Navigation Buttons */}
           <div className="flex justify-between">
             <Button
               type="button"
               variant="outline"
-              onClick={() => (step === 1 ? navigate(-1) : setStep(step - 1))}
+              onClick={step === 1 ? () => navigate('/apps/sgdnc/nao-conformidades') : prevStep}
             >
-              {step === 1 ? 'Cancelar' : 'Voltar'}
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              {step === 1 ? 'Cancelar' : 'Anterior'}
             </Button>
-            {step < 4 ? (
+
+            {step < STEPS.length ? (
               <Button type="button" onClick={nextStep}>
                 Próximo
+                <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             ) : (
               <Button type="submit" disabled={submitting}>
-                {submitting ? 'Registrando...' : 'Registrar NC'}
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Registrando...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Registrar NC
+                  </>
+                )}
               </Button>
             )}
           </div>

@@ -18,6 +18,7 @@ import SGDNCDashboard from "./pages/apps/sgdnc/Dashboard";
 import ListaDocumentos from "./pages/apps/sgdnc/documentos/ListaDocumentos";
 import NovoDocumento from "./pages/apps/sgdnc/documentos/NovoDocumento";
 import EditarDocumento from "./pages/apps/sgdnc/documentos/EditarDocumento";
+import VisualizarDocumento from "./pages/apps/sgdnc/documentos/VisualizarDocumento";
 import ListaNaoConformidades from "./pages/apps/sgdnc/nao-conformidades/ListaNaoConformidades";
 import RegistrarNC from "./pages/apps/sgdnc/nao-conformidades/RegistrarNC";
 import ControlePontoDashboard from "./pages/apps/controle-ponto/Dashboard";
@@ -278,6 +279,16 @@ const App = () => (
                 <ProtectedRoute>
                   <AppLayout sidebar={<SGDNCSidebar />} appName="SGDNC">
                     <NovoDocumento />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apps/sgdnc/documentos/:id"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<SGDNCSidebar />} appName="SGDNC">
+                    <VisualizarDocumento />
                   </AppLayout>
                 </ProtectedRoute>
               }

@@ -394,9 +394,7 @@ export default function ListaDocumentos() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => {
-                        toast.info('Visualização de documento em desenvolvimento');
-                      }}
+                      onClick={() => navigate(`/apps/sgdnc/documentos/${doc.id}`)}
                     >
                       <Eye className="h-3 w-3 mr-1" />
                       Ver

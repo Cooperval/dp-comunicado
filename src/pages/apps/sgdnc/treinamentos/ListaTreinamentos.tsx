@@ -91,10 +91,7 @@ export default function ListaTreinamentos() {
   });
 
   const handleConfirmarLeitura = (id: string) => {
-    toast({
-      title: 'Confirmação registrada',
-      description: 'Sua leitura foi confirmada com sucesso.',
-    });
+    navigate(`/apps/sgdnc/treinamentos/${id}/confirmar`);
   };
 
   const handleGerarRelatorio = (id: string) => {

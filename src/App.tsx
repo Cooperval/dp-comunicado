@@ -23,6 +23,7 @@ import ListaNaoConformidades from "./pages/apps/sgdnc/nao-conformidades/ListaNao
 import RegistrarNC from "./pages/apps/sgdnc/nao-conformidades/RegistrarNC";
 import DetalhesNC from "./pages/apps/sgdnc/nao-conformidades/DetalhesNC";
 import ListaTreinamentos from "./pages/apps/sgdnc/treinamentos/ListaTreinamentos";
+import ConfirmacaoLeitura from "./pages/apps/sgdnc/treinamentos/ConfirmacaoLeitura";
 import ControlePontoDashboard from "./pages/apps/controle-ponto/Dashboard";
 import NovaOcorrencia from "./pages/apps/controle-ponto/NovaOcorrencia";
 import Ocorrencias from "./pages/apps/controle-ponto/Ocorrencias";
@@ -341,6 +342,16 @@ const App = () => (
                 <ProtectedRoute>
                   <AppLayout sidebar={<SGDNCSidebar />} appName="SGDNC">
                     <ListaTreinamentos />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apps/sgdnc/treinamentos/:id/confirmar"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<SGDNCSidebar />} appName="SGDNC">
+                    <ConfirmacaoLeitura />
                   </AppLayout>
                 </ProtectedRoute>
               }

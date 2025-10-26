@@ -1,4 +1,4 @@
-import { Clock, Calendar, FileText, GraduationCap, ClipboardCheck, Shield, LucideIcon } from 'lucide-react';
+import { Clock, Calendar, FileText, GraduationCap, ClipboardCheck, Shield, FolderOpen, LucideIcon } from 'lucide-react';
 
 export interface Application {
   id: string;
@@ -53,6 +53,15 @@ export const applications: Application[] = [
     icon: GraduationCap,
     color: 'hsl(30 90% 50%)',
     status: 'coming-soon',
+  },
+  {
+    id: 'sgdnc',
+    name: 'Documentos e Conformidade',
+    description: 'Gestão de documentos e não conformidades com rastreabilidade completa',
+    icon: FolderOpen,
+    route: '/apps/sgdnc',
+    color: 'hsl(210 90% 45%)',
+    status: 'active',
   },
   {
     id: 'admin',

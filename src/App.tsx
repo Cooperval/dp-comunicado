@@ -11,8 +11,13 @@ import { AppLayout } from "./components/layout/AppLayout";
 import { ControlePontoSidebar } from "./components/layout/ControlePontoSidebar";
 import { AvaliacaoSidebar } from "./components/layout/AvaliacaoSidebar";
 import { AdminSidebar } from "./components/layout/AdminSidebar";
+import { SGDNCSidebar } from "./components/layout/SGDNCSidebar";
 import Portal from "./pages/Portal";
 import Login from "./pages/auth/Login";
+import SGDNCDashboard from "./pages/apps/sgdnc/Dashboard";
+import ListaDocumentos from "./pages/apps/sgdnc/documentos/ListaDocumentos";
+import ListaNaoConformidades from "./pages/apps/sgdnc/nao-conformidades/ListaNaoConformidades";
+import RegistrarNC from "./pages/apps/sgdnc/nao-conformidades/RegistrarNC";
 import ControlePontoDashboard from "./pages/apps/controle-ponto/Dashboard";
 import NovaOcorrencia from "./pages/apps/controle-ponto/NovaOcorrencia";
 import Ocorrencias from "./pages/apps/controle-ponto/Ocorrencias";
@@ -240,6 +245,48 @@ const App = () => (
                       <GerenciarUsuarios />
                     </AppLayout>
                   </AdminRoute>
+                </ProtectedRoute>
+              }
+            />
+            
+            {/* SGDNC app routes */}
+            <Route
+              path="/apps/sgdnc"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<SGDNCSidebar />} appName="SGDNC">
+                    <SGDNCDashboard />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apps/sgdnc/documentos"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<SGDNCSidebar />} appName="SGDNC">
+                    <ListaDocumentos />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apps/sgdnc/nao-conformidades"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<SGDNCSidebar />} appName="SGDNC">
+                    <ListaNaoConformidades />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apps/sgdnc/nao-conformidades/nova"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<SGDNCSidebar />} appName="SGDNC">
+                    <RegistrarNC />
+                  </AppLayout>
                 </ProtectedRoute>
               }
             />

@@ -5,6 +5,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useDropzone } from 'react-dropzone';
 import { Upload, FileText, X, AlertCircle, Loader2 } from 'lucide-react';
+import { Paragrafo, ImagemConteudo, TabelaConteudo } from '@/types/paragrafo';
+import { ParagrafoEditor } from '@/components/sgdnc/editor/ParagrafoEditor';
+import { SelecionarTipoParagrafo } from '@/components/sgdnc/editor/SelecionarTipoParagrafo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,7 +39,21 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { PastaTreeSelect } from '@/components/sgdnc/PastaTreeSelect';
 import { TagsInput } from '@/components/sgdnc/TagsInput';
+import { Badge } from '@/components/ui/badge';
 import { getDocumentoById, getPastas, updateDocumento, type Pasta, type Documento, type Versao, type Anexo } from '@/services/sgdncMockData';
+
+const tagsSugeridas = [
+  'MAPA',
+  'ISO 9001',
+  'Exportação',
+  'Higienização',
+  'BPF',
+  'APPCC',
+  'Rastreabilidade',
+  'China',
+  'Qualidade',
+  'Segurança Alimentar',
+];
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const ACCEPTED_FILE_TYPES = {
@@ -83,6 +100,7 @@ export default function EditarDocumento() {
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [paragrafos, setParagrafos] = useState<Paragrafo[]>([]);
 
   const form = useForm<DocumentoFormData>({
     resolver: zodResolver(documentoSchema),
@@ -127,6 +145,13 @@ export default function EditarDocumento() {
         criarNovaVersao: false,
         comentarioVersao: '',
       });
+
+      // Carregar parágrafos existentes
+      if (docData.paragrafos && docData.paragrafos.length > 0) {
+        setParagrafos(docData.paragrafos);
+      } else {
+        setParagrafos([]);
+      }
     } catch (error) {
       toast.error('Erro ao carregar documento');
       navigate('/apps/sgdnc/documentos');
@@ -157,6 +182,57 @@ export default function EditarDocumento() {
     },
   });
 
+  const adicionarParagrafo = (tipo: 'texto' | 'imagem' | 'tabela') => {
+    let conteudoInicial: string | ImagemConteudo | TabelaConteudo;
+    
+    if (tipo === 'texto') {
+      conteudoInicial = '';
+    } else if (tipo === 'imagem') {
+      conteudoInicial = { url: '' };
+    } else {
+      conteudoInicial = { colunas: [], linhas: [] };
+    }
+
+    const novoParagrafo: Paragrafo = {
+      id: `${Date.now()}-${Math.random()}`,
+      ordem: paragrafos.length + 1,
+      tipo,
+      conteudo: conteudoInicial,
+    };
+    
+    setParagrafos([...paragrafos, novoParagrafo]);
+    toast.success(`Parágrafo de ${tipo} adicionado`);
+  };
+
+  const atualizarParagrafo = (id: string, novoConteudo: Paragrafo['conteudo']) => {
+    setParagrafos(paragrafos.map((p) => (p.id === id ? { ...p, conteudo: novoConteudo } : p)));
+  };
+
+  const removerParagrafo = (id: string) => {
+    setParagrafos(
+      paragrafos
+        .filter((p) => p.id !== id)
+        .map((p, idx) => ({ ...p, ordem: idx + 1 }))
+    );
+    toast.success('Parágrafo removido');
+  };
+
+  const moverParagrafo = (id: string, direcao: 'cima' | 'baixo') => {
+    const index = paragrafos.findIndex((p) => p.id === id);
+    if (index === -1) return;
+
+    const novaPosicao = direcao === 'cima' ? index - 1 : index + 1;
+    if (novaPosicao < 0 || novaPosicao >= paragrafos.length) return;
+
+    const novosParagrafos = [...paragrafos];
+    [novosParagrafos[index], novosParagrafos[novaPosicao]] = [
+      novosParagrafos[novaPosicao],
+      novosParagrafos[index],
+    ];
+
+    setParagrafos(novosParagrafos.map((p, idx) => ({ ...p, ordem: idx + 1 })));
+  };
+
   const onSubmit = async (data: DocumentoFormData) => {
     setSaving(true);
     try {
@@ -169,6 +245,13 @@ export default function EditarDocumento() {
         nivelConformidade: data.nivelConformidade,
         dataValidade: data.dataValidade?.toISOString() || undefined,
         edicaoColaborativa: data.edicaoColaborativa,
+        paragrafos: paragrafos.map((p) => ({
+          ...p,
+          conteudo:
+            p.tipo === 'imagem' && (p.conteudo as ImagemConteudo).arquivo
+              ? { ...(p.conteudo as ImagemConteudo), arquivo: undefined }
+              : p.conteudo,
+        })),
       };
 
       // Se criar nova versão, atualizar versões e anexos
@@ -310,6 +393,27 @@ export default function EditarDocumento() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tags</FormLabel>
+                    <div className="mb-2">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Tags sugeridas (clique para adicionar):
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {tagsSugeridas.map((tag) => (
+                          <Badge
+                            key={tag}
+                            variant="outline"
+                            className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                            onClick={() => {
+                              if (!field.value.includes(tag) && field.value.length < 10) {
+                                field.onChange([...field.value, tag]);
+                              }
+                            }}
+                          >
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
                     <FormControl>
                       <TagsInput
                         value={field.value}
@@ -325,6 +429,51 @@ export default function EditarDocumento() {
                   </FormItem>
                 )}
               />
+            </CardContent>
+          </Card>
+
+          {/* Conteúdo do Documento */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Conteúdo do Documento</CardTitle>
+              <CardDescription>
+                Estruture o conteúdo em parágrafos dinâmicos com texto, imagens e tabelas
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {paragrafos.length === 0 ? (
+                <div className="text-center p-8 border-2 border-dashed rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Nenhum parágrafo adicionado ainda
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Comece adicionando parágrafos de texto, imagens ou tabelas
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {paragrafos.map((paragrafo, index) => (
+                    <ParagrafoEditor
+                      key={paragrafo.id}
+                      paragrafo={paragrafo}
+                      onUpdate={(conteudo) => atualizarParagrafo(paragrafo.id, conteudo)}
+                      onDelete={() => removerParagrafo(paragrafo.id)}
+                      onMoveUp={() => moverParagrafo(paragrafo.id, 'cima')}
+                      onMoveDown={() => moverParagrafo(paragrafo.id, 'baixo')}
+                      isFirst={index === 0}
+                      isLast={index === paragrafos.length - 1}
+                    />
+                  ))}
+                </div>
+              )}
+              
+              <SelecionarTipoParagrafo onSelect={adicionarParagrafo} />
+              
+              {paragrafos.length > 0 && (
+                <p className="text-xs text-muted-foreground text-center">
+                  {paragrafos.length} parágrafo{paragrafos.length !== 1 ? 's' : ''} adicionado{paragrafos.length !== 1 ? 's' : ''}
+                </p>
+              )}
             </CardContent>
           </Card>
 

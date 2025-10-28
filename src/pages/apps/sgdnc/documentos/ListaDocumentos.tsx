@@ -69,8 +69,8 @@ export default function ListaDocumentos() {
   const [filtros, setFiltros] = useState({
     dataInicio: null as Date | null,
     dataFim: null as Date | null,
-    autor: '',
-    status: '',
+    autor: 'todos',
+    status: 'todos',
   });
   const [ordenacao, setOrdenacao] = useState<{
     campo: 'titulo' | 'versaoAtual' | 'atualizadoEm' | null;
@@ -105,10 +105,10 @@ export default function ListaDocumentos() {
         (doc) => new Date(doc.criadoEm) <= filtros.dataFim!
       );
     }
-    if (filtros.autor) {
+    if (filtros.autor && filtros.autor !== 'todos') {
       filteredDocs = filteredDocs.filter((doc) => doc.criadoPor === filtros.autor);
     }
-    if (filtros.status) {
+    if (filtros.status && filtros.status !== 'todos') {
       // Mock: considerar status com base na data de validade
       filteredDocs = filteredDocs.filter((doc) => {
         if (filtros.status === 'vencido') {

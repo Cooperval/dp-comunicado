@@ -41,8 +41,8 @@ export function FilterAdvancedPopover({
     let count = 0;
     if (filtros.dataInicio) count++;
     if (filtros.dataFim) count++;
-    if (filtros.autor) count++;
-    if (filtros.status) count++;
+    if (filtros.autor && filtros.autor !== 'todos') count++;
+    if (filtros.status && filtros.status !== 'todos') count++;
     return count;
   };
 
@@ -50,8 +50,8 @@ export function FilterAdvancedPopover({
     onFiltrosChange({
       dataInicio: null,
       dataFim: null,
-      autor: '',
-      status: '',
+      autor: 'todos',
+      status: 'todos',
     });
   };
 
@@ -141,7 +141,7 @@ export function FilterAdvancedPopover({
                 <SelectValue placeholder="Todos os autores" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos os autores</SelectItem>
+                <SelectItem value="todos">Todos os autores</SelectItem>
                 {autores.map((autor) => (
                   <SelectItem key={autor} value={autor}>
                     {autor}
@@ -163,7 +163,7 @@ export function FilterAdvancedPopover({
                 <SelectValue placeholder="Todos os status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos os status</SelectItem>
+                <SelectItem value="todos">Todos os status</SelectItem>
                 <SelectItem value="ativo">Ativo</SelectItem>
                 <SelectItem value="arquivado">Arquivado</SelectItem>
                 <SelectItem value="vencido">Vencido</SelectItem>

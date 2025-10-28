@@ -1,4 +1,5 @@
 // Mock data service for SGDNC (Sistema de Gestão de Documentos e Não Conformidades)
+import type { Paragrafo } from '@/types/paragrafo';
 
 export interface Anexo {
   id: string;
@@ -35,6 +36,7 @@ export interface Documento {
     departamentos: string[];
   };
   anexos: Anexo[];
+  paragrafos?: Paragrafo[];
   criadoPor: string;
   criadoEm: string;
   atualizadoEm: string;

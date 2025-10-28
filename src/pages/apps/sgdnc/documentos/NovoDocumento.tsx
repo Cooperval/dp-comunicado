@@ -199,6 +199,9 @@ export default function NovoDocumento() {
     setLoading(true);
     try {
       await createDocumento({
+        statusAprovacao: 'rascunho' as const,
+        aprovadores: [],
+        historico: [],
         titulo: data.titulo,
         descricao: data.descricao || '',
         pastaId: data.pastaId,

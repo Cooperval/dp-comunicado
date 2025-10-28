@@ -6,6 +6,7 @@ import {
   BarChart3,
   Settings,
   LogOut,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -38,6 +39,7 @@ export function SGDNCSidebar() {
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/apps/sgdnc' },
     { icon: FolderOpen, label: 'Documentos', path: '/apps/sgdnc/documentos' },
+    { icon: ClipboardCheck, label: 'Aprovações', path: '/apps/sgdnc/documentos/aprovacoes' },
     { icon: AlertTriangle, label: 'Não Conformidades', path: '/apps/sgdnc/nao-conformidades' },
     { icon: GraduationCap, label: 'Treinamentos', path: '/apps/sgdnc/treinamentos' },
     { icon: BarChart3, label: 'Relatórios', path: '/apps/sgdnc/relatorios' },

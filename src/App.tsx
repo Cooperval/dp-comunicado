@@ -19,6 +19,8 @@ import ListaDocumentos from "./pages/apps/sgdnc/documentos/ListaDocumentos";
 import NovoDocumento from "./pages/apps/sgdnc/documentos/NovoDocumento";
 import EditarDocumento from "./pages/apps/sgdnc/documentos/EditarDocumento";
 import VisualizarDocumento from "./pages/apps/sgdnc/documentos/VisualizarDocumento";
+import AprovacoesDocumentos from "./pages/apps/sgdnc/documentos/AprovacoesDocumentos";
+import DetalhesAprovacao from "./pages/apps/sgdnc/documentos/DetalhesAprovacao";
 import ListaNaoConformidades from "./pages/apps/sgdnc/nao-conformidades/ListaNaoConformidades";
 import RegistrarNC from "./pages/apps/sgdnc/nao-conformidades/RegistrarNC";
 import DetalhesNC from "./pages/apps/sgdnc/nao-conformidades/DetalhesNC";
@@ -303,6 +305,26 @@ const App = () => (
                 <ProtectedRoute>
                   <AppLayout sidebar={<SGDNCSidebar />} appName="SGDNC">
                     <EditarDocumento />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apps/sgdnc/documentos/aprovacoes"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<SGDNCSidebar />} appName="SGDNC">
+                    <AprovacoesDocumentos />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apps/sgdnc/documentos/aprovacoes/:id"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<SGDNCSidebar />} appName="SGDNC">
+                    <DetalhesAprovacao />
                   </AppLayout>
                 </ProtectedRoute>
               }

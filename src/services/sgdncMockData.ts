@@ -19,6 +19,21 @@ export interface Versao {
   criadoEm: string;
 }
 
+export interface HistoricoAprovacao {
+  id: string;
+  usuario: string;
+  cargo: string;
+  acao: 'submetido' | 'aprovado' | 'rejeitado' | 'revisao-solicitada';
+  comentario?: string;
+  data: string;
+}
+
+export interface Aprovador {
+  id: string;
+  nome: string;
+  cargo: 'analista' | 'quimico' | 'supervisor' | 'gerente';
+}
+
 export interface Documento {
   id: string;
   titulo: string;
@@ -37,6 +52,13 @@ export interface Documento {
   };
   anexos: Anexo[];
   paragrafos?: Paragrafo[];
+  statusAprovacao: 'rascunho' | 'pendente' | 'aprovado' | 'rejeitado';
+  aprovadores: Aprovador[];
+  responsavelAprovacao?: string;
+  historico: HistoricoAprovacao[];
+  motivoRejeicao?: string;
+  dataSubmissao?: string;
+  dataAprovacao?: string;
   criadoPor: string;
   criadoEm: string;
   atualizadoEm: string;
@@ -113,6 +135,15 @@ export interface Treinamento {
   criadoPor: string;
   criadoEm: string;
 }
+
+// Mock de aprovadores
+export const mockAprovadores: Aprovador[] = [
+  { id: 'quimico1', nome: 'Dr. João Silva', cargo: 'quimico' },
+  { id: 'quimico2', nome: 'Dra. Ana Paula', cargo: 'quimico' },
+  { id: 'supervisor1', nome: 'Maria Santos', cargo: 'supervisor' },
+  { id: 'supervisor2', nome: 'Carlos Oliveira', cargo: 'supervisor' },
+  { id: 'gerente1', nome: 'Roberto Lima', cargo: 'gerente' },
+];
 
 const STORAGE_KEYS = {
   DOCUMENTOS: 'sgdnc_documentos',
@@ -208,6 +239,29 @@ const mockDocumentos: Documento[] = [
       departamentos: ['Qualidade', 'Produção', 'Manutenção'],
     },
     anexos: [],
+    statusAprovacao: 'aprovado',
+    aprovadores: mockAprovadores,
+    responsavelAprovacao: 'gerente1',
+    historico: [
+      {
+        id: '1-1',
+        usuario: 'João Silva',
+        cargo: 'analista',
+        acao: 'submetido',
+        comentario: 'Documento pronto para revisão anual',
+        data: '2024-10-10T10:00:00Z',
+      },
+      {
+        id: '1-2',
+        usuario: 'Roberto Lima',
+        cargo: 'gerente',
+        acao: 'aprovado',
+        comentario: 'Aprovado conforme revisão',
+        data: '2024-10-15T14:30:00Z',
+      },
+    ],
+    dataSubmissao: '2024-10-10T10:00:00Z',
+    dataAprovacao: '2024-10-15T14:30:00Z',
     criadoPor: 'João Silva',
     criadoEm: '2024-01-10T10:00:00Z',
     atualizadoEm: '2024-10-15T14:30:00Z',
@@ -239,6 +293,20 @@ const mockDocumentos: Documento[] = [
       departamentos: ['Qualidade', 'Produção'],
     },
     anexos: [],
+    statusAprovacao: 'pendente',
+    aprovadores: mockAprovadores,
+    responsavelAprovacao: 'quimico1',
+    historico: [
+      {
+        id: '2-1',
+        usuario: 'Maria Santos',
+        cargo: 'analista',
+        acao: 'submetido',
+        comentario: 'Aguardando aprovação do químico responsável',
+        data: '2024-10-28T09:00:00Z',
+      },
+    ],
+    dataSubmissao: '2024-10-28T09:00:00Z',
     criadoPor: 'Maria Santos',
     criadoEm: '2024-02-15T10:00:00Z',
     atualizadoEm: '2024-10-15T14:30:00Z',
@@ -270,6 +338,20 @@ const mockDocumentos: Documento[] = [
       departamentos: ['Produção', 'Manutenção'],
     },
     anexos: [],
+    statusAprovacao: 'pendente',
+    aprovadores: mockAprovadores,
+    responsavelAprovacao: 'supervisor1',
+    historico: [
+      {
+        id: '3-1',
+        usuario: 'Carlos Oliveira',
+        cargo: 'analista',
+        acao: 'submetido',
+        comentario: 'Novo procedimento para aprovação',
+        data: '2024-10-27T14:00:00Z',
+      },
+    ],
+    dataSubmissao: '2024-10-27T14:00:00Z',
     criadoPor: 'Carlos Oliveira',
     criadoEm: '2024-03-10T10:00:00Z',
     atualizadoEm: '2024-09-20T10:00:00Z',
@@ -299,6 +381,28 @@ const mockDocumentos: Documento[] = [
       departamentos: ['Qualidade', 'Produção'],
     },
     anexos: [],
+    statusAprovacao: 'rejeitado',
+    aprovadores: mockAprovadores,
+    responsavelAprovacao: 'quimico2',
+    historico: [
+      {
+        id: '4-1',
+        usuario: 'Ana Paula',
+        cargo: 'analista',
+        acao: 'submetido',
+        data: '2024-10-05T11:00:00Z',
+      },
+      {
+        id: '4-2',
+        usuario: 'Dra. Ana Paula',
+        cargo: 'quimico',
+        acao: 'rejeitado',
+        comentario: 'Frequência de limpeza não está de acordo com as normas MAPA. Necessário revisar.',
+        data: '2024-10-06T15:30:00Z',
+      },
+    ],
+    motivoRejeicao: 'Frequência de limpeza não está de acordo com as normas MAPA. Necessário revisar.',
+    dataSubmissao: '2024-10-05T11:00:00Z',
     criadoPor: 'Ana Paula',
     criadoEm: '2024-01-15T10:00:00Z',
     atualizadoEm: '2024-10-05T11:00:00Z',
@@ -328,6 +432,20 @@ const mockDocumentos: Documento[] = [
       departamentos: ['Produção'],
     },
     anexos: [],
+    statusAprovacao: 'pendente',
+    aprovadores: mockAprovadores,
+    responsavelAprovacao: 'quimico1',
+    historico: [
+      {
+        id: '5-1',
+        usuario: 'Roberto Lima',
+        cargo: 'analista',
+        acao: 'submetido',
+        comentario: 'Atualização de produtos químicos aprovados',
+        data: '2024-10-26T10:00:00Z',
+      },
+    ],
+    dataSubmissao: '2024-10-26T10:00:00Z',
     criadoPor: 'Roberto Lima',
     criadoEm: '2024-02-20T10:00:00Z',
     atualizadoEm: '2024-08-12T09:00:00Z',
@@ -336,6 +454,10 @@ const mockDocumentos: Documento[] = [
   // ===== Documentos em Sub-subpastas - Ambientes =====
   {
     id: '6',
+    statusAprovacao: 'aprovado' as const,
+    aprovadores: mockAprovadores,
+    responsavelAprovacao: 'gerente1',
+    historico: [],
     titulo: 'Limpeza de Câmaras Frias',
     descricao: 'Protocolo de limpeza e sanitização de câmaras frias',
     pastaId: '1-1-2',
@@ -852,6 +974,65 @@ export const updateNaoConformidade = async (id: string, data: Partial<NaoConform
   ncs[index] = { ...ncs[index], ...data };
   saveToStorage(STORAGE_KEYS.NCS, ncs);
   return ncs[index];
+};
+
+// Funções de aprovação de documentos
+export const aprovarDocumento = async (id: string, usuario: string, comentario?: string): Promise<void> => {
+  await delay(500);
+  const docs = getFromStorage(STORAGE_KEYS.DOCUMENTOS, mockDocumentos);
+  const doc = docs.find((d) => d.id === id);
+  if (!doc) throw new Error('Documento não encontrado');
+
+  doc.statusAprovacao = 'aprovado';
+  doc.dataAprovacao = new Date().toISOString();
+  doc.historico.push({
+    id: `${Date.now()}`,
+    usuario,
+    cargo: 'aprovador',
+    acao: 'aprovado',
+    comentario,
+    data: new Date().toISOString(),
+  });
+  
+  saveToStorage(STORAGE_KEYS.DOCUMENTOS, docs);
+};
+
+export const rejeitarDocumento = async (id: string, usuario: string, motivo: string): Promise<void> => {
+  await delay(500);
+  const docs = getFromStorage(STORAGE_KEYS.DOCUMENTOS, mockDocumentos);
+  const doc = docs.find((d) => d.id === id);
+  if (!doc) throw new Error('Documento não encontrado');
+
+  doc.statusAprovacao = 'rejeitado';
+  doc.motivoRejeicao = motivo;
+  doc.historico.push({
+    id: `${Date.now()}`,
+    usuario,
+    cargo: 'aprovador',
+    acao: 'rejeitado',
+    comentario: motivo,
+    data: new Date().toISOString(),
+  });
+  
+  saveToStorage(STORAGE_KEYS.DOCUMENTOS, docs);
+};
+
+export const solicitarRevisaoDocumento = async (id: string, usuario: string, comentario: string): Promise<void> => {
+  await delay(500);
+  const docs = getFromStorage(STORAGE_KEYS.DOCUMENTOS, mockDocumentos);
+  const doc = docs.find((d) => d.id === id);
+  if (!doc) throw new Error('Documento não encontrado');
+
+  doc.historico.push({
+    id: `${Date.now()}`,
+    usuario,
+    cargo: 'aprovador',
+    acao: 'revisao-solicitada',
+    comentario,
+    data: new Date().toISOString(),
+  });
+  
+  saveToStorage(STORAGE_KEYS.DOCUMENTOS, docs);
 };
 
 export const addAcaoCorretiva = async (ncId: string, acao: Omit<AcaoCorretiva, 'id'>): Promise<NaoConformidade> => {

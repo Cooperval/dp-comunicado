@@ -487,6 +487,9 @@ const mockDocumentos: Documento[] = [
   },
   {
     id: '7',
+    statusAprovacao: 'aprovado' as const,
+    aprovadores: mockAprovadores,
+    historico: [],
     titulo: 'Higienização de Pisos e Paredes',
     descricao: 'Procedimento para higienização de superfícies',
     pastaId: '1-1-2',
@@ -518,6 +521,9 @@ const mockDocumentos: Documento[] = [
   // ===== Documentos em Manutenção - Preventiva =====
   {
     id: '8',
+    statusAprovacao: 'aprovado' as const,
+    aprovadores: mockAprovadores,
+    historico: [],
     titulo: 'Plano de Manutenção Preventiva Anual',
     descricao: 'Cronograma completo de manutenção preventiva',
     pastaId: '1-2-1',
@@ -549,6 +555,9 @@ const mockDocumentos: Documento[] = [
   // ===== Documentos em Registros MAPA - Inspeções 2024 =====
   {
     id: '9',
+    statusAprovacao: 'aprovado' as const,
+    aprovadores: mockAprovadores,
+    historico: [],
     titulo: 'Inspeção MAPA - Janeiro 2024',
     descricao: 'Relatório de inspeção do MAPA de janeiro',
     pastaId: '2-1-1',
@@ -577,6 +586,9 @@ const mockDocumentos: Documento[] = [
   },
   {
     id: '10',
+    statusAprovacao: 'aprovado' as const,
+    aprovadores: mockAprovadores,
+    historico: [],
     titulo: 'Inspeção MAPA - Outubro 2024',
     descricao: 'Relatório de inspeção do MAPA de outubro',
     pastaId: '2-1-1',
@@ -607,6 +619,9 @@ const mockDocumentos: Documento[] = [
   // ===== Documentos em Auditorias - Internas =====
   {
     id: '11',
+    statusAprovacao: 'aprovado' as const,
+    aprovadores: mockAprovadores,
+    historico: [],
     titulo: 'Auditoria Interna - 1º Trimestre 2024',
     descricao: 'Relatório de auditoria interna do primeiro trimestre',
     pastaId: '2-2-1',
@@ -637,6 +652,9 @@ const mockDocumentos: Documento[] = [
   // ===== Documentos em Exportação - Certificados Sanitários =====
   {
     id: '12',
+    statusAprovacao: 'aprovado' as const,
+    aprovadores: mockAprovadores,
+    historico: [],
     titulo: 'Certificado Sanitário - Lote EXP-2024-045',
     descricao: 'Certificado sanitário para exportação China',
     pastaId: '3-1-1',
@@ -667,6 +685,9 @@ const mockDocumentos: Documento[] = [
   // ===== Documentos em Análises - Microbiológicas =====
   {
     id: '13',
+    statusAprovacao: 'aprovado' as const,
+    aprovadores: mockAprovadores,
+    historico: [],
     titulo: 'Análise Microbiológica - Lote 2024-10-A',
     descricao: 'Resultado de análise microbiológica',
     pastaId: '3-2-1',
@@ -697,6 +718,9 @@ const mockDocumentos: Documento[] = [
   // ===== Documentos em ISO 9001 - Processos - Produção =====
   {
     id: '14',
+    statusAprovacao: 'aprovado' as const,
+    aprovadores: mockAprovadores,
+    historico: [],
     titulo: 'Fluxograma de Processo de Desossa',
     descricao: 'Mapeamento completo do processo de desossa',
     pastaId: '4-1-1',
@@ -726,6 +750,9 @@ const mockDocumentos: Documento[] = [
   },
   {
     id: '15',
+    statusAprovacao: 'aprovado' as const,
+    aprovadores: mockAprovadores,
+    historico: [],
     titulo: 'Procedimento de Embalagem Primária',
     descricao: 'Procedimento operacional padrão para embalagem',
     pastaId: '4-1-1',

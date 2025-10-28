@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import {
   Select,
@@ -370,7 +371,24 @@ export default function ListaDocumentos() {
                         color: 'white',
                       }}
                     />
-                    <Badge variant="secondary">v{doc.versaoAtual}</Badge>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge variant="secondary">v{doc.versaoAtual}</Badge>
+                      <StatusBadge 
+                        variant={
+                          doc.statusAprovacao === 'pendente' ? 'pending' :
+                          doc.statusAprovacao === 'aprovado' ? 'approved' :
+                          doc.statusAprovacao === 'rejeitado' ? 'rejected' :
+                          'draft'
+                        }
+                        showDot={false}
+                        className="text-xs"
+                      >
+                        {doc.statusAprovacao === 'pendente' ? 'Pendente' :
+                         doc.statusAprovacao === 'aprovado' ? 'Aprovado' :
+                         doc.statusAprovacao === 'rejeitado' ? 'Rejeitado' :
+                         'Rascunho'}
+                      </StatusBadge>
+                    </div>
                   </div>
                   <CardTitle className="text-lg mt-2">{doc.titulo}</CardTitle>
                   <CardDescription className="line-clamp-2">
@@ -453,6 +471,7 @@ export default function ListaDocumentos() {
                         Versão {getOrdenacaoIcon('versaoAtual')}
                       </th>
                       <th className="text-left p-4 font-medium">Nível</th>
+                      <th className="text-left p-4 font-medium">Status</th>
                       <th
                         className="text-left p-4 font-medium cursor-pointer hover:bg-muted/50"
                         onClick={() => toggleOrdenacao('atualizadoEm')}
@@ -486,6 +505,21 @@ export default function ListaDocumentos() {
                           >
                             {doc.nivelConformidade}
                           </Badge>
+                        </td>
+                        <td className="p-4">
+                          <StatusBadge 
+                            variant={
+                              doc.statusAprovacao === 'pendente' ? 'pending' :
+                              doc.statusAprovacao === 'aprovado' ? 'approved' :
+                              doc.statusAprovacao === 'rejeitado' ? 'rejected' :
+                              'draft'
+                            }
+                          >
+                            {doc.statusAprovacao === 'pendente' ? 'Pendente' :
+                             doc.statusAprovacao === 'aprovado' ? 'Aprovado' :
+                             doc.statusAprovacao === 'rejeitado' ? 'Rejeitado' :
+                             'Rascunho'}
+                          </StatusBadge>
                         </td>
                         <td className="p-4 text-sm text-muted-foreground">
                           {new Date(doc.atualizadoEm).toLocaleDateString('pt-BR')}

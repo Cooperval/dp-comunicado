@@ -41,7 +41,7 @@ import { toast } from 'sonner';
 import { PastaTreeSelect } from '@/components/sgdnc/PastaTreeSelect';
 import { TagsInput } from '@/components/sgdnc/TagsInput';
 import { Badge } from '@/components/ui/badge';
-import { getPastas, createDocumento, type Pasta } from '@/services/sgdncMockData';
+import { getPastas, createDocumento, mockAprovadores, type Pasta } from '@/services/sgdncMockData';
 
 const tagsSugeridas = [
   'MAPA',
@@ -80,6 +80,8 @@ const documentoSchema = z.object({
   dataValidade: z.date().optional(),
   edicaoColaborativa: z.boolean().default(false),
   usuariosAcesso: z.array(z.string()).optional(),
+  responsavelAprovacao: z.string().min(1, 'Selecione um responsável para aprovação'),
+  comentarioSubmissao: z.string().optional(),
 });
 
 type DocumentoFormData = z.infer<typeof documentoSchema>;
@@ -102,6 +104,8 @@ export default function NovoDocumento() {
       nivelConformidade: 'medio' as const,
       edicaoColaborativa: false,
       usuariosAcesso: [],
+      responsavelAprovacao: '',
+      comentarioSubmissao: '',
     },
   });
 
@@ -199,9 +203,20 @@ export default function NovoDocumento() {
     setLoading(true);
     try {
       await createDocumento({
-        statusAprovacao: 'rascunho' as const,
-        aprovadores: [],
-        historico: [],
+        statusAprovacao: 'pendente' as const,
+        aprovadores: mockAprovadores,
+        responsavelAprovacao: data.responsavelAprovacao,
+        historico: [
+          {
+            id: Date.now().toString(),
+            usuario: 'Usuário Atual',
+            cargo: 'analista',
+            acao: 'submetido' as const,
+            comentario: data.comentarioSubmissao || 'Documento submetido para aprovação',
+            data: new Date().toISOString(),
+          },
+        ],
+        dataSubmissao: new Date().toISOString(),
         titulo: data.titulo,
         descricao: data.descricao || '',
         pastaId: data.pastaId,
@@ -616,6 +631,66 @@ export default function NovoDocumento() {
                   </AlertDescription>
                 </Alert>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Aprovação */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Aprovação *</CardTitle>
+              <CardDescription>
+                Selecione o responsável que irá revisar e aprovar este documento
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="responsavelAprovacao"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Responsável pela Aprovação *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o responsável" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {mockAprovadores.map((aprovador) => (
+                          <SelectItem key={aprovador.id} value={aprovador.id}>
+                            {aprovador.nome} ({aprovador.cargo})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      O responsável receberá notificação para revisar o documento
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="comentarioSubmissao"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Comentário (opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Adicione observações relevantes para o aprovador..."
+                        className="min-h-[100px]"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Informações adicionais que podem ajudar na análise do documento
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </CardContent>
           </Card>
 

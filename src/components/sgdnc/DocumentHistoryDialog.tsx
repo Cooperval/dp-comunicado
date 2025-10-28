@@ -8,14 +8,18 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Download, User, Calendar } from 'lucide-react';
+import { Download, User, Calendar, Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import type { Versao } from '@/services/sgdncMockData';
+import { gerarPDFVersao } from '@/utils/pdfGenerator';
+import { toast } from 'sonner';
 
 interface DocumentHistoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   versoes: Versao[];
   titulo: string;
+  documentoId: string;
 }
 
 export function DocumentHistoryDialog({
@@ -23,20 +27,25 @@ export function DocumentHistoryDialog({
   onOpenChange,
   versoes,
   titulo,
+  documentoId,
 }: DocumentHistoryDialogProps) {
-  const handleDownload = (versao: Versao) => {
-    // Mock download
-    const blob = new Blob([`Documento: ${titulo}\nVersão: ${versao.numero}`], {
-      type: 'text/plain',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${titulo}_v${versao.numero}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const navigate = useNavigate();
+
+  const handleDownload = async (versao: Versao) => {
+    try {
+      // Mock: em produção, buscar documento completo
+      toast.info('Gerando PDF...');
+      setTimeout(() => {
+        toast.success('Download iniciado');
+      }, 500);
+    } catch (error) {
+      toast.error('Erro ao baixar versão');
+    }
+  };
+
+  const handleVisualizarVersao = (versaoNumero: number) => {
+    navigate(`/apps/sgdnc/documentos/${documentoId}/versoes/${versaoNumero}`);
+    onOpenChange(false);
   };
 
   return (
@@ -81,14 +90,25 @@ export function DocumentHistoryDialog({
                           </Badge>
                         )}
                       </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDownload(versao)}
-                      >
-                        <Download className="h-3 w-3 mr-1" />
-                        Baixar
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleVisualizarVersao(versao.numero)}
+                          title="Visualizar conteúdo"
+                        >
+                          <Eye className="h-3 w-3 mr-1" />
+                          Ver
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDownload(versao)}
+                          title="Baixar versão"
+                        >
+                          <Download className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                     <p className="text-sm text-foreground">{versao.comentario}</p>
                     <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">

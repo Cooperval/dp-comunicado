@@ -1,20 +1,42 @@
-import { Clock, User, Download, RotateCcw } from 'lucide-react';
+import { Clock, User, Download, RotateCcw, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 import type { Versao } from '@/services/sgdncMockData';
+import { toast } from 'sonner';
+import { gerarPDFVersao } from '@/utils/pdfGenerator';
 
 interface VersionHistoryProps {
   versoes: Versao[];
   versaoAtual: number;
+  documentoId: string;
   onRestore?: (versao: number) => void;
   isAdmin?: boolean;
 }
 
-export function VersionHistory({ versoes, versaoAtual, onRestore, isAdmin }: VersionHistoryProps) {
+export function VersionHistory({ versoes, versaoAtual, documentoId, onRestore, isAdmin }: VersionHistoryProps) {
+  const navigate = useNavigate();
+
+  const handleDownload = async (versaoNumero: number) => {
+    try {
+      toast.info('Gerando PDF...');
+      // Mock: em produção, buscar documento e gerar PDF
+      setTimeout(() => {
+        toast.success('Download iniciado');
+      }, 500);
+    } catch (error) {
+      toast.error('Erro ao baixar versão');
+    }
+  };
+
+  const handleVisualizarVersao = (versaoNumero: number) => {
+    navigate(`/apps/sgdnc/documentos/${documentoId}/versoes/${versaoNumero}`);
+  };
+
   return (
     <ScrollArea className="h-[400px]">
       <div className="space-y-4 p-4">
@@ -39,6 +61,16 @@ export function VersionHistory({ versoes, versaoAtual, onRestore, isAdmin }: Ver
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7"
+                      onClick={() => handleVisualizarVersao(versao.numero)}
+                      title="Visualizar conteúdo"
+                    >
+                      <Eye className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleDownload(versao.numero)}
                       title="Baixar versão"
                     >
                       <Download className="h-3 w-3" />

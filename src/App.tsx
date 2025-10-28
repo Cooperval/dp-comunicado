@@ -19,6 +19,7 @@ import ListaDocumentos from "./pages/apps/sgdnc/documentos/ListaDocumentos";
 import NovoDocumento from "./pages/apps/sgdnc/documentos/NovoDocumento";
 import EditarDocumento from "./pages/apps/sgdnc/documentos/EditarDocumento";
 import VisualizarDocumento from "./pages/apps/sgdnc/documentos/VisualizarDocumento";
+import VisualizarVersao from "./pages/apps/sgdnc/documentos/VisualizarVersao";
 import AprovacoesDocumentos from "./pages/apps/sgdnc/documentos/AprovacoesDocumentos";
 import DetalhesAprovacao from "./pages/apps/sgdnc/documentos/DetalhesAprovacao";
 import ListaNaoConformidades from "./pages/apps/sgdnc/nao-conformidades/ListaNaoConformidades";
@@ -305,6 +306,16 @@ const App = () => (
                 <ProtectedRoute>
                   <AppLayout sidebar={<SGDNCSidebar />} appName="SGDNC">
                     <EditarDocumento />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apps/sgdnc/documentos/:id/versoes/:versaoNumero"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<SGDNCSidebar />} appName="SGDNC">
+                    <VisualizarVersao />
                   </AppLayout>
                 </ProtectedRoute>
               }

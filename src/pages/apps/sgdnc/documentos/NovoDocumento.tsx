@@ -229,6 +229,20 @@ export default function NovoDocumento() {
             arquivo: arquivo.name,
             criadoPor: 'Usuário Atual',
             criadoEm: new Date().toISOString(),
+            snapshot: {
+              paragrafos: paragrafos.map((p) => ({
+                ...p,
+                conteudo:
+                  p.tipo === 'imagem' && (p.conteudo as ImagemConteudo).arquivo
+                    ? { ...(p.conteudo as ImagemConteudo), arquivo: undefined }
+                    : p.conteudo,
+              })),
+              metadados: {
+                titulo: data.titulo,
+                descricao: data.descricao || '',
+                tags: data.tags,
+              },
+            },
           },
         ],
         tipo: data.tipo,

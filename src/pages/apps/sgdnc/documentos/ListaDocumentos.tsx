@@ -660,6 +660,7 @@ export default function ListaDocumentos() {
         onOpenChange={() => setDocHistorico(null)}
         versoes={docHistorico?.versoes || []}
         titulo={docHistorico?.titulo || ''}
+        documentoId={docHistorico?.id || ''}
       />
 
       <AlertDialog open={!!docParaExcluir} onOpenChange={() => setDocParaExcluir(null)}>

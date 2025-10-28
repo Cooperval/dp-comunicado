@@ -299,6 +299,7 @@ export default function VisualizarDocumento() {
                   <VersionHistory
                     versoes={documento.versoes}
                     versaoAtual={documento.versaoAtual}
+                    documentoId={documento.id}
                     onRestore={handleRestore}
                     isAdmin={true}
                   />

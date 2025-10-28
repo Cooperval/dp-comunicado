@@ -17,6 +17,14 @@ export interface Versao {
   arquivo: string;
   criadoPor: string;
   criadoEm: string;
+  snapshot?: {
+    paragrafos: Paragrafo[];
+    metadados: {
+      titulo: string;
+      descricao: string;
+      tags: string[];
+    };
+  };
 }
 
 export interface HistoricoAprovacao {
@@ -1172,11 +1180,89 @@ export const getDadosGrafico = async (tipo: string) => {
   if (tipo === 'documentos-categoria') {
     return [
       { categoria: 'Procedimentos', total: 45 },
-      { categoria: 'MAPA', total: 32 },
-      { categoria: 'Exportação', total: 28 },
-      { categoria: 'ISO', total: 15 },
+      { categoria: 'Registros', total: 32 },
+      { categoria: 'Exportação', total: 18 },
+      { categoria: 'ISO 9001', total: 25 },
     ];
   }
 
   return [];
+};
+
+// Função para obter documento em versão específica
+export const getDocumentoByVersao = async (id: string, versaoNumero: number): Promise<Documento> => {
+  await delay(300);
+  const documentos = getFromStorage(STORAGE_KEYS.DOCUMENTOS, mockDocumentos);
+  const doc = documentos.find((d) => d.id === id);
+  
+  if (!doc) throw new Error('Documento não encontrado');
+  
+  const versao = doc.versoes.find((v) => v.numero === versaoNumero);
+  if (!versao) throw new Error('Versão não encontrada');
+  
+  // Retornar documento com dados da versão específica
+  return {
+    ...doc,
+    versaoAtual: versaoNumero,
+    // Se tiver snapshot, usar os parágrafos do snapshot
+    paragrafos: versao.snapshot?.paragrafos || doc.paragrafos || [],
+    // Usar metadados do snapshot se existirem
+    titulo: versao.snapshot?.metadados.titulo || doc.titulo,
+    descricao: versao.snapshot?.metadados.descricao || doc.descricao,
+    tags: versao.snapshot?.metadados.tags || doc.tags,
+  };
+};
+
+// Função para restaurar versão antiga (cria nova versão com conteúdo da versão antiga)
+export const restaurarVersao = async (
+  id: string, 
+  versaoNumero: number, 
+  comentario: string = `Restaurado da versão ${versaoNumero}`
+): Promise<Documento> => {
+  await delay(500);
+  const documentos = getFromStorage(STORAGE_KEYS.DOCUMENTOS, mockDocumentos);
+  const docIndex = documentos.findIndex((d) => d.id === id);
+  
+  if (docIndex === -1) throw new Error('Documento não encontrado');
+  
+  const doc = documentos[docIndex];
+  const versaoAntiga = doc.versoes.find((v) => v.numero === versaoNumero);
+  
+  if (!versaoAntiga) throw new Error('Versão não encontrada');
+  
+  // Criar nova versão baseada na versão antiga
+  const novaVersao: Versao = {
+    numero: doc.versaoAtual + 1,
+    comentario,
+    arquivo: versaoAntiga.arquivo,
+    criadoPor: 'Admin', // Em produção, seria o usuário logado
+    criadoEm: new Date().toISOString(),
+    snapshot: versaoAntiga.snapshot, // Copiar snapshot da versão antiga
+  };
+  
+  // Atualizar documento
+  doc.versoes.push(novaVersao);
+  doc.versaoAtual = novaVersao.numero;
+  doc.atualizadoEm = new Date().toISOString();
+  
+  // Se tinha snapshot, restaurar os parágrafos
+  if (versaoAntiga.snapshot) {
+    doc.paragrafos = versaoAntiga.snapshot.paragrafos;
+    doc.titulo = versaoAntiga.snapshot.metadados.titulo;
+    doc.descricao = versaoAntiga.snapshot.metadados.descricao;
+    doc.tags = versaoAntiga.snapshot.metadados.tags;
+  }
+  
+  // Adicionar no histórico
+  doc.historico.push({
+    id: `${doc.id}-restore-${Date.now()}`,
+    usuario: 'Admin',
+    cargo: 'gerente',
+    acao: 'submetido',
+    comentario: `Versão ${versaoNumero} restaurada`,
+    data: new Date().toISOString(),
+  });
+  
+  saveToStorage(STORAGE_KEYS.DOCUMENTOS, documentos);
+  return doc;
 };

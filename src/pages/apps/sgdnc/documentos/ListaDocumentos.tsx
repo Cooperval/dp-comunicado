@@ -38,7 +38,9 @@ import {
   ArrowDown,
   FolderPlus,
 } from 'lucide-react';
-import { getDocumentos, getPastas, deleteDocumento, createPasta, type Documento } from '@/services/sgdncMockData';
+import { getDocumentos, deleteDocumento, type Documento } from '@/services/sgdncMockData';
+import * as pastasService from '@/services/pastasService';
+import type { Pasta } from '@/services/pastasService';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -58,7 +60,7 @@ import { FilterAdvancedPopover } from '@/components/sgdnc/FilterAdvancedPopover'
 export default function ListaDocumentos() {
   const navigate = useNavigate();
   const [documentos, setDocumentos] = useState<Documento[]>([]);
-  const [pastas, setPastas] = useState<any[]>([]);
+  const [pastas, setPastas] = useState<Pasta[]>([]);
   const [busca, setBusca] = useState('');
   const [pastaAtual, setPastaAtual] = useState('');
   const [visualizacao, setVisualizacao] = useState<'grid' | 'lista'>('grid');
@@ -67,6 +69,8 @@ export default function ListaDocumentos() {
   const [loading, setLoading] = useState(true);
   const [sidebarAberta, setSidebarAberta] = useState(false);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [pastaEditando, setPastaEditando] = useState<Pasta | null>(null);
+  const [pastaParaDeletar, setPastaParaDeletar] = useState<Pasta | null>(null);
   const [filtros, setFiltros] = useState({
     dataInicio: null as Date | null,
     dataFim: null as Date | null,
@@ -88,10 +92,11 @@ export default function ListaDocumentos() {
 
   const carregarDados = async () => {
     setLoading(true);
-    const [docsData, pastasData] = await Promise.all([
-      getDocumentos({ busca, pastaId: pastaAtual || undefined }),
-      getPastas(),
-    ]);
+    try {
+      const [docsData, pastasData] = await Promise.all([
+        getDocumentos({ busca, pastaId: pastaAtual || undefined }),
+        pastasService.getPastas(),
+      ]);
     
     let filteredDocs = docsData;
     
@@ -119,23 +124,70 @@ export default function ListaDocumentos() {
       });
     }
     
-    setDocumentos(filteredDocs);
-    setPastas(pastasData);
-    setPaginacao((prev) => ({ ...prev, page: 1 })); // Reset page on filter
-    setLoading(false);
+      setDocumentos(filteredDocs);
+      setPastas(pastasData);
+      setPaginacao((prev) => ({ ...prev, page: 1 })); // Reset page on filter
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+      toast.error('Erro ao carregar dados');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleCreatePasta = async (data: {
-    nome: string;
-    pastaParentId?: string;
-    cor?: string;
-  }) => {
+  const handleSavePasta = async (data: pastasService.CreatePastaInput) => {
+    if (pastaEditando) {
+      // Modo edição
+      try {
+        await pastasService.updatePasta(pastaEditando.id, data);
+        await carregarDados();
+        toast.success('Pasta atualizada com sucesso!');
+        setPastaEditando(null);
+      } catch (error) {
+        console.error('Erro ao atualizar pasta:', error);
+        toast.error('Erro ao atualizar pasta');
+        throw error;
+      }
+    } else {
+      // Modo criação
+      try {
+        await pastasService.createPasta(data);
+        await carregarDados();
+        toast.success('Pasta criada com sucesso!');
+      } catch (error) {
+        console.error('Erro ao criar pasta:', error);
+        toast.error('Erro ao criar pasta');
+        throw error;
+      }
+    }
+  };
+
+  const handleEditPasta = (pasta: Pasta) => {
+    setPastaEditando(pasta);
+    setFolderDialogOpen(true);
+  };
+
+  const handleDeletePasta = (pasta: Pasta) => {
+    setPastaParaDeletar(pasta);
+  };
+
+  const confirmarDelecao = async () => {
+    if (!pastaParaDeletar) return;
+
     try {
-      await createPasta(data);
-      toast.success('Pasta criada com sucesso');
-      carregarDados();
-    } catch (error) {
-      toast.error('Erro ao criar pasta');
+      await pastasService.deletePasta(pastaParaDeletar.id);
+      await carregarDados();
+      toast.success('Pasta deletada com sucesso!');
+      
+      // Se estava visualizando a pasta deletada, voltar para "Todas"
+      if (pastaAtual === pastaParaDeletar.id) {
+        setPastaAtual('');
+      }
+    } catch (error: any) {
+      console.error('Erro ao deletar pasta:', error);
+      toast.error(error.message || 'Erro ao deletar pasta');
+    } finally {
+      setPastaParaDeletar(null);
     }
   };
 
@@ -251,6 +303,8 @@ export default function ListaDocumentos() {
               pastas={pastas}
               pastaAtual={pastaAtual}
               onSelectPasta={setPastaAtual}
+              onEditPasta={handleEditPasta}
+              onDeletePasta={handleDeletePasta}
             />
           </CardContent>
         </Card>
@@ -295,6 +349,8 @@ export default function ListaDocumentos() {
                       setPastaAtual(id);
                       setSidebarAberta(false);
                     }}
+                    onEditPasta={handleEditPasta}
+                    onDeletePasta={handleDeletePasta}
                   />
                 </div>
               </SheetContent>
@@ -650,9 +706,13 @@ export default function ListaDocumentos() {
       {/* Dialogs */}
       <FolderDialog
         open={folderDialogOpen}
-        onOpenChange={setFolderDialogOpen}
-        onSave={handleCreatePasta}
+        onOpenChange={(open) => {
+          setFolderDialogOpen(open);
+          if (!open) setPastaEditando(null);
+        }}
+        onSave={handleSavePasta}
         pastas={pastas}
+        pastaEditando={pastaEditando}
       />
 
       <DocumentHistoryDialog
@@ -674,6 +734,28 @@ export default function ListaDocumentos() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleExcluir}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!pastaParaDeletar}
+        onOpenChange={(open) => !open && setPastaParaDeletar(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Deleção</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja deletar a pasta "{pastaParaDeletar?.nome}"?
+              Todas as subpastas também serão deletadas.
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarDelecao} className="bg-destructive">
+              Deletar
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

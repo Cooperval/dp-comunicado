@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -17,42 +17,94 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Pasta } from '@/services/sgdncMockData';
+
+export interface Pasta {
+  id: string;
+  nome: string;
+  pasta_parent_id?: string | null;
+  pastaParentId?: string;
+  cor?: string;
+}
+
+export interface CreatePastaInput {
+  nome: string;
+  pasta_parent_id?: string;
+  cor?: string;
+}
 
 interface FolderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (data: { nome: string; pastaParentId?: string; cor?: string }) => void;
+  onSave: (data: CreatePastaInput) => Promise<void>;
   pastas: Pasta[];
+  pastaEditando?: Pasta | null;
 }
 
-export function FolderDialog({ open, onOpenChange, onSave, pastas }: FolderDialogProps) {
+export function FolderDialog({ open, onOpenChange, onSave, pastas, pastaEditando }: FolderDialogProps) {
   const [nome, setNome] = useState('');
   const [pastaParentId, setPastaParentId] = useState('');
   const [cor, setCor] = useState('#3B82F6');
+  const [loading, setLoading] = useState(false);
 
-  const handleSave = () => {
+  // Sincronizar estado com pasta editando
+  useEffect(() => {
+    if (pastaEditando) {
+      setNome(pastaEditando.nome);
+      setPastaParentId(pastaEditando.pasta_parent_id || pastaEditando.pastaParentId || '');
+      setCor(pastaEditando.cor || '#3B82F6');
+    } else {
+      setNome('');
+      setPastaParentId('');
+      setCor('#3B82F6');
+    }
+  }, [pastaEditando]);
+
+  const handleSave = async () => {
     if (!nome.trim()) return;
     
-    onSave({
-      nome: nome.trim(),
-      pastaParentId: pastaParentId || undefined,
-      cor,
-    });
+    setLoading(true);
+    try {
+      await onSave({
+        nome: nome.trim(),
+        pasta_parent_id: pastaParentId || undefined,
+        cor,
+      });
 
-    setNome('');
-    setPastaParentId('');
-    setCor('#3B82F6');
-    onOpenChange(false);
+      setNome('');
+      setPastaParentId('');
+      setCor('#3B82F6');
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Erro ao salvar pasta:', error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // Função auxiliar para verificar se uma pasta é descendente de outra
+  const isDescendente = (pastaId: string, ancestralId: string): boolean => {
+    const pasta = pastas.find(p => p.id === pastaId);
+    if (!pasta) return false;
+    const parentId = pasta.pasta_parent_id || pasta.pastaParentId;
+    if (!parentId) return false;
+    if (parentId === ancestralId) return true;
+    return isDescendente(parentId, ancestralId);
+  };
+
+  // Filtrar pastas para não permitir selecionar a própria pasta ou suas filhas como pai
+  const pastasDisponiveis = pastaEditando
+    ? pastas.filter(p => p.id !== pastaEditando.id && !isDescendente(p.id, pastaEditando.id))
+    : pastas;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Nova Pasta</DialogTitle>
+          <DialogTitle>{pastaEditando ? 'Editar Pasta' : 'Nova Pasta'}</DialogTitle>
           <DialogDescription>
-            Crie uma nova pasta para organizar seus documentos
+            {pastaEditando
+              ? 'Edite as informações da pasta'
+              : 'Crie uma nova pasta para organizar seus documentos'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -73,7 +125,7 @@ export function FolderDialog({ open, onOpenChange, onSave, pastas }: FolderDialo
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">Nenhuma (pasta raiz)</SelectItem>
-                {pastas.map((pasta) => (
+                {pastasDisponiveis.map((pasta) => (
                   <SelectItem key={pasta.id} value={pasta.id}>
                     {pasta.nome}
                   </SelectItem>
@@ -101,11 +153,11 @@ export function FolderDialog({ open, onOpenChange, onSave, pastas }: FolderDialo
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Cancelar
           </Button>
-          <Button onClick={handleSave} disabled={!nome.trim()}>
-            Criar Pasta
+          <Button onClick={handleSave} disabled={!nome.trim() || loading}>
+            {loading ? 'Salvando...' : pastaEditando ? 'Salvar' : 'Criar Pasta'}
           </Button>
         </DialogFooter>
       </DialogContent>

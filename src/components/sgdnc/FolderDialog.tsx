@@ -124,7 +124,6 @@ export function FolderDialog({ open, onOpenChange, onSave, pastas, pastaEditando
                 <SelectValue placeholder="Nenhuma (pasta raiz)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhuma (pasta raiz)</SelectItem>
                 {pastasDisponiveis.map((pasta) => (
                   <SelectItem key={pasta.id} value={pasta.id}>
                     {pasta.nome}

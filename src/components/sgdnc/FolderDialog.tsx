@@ -60,22 +60,38 @@ export function FolderDialog({ open, onOpenChange, onSave, pastas, pastaEditando
   }, [pastaEditando]);
 
   const handleSave = async () => {
-    if (!nome.trim()) return;
+    console.log('=== FOLDER DIALOG - Início do handleSave ===');
+    console.log('Nome da pasta:', nome);
+    console.log('Pasta Parent ID:', pastaParentId);
+    console.log('Cor:', cor);
+    
+    if (!nome.trim()) {
+      console.log('❌ Nome vazio, abortando');
+      return;
+    }
     
     setLoading(true);
     try {
+      console.log('📤 Chamando onSave com dados:', {
+        nome: nome.trim(),
+        pasta_parent_id: pastaParentId || undefined,
+        cor,
+      });
+      
       await onSave({
         nome: nome.trim(),
         pasta_parent_id: pastaParentId || undefined,
         cor,
       });
 
+      console.log('✅ onSave concluído com sucesso');
       setNome('');
       setPastaParentId('');
       setCor('#3B82F6');
       onOpenChange(false);
     } catch (error) {
-      console.error('Erro ao salvar pasta:', error);
+      console.error('❌ Erro no handleSave do Dialog:', error);
+      throw error;
     } finally {
       setLoading(false);
     }

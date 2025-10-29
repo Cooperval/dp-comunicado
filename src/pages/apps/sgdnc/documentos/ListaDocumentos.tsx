@@ -136,8 +136,13 @@ export default function ListaDocumentos() {
   };
 
   const handleSavePasta = async (data: pastasService.CreatePastaInput) => {
+    console.log('=== LISTA DOCUMENTOS - handleSavePasta ===');
+    console.log('Dados recebidos:', data);
+    console.log('Modo:', pastaEditando ? 'EDIÇÃO' : 'CRIAÇÃO');
+    
     if (pastaEditando) {
       // Modo edição
+      console.log('Editando pasta:', pastaEditando);
       try {
         await pastasService.updatePasta(pastaEditando.id, data);
         await carregarDados();
@@ -151,11 +156,22 @@ export default function ListaDocumentos() {
     } else {
       // Modo criação
       try {
-        await pastasService.createPasta(data);
+        console.log('📤 Chamando pastasService.createPasta...');
+        const resultado = await pastasService.createPasta(data);
+        console.log('✅ Pasta criada com sucesso:', resultado);
+        
+        console.log('🔄 Recarregando dados...');
         await carregarDados();
+        console.log('✅ Dados recarregados');
+        
         toast.success('Pasta criada com sucesso!');
       } catch (error) {
-        console.error('Erro ao criar pasta:', error);
+        console.error('❌ Erro completo ao criar pasta:', {
+          error,
+          message: error instanceof Error ? error.message : 'Erro desconhecido',
+          stack: error instanceof Error ? error.stack : undefined,
+          data
+        });
         toast.error('Erro ao criar pasta');
         throw error;
       }

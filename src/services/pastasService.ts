@@ -64,28 +64,45 @@ export const getPastaById = async (id: string): Promise<Pasta | null> => {
  * Criar nova pasta
  */
 export const createPasta = async (pasta: CreatePastaInput): Promise<Pasta> => {
+  console.log('=== PASTAS SERVICE - createPasta ===');
+  console.log('Dados de entrada:', pasta);
+  
+  console.log('🔍 Verificando autenticação...');
   const { data: { user } } = await supabase.auth.getUser();
+  console.log('Usuário atual:', user ? {
+    id: user.id,
+    email: user.email,
+    role: user.role
+  } : 'NENHUM USUÁRIO AUTENTICADO');
 
   if (!user) {
+    console.error('❌ Usuário não autenticado');
     throw new Error('Você precisa estar logado para criar pastas');
   }
 
+  const dadosParaInserir = {
+    nome: pasta.nome,
+    pasta_parent_id: pasta.pasta_parent_id || null,
+    cor: pasta.cor || '#3B82F6',
+    icone: pasta.icone,
+    created_by: user.id,
+  };
+  
+  console.log('📤 Inserindo no Supabase:', dadosParaInserir);
+
   const { data, error } = await supabase
     .from('pastas')
-    .insert([
-      {
-        nome: pasta.nome,
-        pasta_parent_id: pasta.pasta_parent_id || null,
-        cor: pasta.cor || '#3B82F6',
-        icone: pasta.icone,
-        created_by: user.id,
-      },
-    ])
+    .insert([dadosParaInserir])
     .select()
     .single();
 
   if (error) {
-    console.error('Erro ao criar pasta:', error);
+    console.error('❌ Erro do Supabase:', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint
+    });
     
     if (error.code === '42501') {
       throw new Error('Permissão negada: Você precisa estar logado para criar pastas');
@@ -94,6 +111,7 @@ export const createPasta = async (pasta: CreatePastaInput): Promise<Pasta> => {
     throw new Error(error.message || 'Erro ao criar pasta');
   }
 
+  console.log('✅ Pasta criada com sucesso:', data);
   return data;
 };
 

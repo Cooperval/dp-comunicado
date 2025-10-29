@@ -91,7 +91,8 @@ export function FolderDialog({ open, onOpenChange, onSave, pastas, pastaEditando
       onOpenChange(false);
     } catch (error) {
       console.error('❌ Erro no handleSave do Dialog:', error);
-      throw error;
+      // Não relançar o erro - o toast já foi mostrado em handleSavePasta
+      // Manter o dialog aberto para o usuário tentar novamente
     } finally {
       setLoading(false);
     }

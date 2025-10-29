@@ -172,8 +172,8 @@ export default function ListaDocumentos() {
           stack: error instanceof Error ? error.stack : undefined,
           data
         });
-        toast.error('Erro ao criar pasta');
-        throw error;
+        toast.error(error instanceof Error ? error.message : 'Erro ao criar pasta');
+        // Não relançar o erro - já foi tratado e exibido
       }
     }
   };

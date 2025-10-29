@@ -2,8 +2,8 @@
 // Substitua com suas credenciais do projeto Supabase
 
 export const supabaseConfig = {
-  url: 'SUA_SUPABASE_URL_AQUI', // Ex: https://xxxxxxxxxxx.supabase.co
-  anonKey: 'SUA_SUPABASE_ANON_KEY_AQUI', // Sua chave pública (anon/public)
+  url: 'https://pjolciisxlslkxrmpcrk.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqb2xjaWlzeGxzbGt4cm1wY3JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Mzg2NDQsImV4cCI6MjA3NzMxNDY0NH0.SXY32ERhPXqRMDK5eC81hwTykheh1zXFd05r-09rH5Q',
 };
 
 // IMPORTANTE: 

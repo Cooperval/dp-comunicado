@@ -66,6 +66,10 @@ export const getPastaById = async (id: string): Promise<Pasta | null> => {
 export const createPasta = async (pasta: CreatePastaInput): Promise<Pasta> => {
   const { data: { user } } = await supabase.auth.getUser();
 
+  if (!user) {
+    throw new Error('Você precisa estar logado para criar pastas');
+  }
+
   const { data, error } = await supabase
     .from('pastas')
     .insert([
@@ -74,7 +78,7 @@ export const createPasta = async (pasta: CreatePastaInput): Promise<Pasta> => {
         pasta_parent_id: pasta.pasta_parent_id || null,
         cor: pasta.cor || '#3B82F6',
         icone: pasta.icone,
-        created_by: user?.id,
+        created_by: user.id,
       },
     ])
     .select()
@@ -82,7 +86,12 @@ export const createPasta = async (pasta: CreatePastaInput): Promise<Pasta> => {
 
   if (error) {
     console.error('Erro ao criar pasta:', error);
-    throw error;
+    
+    if (error.code === '42501') {
+      throw new Error('Permissão negada: Você precisa estar logado para criar pastas');
+    }
+    
+    throw new Error(error.message || 'Erro ao criar pasta');
   }
 
   return data;

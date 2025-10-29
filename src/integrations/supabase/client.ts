@@ -1,10 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
+import { supabaseConfig } from '@/config/supabase';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = supabaseConfig.url;
+const supabaseAnonKey = supabaseConfig.anonKey;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes('SUA_SUPABASE')) {
+  throw new Error('Por favor, configure suas credenciais do Supabase em src/config/supabase.ts');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {

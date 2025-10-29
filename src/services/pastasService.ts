@@ -67,25 +67,20 @@ export const createPasta = async (pasta: CreatePastaInput): Promise<Pasta> => {
   console.log('=== PASTAS SERVICE - createPasta ===');
   console.log('Dados de entrada:', pasta);
   
-  console.log('🔍 Verificando autenticação...');
+  console.log('🔍 Verificando autenticação (opcional)...');
   const { data: { user } } = await supabase.auth.getUser();
   console.log('Usuário atual:', user ? {
     id: user.id,
     email: user.email,
     role: user.role
-  } : 'NENHUM USUÁRIO AUTENTICADO');
-
-  if (!user) {
-    console.error('❌ Usuário não autenticado');
-    throw new Error('Você precisa estar logado para criar pastas');
-  }
+  } : 'NENHUM USUÁRIO AUTENTICADO - Continuando mesmo assim');
 
   const dadosParaInserir = {
     nome: pasta.nome,
     pasta_parent_id: pasta.pasta_parent_id || null,
     cor: pasta.cor || '#3B82F6',
     icone: pasta.icone,
-    created_by: user.id,
+    created_by: user?.id || null,
   };
   
   console.log('📤 Inserindo no Supabase:', dadosParaInserir);

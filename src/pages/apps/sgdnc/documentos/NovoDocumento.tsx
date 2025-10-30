@@ -326,7 +326,7 @@ export default function NovoDocumento() {
                 )}
               />
 
-              <FormField
+              {/*<FormField
                 control={form.control}
                 name="tags"
                 render={({ field }) => (
@@ -363,7 +363,7 @@ export default function NovoDocumento() {
                     <FormMessage />
                   </FormItem>
                 )}
-              />
+              />*/}
             </CardContent>
           </Card>
 
@@ -412,7 +412,7 @@ export default function NovoDocumento() {
           </Card>
 
           {/* Upload de Arquivo */}
-          <Card>
+          {/*<Card>
             <CardHeader>
               <CardTitle>Upload de Arquivo *</CardTitle>
               <CardDescription>Formatos aceitos: PDF, DOCX, XLSX, PNG, JPG, MP4 (máx. 50MB)</CardDescription>
@@ -456,7 +456,7 @@ export default function NovoDocumento() {
                 )}
               </div>
             </CardContent>
-          </Card>
+          </Card>*/}
 
           {/* Metadados Regulatórios */}
           <Card>

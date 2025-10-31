@@ -25,6 +25,9 @@ import { VersionHistory } from '@/components/sgdnc/VersionHistory';
 import { AuditLog } from '@/components/sgdnc/AuditLog';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import type { ImagemConteudo, TabelaConteudo } from '@/types/paragrafo';
 
 // Mock audit logs
 const mockAuditLogs = [
@@ -225,6 +228,74 @@ export default function VisualizarDocumento() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Document Content (Paragraphs) */}
+            {documento.paragrafos && documento.paragrafos.length > 0 && (
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle>Conteúdo do Documento</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {documento.paragrafos.map((paragrafo) => (
+                    <div key={paragrafo.id} className="space-y-2">
+                      {paragrafo.tipo === 'texto' && (
+                        <div className="prose prose-sm max-w-none dark:prose-invert">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {paragrafo.conteudo as string}
+                          </ReactMarkdown>
+                        </div>
+                      )}
+                      
+                      {paragrafo.tipo === 'imagem' && (
+                        <div className="space-y-2">
+                          <img
+                            src={(paragrafo.conteudo as ImagemConteudo).url}
+                            alt={(paragrafo.conteudo as ImagemConteudo).legenda || 'Imagem do documento'}
+                            className="max-w-full h-auto rounded-lg border"
+                          />
+                          {(paragrafo.conteudo as ImagemConteudo).legenda && (
+                            <p className="text-sm text-muted-foreground text-center">
+                              {(paragrafo.conteudo as ImagemConteudo).legenda}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      
+                      {paragrafo.tipo === 'tabela' && (
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse border">
+                            <thead>
+                              <tr className="bg-muted/50">
+                                {(paragrafo.conteudo as TabelaConteudo).colunas.map((coluna, idx) => (
+                                  <th key={idx} className="border px-4 py-2 text-left font-medium">
+                                    {coluna}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(paragrafo.conteudo as TabelaConteudo).linhas.map((linha, rowIdx) => (
+                                <tr key={rowIdx}>
+                                  {linha.map((celula, cellIdx) => (
+                                    <td key={cellIdx} className="border px-4 py-2">
+                                      {celula}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                      
+                      {paragrafo.ordem < documento.paragrafos!.length && (
+                        <Separator className="my-4" />
+                      )}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Metadata Card */}
             <Card className="mt-6">

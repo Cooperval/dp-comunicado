@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { getTiposOcorrencia } from "@/services/parametrosLocalStorage";
 
 const mockOcorrencias = [
   {
@@ -86,6 +87,16 @@ export default function Ocorrencias() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [tipoFilter, setTipoFilter] = useState("all");
+  const [tiposDisponiveis, setTiposDisponiveis] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const tipos = getTiposOcorrencia(true);
+      setTiposDisponiveis(tipos.map(t => t.nome));
+    } catch (error) {
+      console.error('Erro ao carregar tipos:', error);
+    }
+  }, []);
 
   const filteredOcorrencias = mockOcorrencias.filter(ocorrencia => {
     const matchesSearch = ocorrencia.colaborador.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -168,13 +179,9 @@ export default function Ocorrencias() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os Tipos</SelectItem>
-              <SelectItem value="Entrada/Saída">Entrada/Saída</SelectItem>
-              <SelectItem value="Falta Justificada">Falta Justificada</SelectItem>
-              <SelectItem value="Banco de Horas">Banco de Horas</SelectItem>
-              <SelectItem value="Compensação">Compensação</SelectItem>
-              <SelectItem value="Mudança de Escala">Mudança de Escala</SelectItem>
-              <SelectItem value="Dispensa">Dispensa</SelectItem>
-              <SelectItem value="Prêmio">Prêmio</SelectItem>
+              {tiposDisponiveis.map(tipo => (
+                <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
 

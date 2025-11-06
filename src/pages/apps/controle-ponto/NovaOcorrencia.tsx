@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,58 +13,15 @@ import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Save, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-
-const tiposOcorrencia = [
-  "Mudança de Escala",
-  "Compensação",
-  "Dispensa",
-  "Entrada/Saída",
-  "Falta Justificada",
-  "Prêmio",
-  "Banco de Horas"
-];
-
-const motivosPredefinidos = {
-  "Mudança de Escala": [
-    "Cobertura de ausência",
-    "Demanda operacional",
-    "Solicitação do gestor"
-  ],
-  "Compensação": [
-    "Horas extras trabalhadas",
-    "Trabalho em feriado",
-    "Plantão extraordinário"
-  ],
-  "Dispensa": [
-    "Aniversário",
-    "Doação de sangue",
-    "Casamento"
-  ],
-  "Entrada/Saída": [
-    "Consulta médica",
-    "Compromisso pessoal",
-    "Emergência familiar"
-  ],
-  "Falta Justificada": [
-    "Atestado médico",
-    "Luto",
-    "Licença paternidade/maternidade"
-  ],
-  "Prêmio": [
-    "Assiduidade",
-    "Pontualidade",
-    "Desempenho excepcional"
-  ],
-  "Banco de Horas": [
-    "Acúmulo de horas",
-    "Utilização de horas",
-    "Compensação de saldo"
-  ]
-};
+import { getTiposOcorrencia, getMotivosOcorrencia } from "@/services/parametrosLocalStorage";
 
 export default function NovaOcorrencia() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [tiposOcorrencia, setTiposOcorrencia] = useState<string[]>([]);
+  const [motivosPorTipo, setMotivosPorTipo] = useState<Record<string, string[]>>({});
+  const [loadingParametros, setLoadingParametros] = useState(true);
+  
   const [formData, setFormData] = useState({
     colaborador: "",
     codigo: "",
@@ -75,7 +32,38 @@ export default function NovaOcorrencia() {
     observacoes: ""
   });
 
-  const motivosDisponiveis = formData.tipo ? motivosPredefinidos[formData.tipo as keyof typeof motivosPredefinidos] || [] : [];
+  useEffect(() => {
+    try {
+      const tipos = getTiposOcorrencia(true);
+      const motivos = getMotivosOcorrencia(undefined, true);
+      
+      setTiposOcorrencia(tipos.map(t => t.nome));
+      
+      const agrupados: Record<string, string[]> = {};
+      motivos.forEach(motivo => {
+        const tipo = tipos.find(t => t.id === motivo.tipoId);
+        if (tipo) {
+          if (!agrupados[tipo.nome]) {
+            agrupados[tipo.nome] = [];
+          }
+          agrupados[tipo.nome].push(motivo.nome);
+        }
+      });
+      
+      setMotivosPorTipo(agrupados);
+    } catch (error) {
+      console.error('Erro ao carregar parâmetros:', error);
+      toast({
+        title: 'Erro ao carregar parâmetros',
+        description: 'Não foi possível carregar os tipos e motivos',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingParametros(false);
+    }
+  }, [toast]);
+
+  const motivosDisponiveis = formData.tipo ? motivosPorTipo[formData.tipo] || [] : [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,6 +93,18 @@ export default function NovaOcorrencia() {
       });
     }
   };
+
+  if (loadingParametros) {
+    return (
+      <div className="space-y-6">
+        <Card className="p-6">
+          <p className="text-center text-muted-foreground">
+            Carregando parâmetros...
+          </p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

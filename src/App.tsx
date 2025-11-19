@@ -10,6 +10,7 @@ import { PortalLayout } from "./components/layout/PortalLayout";
 import { AppLayout } from "./components/layout/AppLayout";
 import { ControlePontoSidebar } from "./components/layout/ControlePontoSidebar";
 import { AvaliacaoSidebar } from "./components/layout/AvaliacaoSidebar";
+import { AgendaSidebar } from "./components/layout/AgendaSidebar";
 import { AdminSidebar } from "./components/layout/AdminSidebar";
 import { SGDNCSidebar } from "./components/layout/SGDNCSidebar";
 import Portal from "./pages/Portal";
@@ -42,6 +43,7 @@ import AtribuirAvaliacao from "./pages/apps/avaliacao/AtribuirAvaliacao";
 import ListaAvaliacoes from "./pages/apps/avaliacao/ListaAvaliacoes";
 import RealizarAvaliacao from "./pages/apps/avaliacao/RealizarAvaliacao";
 import DetalhesAvaliacao from "./pages/apps/avaliacao/DetalhesAvaliacao";
+import AgendaDashboard from "./pages/apps/agenda/Dashboard";
 import AdminDashboard from "./pages/apps/admin/Dashboard";
 import GerenciarUsuarios from "./pages/apps/admin/GerenciarUsuarios";
 import NotFound from "./pages/NotFound";
@@ -228,6 +230,18 @@ const App = () => (
                 <ProtectedRoute>
                   <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
                     <DetalhesAvaliacao />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            
+            {/* Agenda app routes */}
+            <Route
+              path="/apps/agenda"
+              element={
+                <ProtectedRoute>
+                  <AppLayout sidebar={<AgendaSidebar />} appName="Agenda">
+                    <AgendaDashboard />
                   </AppLayout>
                 </ProtectedRoute>
               }

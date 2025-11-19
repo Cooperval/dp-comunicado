@@ -1,4 +1,4 @@
-import { Clock, Calendar, FileText, GraduationCap, ClipboardCheck, Shield, FolderOpen, LucideIcon } from 'lucide-react';
+import { Clock, Calendar, FileText, GraduationCap, ClipboardCheck, Shield, FolderOpen, CalendarDays, LucideIcon } from 'lucide-react';
 
 export interface Application {
   id: string;
@@ -28,6 +28,15 @@ export const applications: Application[] = [
     icon: ClipboardCheck,
     route: '/apps/avaliacao',
     color: 'hsl(260 70% 50%)',
+    status: 'active',
+  },
+  {
+    id: 'agenda',
+    name: 'Agenda',
+    description: 'Gerencie seus compromissos e eventos do dia a dia',
+    icon: CalendarDays,
+    route: '/apps/agenda',
+    color: 'hsl(280 70% 55%)',
     status: 'active',
   },
   {

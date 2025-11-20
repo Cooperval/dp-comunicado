@@ -206,3 +206,82 @@ export const buscarCompromissos = (termo: string): Compromisso[] => {
       c.local?.toLowerCase().includes(termoLower)
   );
 };
+
+// Filtrar compromissos
+export const filtrarCompromissos = (
+  compromissos: Compromisso[],
+  categorias?: string[],
+  status?: 'todos' | 'pendentes' | 'concluidos'
+): Compromisso[] => {
+  let filtrados = [...compromissos];
+
+  if (categorias && categorias.length > 0) {
+    filtrados = filtrados.filter((c) => categorias.includes(c.categoria));
+  }
+
+  if (status === 'pendentes') {
+    filtrados = filtrados.filter((c) => !c.concluido);
+  } else if (status === 'concluidos') {
+    filtrados = filtrados.filter((c) => c.concluido);
+  }
+
+  return filtrados;
+};
+
+// CRUD Categorias
+export const updateCategoria = (id: string, dados: Partial<Categoria>): Categoria | null => {
+  const data = getData();
+  const index = data.categorias.findIndex((c) => c.id === id);
+  if (index === -1) return null;
+
+  data.categorias[index] = {
+    ...data.categorias[index],
+    ...dados,
+  };
+  saveData(data);
+  return data.categorias[index];
+};
+
+export const deleteCategoria = (id: string): void => {
+  const data = getData();
+  const categoria = data.categorias.find((c) => c.id === id);
+  if (categoria) {
+    categoria.ativo = false;
+    saveData(data);
+  }
+};
+
+// Estatísticas
+export const getEstatisticasMes = (data: Date) => {
+  const compromissos = getCompromissosPorMes(data);
+  const total = compromissos.length;
+  const concluidos = compromissos.filter((c) => c.concluido).length;
+  const hoje = new Date();
+  const compromissosHoje = compromissos.filter((c) => {
+    const dataComp = parseISO(c.data);
+    return isSameDay(dataComp, hoje);
+  }).length;
+
+  return { total, concluidos, compromissosHoje };
+};
+
+// Próximos compromissos
+export const getProximosCompromissos = (limite: number = 5): Compromisso[] => {
+  const data = getData();
+  const agora = new Date();
+  const agoraStr = format(agora, 'yyyy-MM-dd');
+  const horaAtual = format(agora, 'HH:mm');
+
+  return data.compromissos
+    .filter((c) => {
+      if (c.data > agoraStr) return true;
+      if (c.data === agoraStr && c.horaInicio >= horaAtual) return true;
+      return false;
+    })
+    .sort((a, b) => {
+      const dateCompare = a.data.localeCompare(b.data);
+      if (dateCompare !== 0) return dateCompare;
+      return a.horaInicio.localeCompare(b.horaInicio);
+    })
+    .slice(0, limite);
+};

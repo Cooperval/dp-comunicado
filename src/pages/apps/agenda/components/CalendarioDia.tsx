@@ -9,6 +9,7 @@ import { MapPin, Clock, Pencil, Trash2 } from 'lucide-react';
 import CompromissoDialog from './CompromissoDialog';
 import { toast } from 'sonner';
 import { deleteCompromisso, Compromisso } from '@/services/agendaLocalStorage';
+import { cn } from '@/lib/utils';
 
 interface CalendarioDiaProps {
   data: Date;
@@ -23,6 +24,10 @@ export default function CalendarioDia({ data, onNovoCompromisso }: CalendarioDia
   const estatisticas = useMemo(() => getEstatisticasDia(data), [data, compromissos]);
 
   const horas = Array.from({ length: 24 }, (_, i) => i);
+  const agora = new Date();
+  const horaAtual = agora.getHours();
+  const minutoAtual = agora.getMinutes();
+  const isHoje = format(data, 'yyyy-MM-dd') === format(agora, 'yyyy-MM-dd');
 
   const getCompromissosNaHora = (hora: number) => {
     return compromissos.filter((c) => {
@@ -90,9 +95,25 @@ export default function CalendarioDia({ data, onNovoCompromisso }: CalendarioDia
               const compromissosNaHora = getCompromissosNaHora(hora);
               const horaStr = String(hora).padStart(2, '0');
 
+              const isHoraAtual = isHoje && hora === horaAtual;
+
               return (
-                <div key={hora} className="flex">
-                  <div className="w-20 p-4 text-sm text-muted-foreground font-medium border-r">
+                <div key={hora} className="flex relative">
+                  {/* Indicador de horário atual */}
+                  {isHoraAtual && (
+                    <div className="absolute left-20 right-0 z-10 pointer-events-none" style={{ top: `${(minutoAtual / 60) * 100}%` }}>
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 rounded-full bg-red-500" />
+                        <div className="flex-1 h-0.5 bg-red-500" />
+                        <span className="text-xs text-red-500 font-medium ml-2">Agora</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className={cn(
+                    "w-20 p-4 text-sm font-medium border-r",
+                    isHoraAtual ? "text-red-500" : "text-muted-foreground"
+                  )}>
                     {horaStr}:00
                   </div>
                   <div className="flex-1 p-2">

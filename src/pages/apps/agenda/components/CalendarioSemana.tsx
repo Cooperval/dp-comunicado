@@ -24,6 +24,9 @@ export default function CalendarioSemana({ data, onNovoCompromisso }: Calendario
 
   const horas = Array.from({ length: 24 }, (_, i) => i);
   const hoje = new Date();
+  const horaAtual = hoje.getHours();
+  const minutoAtual = hoje.getMinutes();
+  const isHoje = (dia: Date) => isSameDay(dia, hoje);
 
   const getCompromissosDoDia = (dia: Date) => {
     const dataStr = format(dia, 'yyyy-MM-dd');
@@ -82,6 +85,8 @@ export default function CalendarioSemana({ data, onNovoCompromisso }: Calendario
                 const posicao = getPosicaoHorario(c.horaInicio);
                 return Math.floor(posicao) === hora;
               });
+              
+              const mostrarIndicadorHorario = isHoje(dia) && hora === horaAtual;
 
               return (
                 <div
@@ -89,6 +94,19 @@ export default function CalendarioSemana({ data, onNovoCompromisso }: Calendario
                   className="border-b border-l relative min-h-16 hover:bg-accent/50 cursor-pointer transition-colors"
                   onClick={() => onNovoCompromisso(dia)}
                 >
+                  {/* Indicador de horário atual */}
+                  {mostrarIndicadorHorario && (
+                    <div
+                      className="absolute left-0 right-0 z-20 pointer-events-none"
+                      style={{ top: `${(minutoAtual / 60) * 64}px` }}
+                    >
+                      <div className="flex items-center">
+                        <div className="w-2 h-2 rounded-full bg-red-500" />
+                        <div className="flex-1 h-0.5 bg-red-500" />
+                      </div>
+                    </div>
+                  )}
+
                   {compromissosNaHora.map((comp) => {
                     const posicao = getPosicaoHorario(comp.horaInicio);
                     const topOffset = (posicao - hora) * 64; // 64px = min-h-16

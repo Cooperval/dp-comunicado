@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -8,6 +8,9 @@ import CalendarioMes from './components/CalendarioMes';
 import CalendarioSemana from './components/CalendarioSemana';
 import CalendarioDia from './components/CalendarioDia';
 import CompromissoDialog from './components/CompromissoDialog';
+import FiltrosAgenda from './components/FiltrosAgenda';
+import GerenciarCategorias from './components/GerenciarCategorias';
+import { getCompromissosPorMes, getCompromissosPorSemana, getCompromissosPorDia, filtrarCompromissos, buscarCompromissos } from '@/services/agendaLocalStorage';
 
 type VisualizacaoTipo = 'mes' | 'semana' | 'dia';
 
@@ -16,6 +19,31 @@ export default function Dashboard() {
   const [visualizacao, setVisualizacao] = useState<VisualizacaoTipo>('mes');
   const [dialogAberto, setDialogAberto] = useState(false);
   const [dataInicialDialog, setDataInicialDialog] = useState<Date | undefined>();
+  const [busca, setBusca] = useState('');
+  const [categoriasSelecionadas, setCategoriasSelecionadas] = useState<string[]>([]);
+  const [status, setStatus] = useState<'todos' | 'pendentes' | 'concluidos'>('todos');
+
+  // Compromissos filtrados
+  const compromissosFiltrados = useMemo(() => {
+    let compromissos = 
+      visualizacao === 'mes' ? getCompromissosPorMes(dataAtual) :
+      visualizacao === 'semana' ? getCompromissosPorSemana(dataAtual) :
+      getCompromissosPorDia(dataAtual);
+
+    if (busca) {
+      compromissos = buscarCompromissos(busca).filter(c => {
+        if (visualizacao === 'mes') {
+          return getCompromissosPorMes(dataAtual).some(comp => comp.id === c.id);
+        } else if (visualizacao === 'semana') {
+          return getCompromissosPorSemana(dataAtual).some(comp => comp.id === c.id);
+        } else {
+          return getCompromissosPorDia(dataAtual).some(comp => comp.id === c.id);
+        }
+      });
+    }
+
+    return filtrarCompromissos(compromissos, categoriasSelecionadas.length > 0 ? categoriasSelecionadas : undefined, status);
+  }, [dataAtual, visualizacao, busca, categoriasSelecionadas, status]);
 
   const handleAnterior = () => {
     if (visualizacao === 'mes') {
@@ -89,14 +117,27 @@ export default function Dashboard() {
               <div className="ml-4 font-semibold text-lg capitalize">{getTituloPeriodo()}</div>
             </div>
 
-            <Tabs value={visualizacao} onValueChange={(v) => setVisualizacao(v as VisualizacaoTipo)}>
-              <TabsList>
-                <TabsTrigger value="mes">Mês</TabsTrigger>
-                <TabsTrigger value="semana">Semana</TabsTrigger>
-                <TabsTrigger value="dia">Dia</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="flex gap-2">
+              <Tabs value={visualizacao} onValueChange={(v) => setVisualizacao(v as VisualizacaoTipo)}>
+                <TabsList>
+                  <TabsTrigger value="mes">Mês</TabsTrigger>
+                  <TabsTrigger value="semana">Semana</TabsTrigger>
+                  <TabsTrigger value="dia">Dia</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <GerenciarCategorias />
+            </div>
           </div>
+
+          {/* Filtros */}
+          <FiltrosAgenda
+            busca={busca}
+            onBuscaChange={setBusca}
+            categoriasSelecionadas={categoriasSelecionadas}
+            onCategoriasChange={setCategoriasSelecionadas}
+            status={status}
+            onStatusChange={setStatus}
+          />
         </div>
       </div>
 

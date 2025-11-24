@@ -1,4 +1,4 @@
-import { Clock, Calendar, FileText, GraduationCap, ClipboardCheck, Shield, FolderOpen, CalendarDays, LucideIcon } from 'lucide-react';
+import { Clock, GraduationCap, LucideIcon, ArrowUpDown, ClipboardCheck, ChartBarStacked, FileStack, DollarSign } from 'lucide-react';
 
 export interface Application {
   id: string;
@@ -8,7 +8,7 @@ export interface Application {
   route?: string;
   status: 'active' | 'coming-soon';
   color: string;
-  adminOnly?: boolean;
+  cod_modulo?: number;
 }
 
 export const applications: Application[] = [
@@ -17,9 +17,61 @@ export const applications: Application[] = [
     name: 'Controle de Ponto',
     description: 'Sistema de gestão de ocorrências do ponto eletrônico',
     icon: Clock,
-    route: '/apps/controle-ponto',
+    route: '/apps/controle-ponto/ocorrencias',
     color: 'hsl(140 86% 22%)',
     status: 'active',
+    cod_modulo: 13,
+  },
+  {
+    id: 'fluxo-de-caixa',
+    name: 'Fluxo de Caixa',
+    description: 'Acompanhe as entradas e saídas financeiras',
+    icon: ArrowUpDown,
+    route: '/apps/fluxo-de-caixa',
+    color: 'hsl(200 80% 40%)',
+    status: 'active',
+    cod_modulo: 12,
+  },
+  {
+    id: 'simulador-cenarios',
+    name: 'Simulador de Cenários',
+    description: 'Realize simulações para planejamento estratégico',
+    icon: ChartBarStacked,
+    route: '/apps/simulador-cenarios/cotacoes',
+    color: 'hsla(64, 56%, 56%, 1.00)',
+    status: 'active',
+    cod_modulo: 10,
+  },
+
+  {
+    id: 'controle-financeiro',
+    name: 'Controle Financeiro',
+    description: 'Acompanhe as entradas e saídas financeiras',
+    icon: DollarSign,
+    route: '/apps/controle-financeiro',
+    color: 'hsl(260 70% 50%)',
+    status: 'active',
+    cod_modulo: 16,
+  },
+  {
+    id: 'fechamento',
+    name: 'Fechamento',
+    description: 'Acompanhe o processo de fechamento',
+    icon: DollarSign,
+    route: '/apps/fechamento',
+    color: 'hsla(32, 70%, 50%, 1.00)',
+    status: 'coming-soon',
+    cod_modulo: 17,
+  },
+  {
+    id: 'sgdnc',
+    name: 'Gestão de Documentos e Não Conformidade',
+    description: 'Acesse e gerencie documentos e não conformidades',
+    icon: FileStack,
+    route: '/apps/sgdnc',
+    color: 'hsla(147, 90%, 50%, 1.00)',
+    status: 'coming-soon',
+    cod_modulo: 15,
   },
   {
     id: 'avaliacao',
@@ -27,59 +79,20 @@ export const applications: Application[] = [
     description: 'Gerencie e realize avaliações de jovens aprendizes',
     icon: ClipboardCheck,
     route: '/apps/avaliacao',
-    color: 'hsl(260 70% 50%)',
-    status: 'active',
-  },
-  {
-    id: 'agenda',
-    name: 'Agenda',
-    description: 'Gerencie seus compromissos e eventos do dia a dia',
-    icon: CalendarDays,
-    route: '/apps/agenda',
-    color: 'hsl(280 70% 55%)',
-    status: 'active',
-  },
-  {
-    id: 'ferias',
-    name: 'Solicitação de Férias',
-    description: 'Solicite e acompanhe suas férias',
-    icon: Calendar,
-    color: 'hsl(200 80% 40%)',
+    color: 'hsla(226, 85%, 44%, 1.00)',
     status: 'coming-soon',
+    cod_modulo: 14,
   },
-  {
-    id: 'holerite',
-    name: 'Consulta de Holerite',
-    description: 'Visualize e baixe seus holerites',
-    icon: FileText,
-    color: 'hsl(260 70% 50%)',
-    status: 'coming-soon',
-  },
-  {
-    id: 'treinamentos',
-    name: 'Treinamentos',
-    description: 'Acesse treinamentos e certificações',
-    icon: GraduationCap,
-    color: 'hsl(30 90% 50%)',
-    status: 'coming-soon',
-  },
-  {
-    id: 'sgdnc',
-    name: 'Documentos e Conformidade',
-    description: 'Gestão de documentos e não conformidades com rastreabilidade completa',
-    icon: FolderOpen,
-    route: '/apps/sgdnc',
-    color: 'hsl(210 90% 45%)',
-    status: 'active',
-  },
-  {
-    id: 'admin',
-    name: 'Administração',
-    description: 'Gerencie usuários e permissões do sistema',
-    icon: Shield,
-    route: '/apps/admin',
-    color: 'hsl(0 70% 50%)',
-    status: 'active',
-    adminOnly: true,
-  },
+
+  // {
+  //   id: 'treinamentos',
+  //   name: 'Treinamentos',
+  //   description: 'Acesse treinamentos e certificações',
+  //   icon: GraduationCap,
+  //   color: 'hsl(30 90% 50%)',
+  //   status: 'coming-soon',
+  //   cod_modulo: 4,
+  // },
+
+
 ];

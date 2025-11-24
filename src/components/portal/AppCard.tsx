@@ -38,20 +38,25 @@ export function AppCard({ name, description, icon: Icon, route, status, color }:
       />
       
       <CardHeader className="relative">
-        <div className="flex items-start justify-between">
-          <div
-            className="flex h-14 w-14 items-center justify-center rounded-lg"
-            style={{ backgroundColor: color, opacity: 0.9 }}
-          >
-            <Icon className="h-7 w-7 text-white" />
-          </div>
+        <div className="flex items-start justify-center">
+         
           {status === 'coming-soon' && (
             <Badge variant="secondary" className="text-xs">
               Em breve
             </Badge>
           )}
         </div>
-        <CardTitle className="mt-4">{name}</CardTitle>
+
+        <div className="flex items-start">
+           <div
+            className="flex h-12 w-12 items-center justify-center rounded-lg"
+            style={{ backgroundColor: color, opacity: 0.9 }}
+          >
+            <Icon className="h-7 w-7 text-white" />
+          </div>
+          <CardTitle className="mt-4 pl-4">{name}</CardTitle>
+        </div>
+        
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       

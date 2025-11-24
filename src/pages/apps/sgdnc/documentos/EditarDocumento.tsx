@@ -1,770 +1,322 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+// src/pages/sgdnc/EditarDocumento.tsx
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, X, AlertCircle, Loader2 } from 'lucide-react';
-import { Paragrafo, ImagemConteudo, TabelaConteudo } from '@/types/paragrafo';
-import { ParagrafoEditor } from '@/components/sgdnc/editor/ParagrafoEditor';
-import { SelecionarTipoParagrafo } from '@/components/sgdnc/editor/SelecionarTipoParagrafo';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarIcon } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
-import { PastaTreeSelect } from '@/components/sgdnc/PastaTreeSelect';
-import { TagsInput } from '@/components/sgdnc/TagsInput';
-import { Badge } from '@/components/ui/badge';
-import { getDocumentoById, getPastas, updateDocumento, type Pasta, type Documento, type Versao, type Anexo } from '@/services/sgdncMockData';
 
-const tagsSugeridas = [
-  'MAPA',
-  'ISO 9001',
-  'Exportação',
-  'Higienização',
-  'BPF',
-  'APPCC',
-  'Rastreabilidade',
-  'China',
-  'Qualidade',
-  'Segurança Alimentar',
-];
+import { ParagrafoEditor } from '@/components/sgdnc/editor/ParagrafoEditor';
+import { SelecionarTipoParagrafo } from '@/components/sgdnc/editor/SelecionarTipoParagrafo';
+import { usePastas } from '@/hooks/sgdnc/usePastas';
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-const ACCEPTED_FILE_TYPES = {
-  'application/pdf': ['.pdf'],
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-  'image/png': ['.png'],
-  'image/jpeg': ['.jpg', '.jpeg'],
-  'video/mp4': ['.mp4'],
-};
+import { useDocumentos } from '@/hooks/sgdnc/useDocumentos';
+import { useAuth } from '@/contexts/AuthContext';
+import { Paragrafo } from '@/types/paragrafo';
+import { mockAprovadores } from '@/services/sgdncMockData';
 
 const documentoSchema = z.object({
-  titulo: z.string()
-    .min(3, 'Título deve ter pelo menos 3 caracteres')
-    .max(200, 'Título deve ter no máximo 200 caracteres'),
-  descricao: z.string()
-    .max(1000, 'Descrição deve ter no máximo 1000 caracteres')
-    .optional(),
-  pastaId: z.string().min(1, 'Selecione uma pasta'),
-  tags: z.array(z.string()).max(10, 'Máximo de 10 tags'),
+  titulo: z.string().min(3).max(200),
+  descricao: z.string().max(1000).optional(),
+  pastaId: z.string().min(1),
   tipo: z.enum(['procedimento', 'registro-mapa', 'exportacao', 'outro']),
   nivelConformidade: z.enum(['critico', 'alto', 'medio', 'baixo']),
   dataValidade: z.date().optional().nullable(),
-  edicaoColaborativa: z.boolean().default(false),
-  criarNovaVersao: z.boolean().default(false),
-  comentarioVersao: z.string().optional(),
-}).refine((data) => {
-  if (data.criarNovaVersao && !data.comentarioVersao?.trim()) {
-    return false;
-  }
-  return true;
-}, {
-  message: 'Comentário obrigatório ao criar nova versão',
-  path: ['comentarioVersao'],
+  responsavelAprovacao: z.string().min(1),
+  comentarioSubmissao: z.string().optional(),
 });
 
-type DocumentoFormData = z.infer<typeof documentoSchema>;
+type FormData = z.infer<typeof documentoSchema>;
 
 export default function EditarDocumento() {
-  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const [pastas, setPastas] = useState<Pasta[]>([]);
-  const [documento, setDocumento] = useState<Documento | null>(null);
-  const [arquivo, setArquivo] = useState<File | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [paragrafos, setParagrafos] = useState<Paragrafo[]>([]);
+  const navigate = useNavigate();
+  const { token } = useAuth();
+  const { pastas, fetchPastas } = usePastas();
+  const { documento, loading, error, fetchDocumento } = useDocumentos();
 
-  const form = useForm<DocumentoFormData>({
+  const [paragrafos, setParagrafos] = useState<Paragrafo[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const form = useForm<FormData>({
     resolver: zodResolver(documentoSchema),
-    defaultValues: {
-      titulo: '',
-      descricao: '',
-      pastaId: '',
-      tags: [],
-      tipo: 'procedimento' as const,
-      nivelConformidade: 'medio' as const,
-      edicaoColaborativa: false,
-      criarNovaVersao: false,
-      comentarioVersao: '',
-    },
   });
 
+  // Carrega documento
   useEffect(() => {
-    carregarDados();
-  }, [id]);
+    if (id) fetchDocumento(id);
+    fetchPastas();
+  }, [id, fetchDocumento, fetchPastas]);
 
-  const carregarDados = async () => {
-    try {
-      setLoading(true);
-      const [pastasData, docData] = await Promise.all([
-        getPastas(),
-        getDocumentoById(id!),
-      ]);
-      
-      setPastas(pastasData);
-      setDocumento(docData);
-
-      // Preencher formulário
+  // Preenche formulário
+  useEffect(() => {
+    if (documento) {
       form.reset({
-        titulo: docData.titulo,
-        descricao: docData.descricao,
-        pastaId: docData.pastaId,
-        tags: docData.tags,
-        tipo: docData.tipo,
-        nivelConformidade: docData.nivelConformidade,
-        dataValidade: docData.dataValidade ? new Date(docData.dataValidade) : null,
-        edicaoColaborativa: false,
-        criarNovaVersao: false,
-        comentarioVersao: '',
+        titulo: documento.titulo,
+        descricao: documento.descricao || '',
+        pastaId: String(documento.pasta_id || ''),
+        tipo: documento.tipo,
+        nivelConformidade: documento.nivel_conformidade,
+        dataValidade: documento.data_validade ? new Date(documento.data_validade) : null,
+        responsavelAprovacao: String(documento.responsavel_aprovacao),
+        comentarioSubmissao: documento.comentario_submissao || '',
       });
 
-      // Carregar parágrafos existentes
-      if (docData.paragrafos && docData.paragrafos.length > 0) {
-        setParagrafos(docData.paragrafos);
-      } else {
-        setParagrafos([]);
+      // Carrega parágrafos do conteudo
+      if (documento.conteudo?.paragraphs) {
+        setParagrafos(
+          documento.conteudo.paragraphs.map((p, i) => ({
+            id: p.id || `p-${i}`,
+            ordem: i + 1,
+            tipo: p.type,
+            conteudo: p.content,
+          }))
+        );
       }
-    } catch (error) {
-      toast.error('Erro ao carregar documento');
-      navigate('/apps/sgdnc/documentos');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [documento, form]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    accept: ACCEPTED_FILE_TYPES,
-    maxSize: MAX_FILE_SIZE,
-    maxFiles: 1,
-    onDrop: (acceptedFiles, rejectedFiles) => {
-      if (rejectedFiles.length > 0) {
-        const rejection = rejectedFiles[0];
-        if (rejection.file.size > MAX_FILE_SIZE) {
-          toast.error('Arquivo muito grande. Limite: 50MB');
-        } else {
-          toast.error('Tipo de arquivo não suportado');
-        }
-        return;
-      }
-      if (acceptedFiles.length > 0) {
-        setArquivo(acceptedFiles[0]);
-        form.setValue('criarNovaVersao', true);
-        toast.success('Arquivo carregado. Nova versão será criada.');
-      }
-    },
-  });
-
-  const adicionarParagrafo = (tipo: 'texto' | 'imagem' | 'tabela') => {
-    let conteudoInicial: string | ImagemConteudo | TabelaConteudo;
-    
-    if (tipo === 'texto') {
-      conteudoInicial = '';
-    } else if (tipo === 'imagem') {
-      conteudoInicial = { url: '' };
-    } else {
-      conteudoInicial = { colunas: [], linhas: [] };
-    }
-
-    const novoParagrafo: Paragrafo = {
-      id: `${Date.now()}-${Math.random()}`,
-      ordem: paragrafos.length + 1,
-      tipo,
-      conteudo: conteudoInicial,
-    };
-    
-    setParagrafos([...paragrafos, novoParagrafo]);
-    toast.success(`Parágrafo de ${tipo} adicionado`);
-  };
-
-  const atualizarParagrafo = (id: string, novoConteudo: Paragrafo['conteudo']) => {
-    setParagrafos(paragrafos.map((p) => (p.id === id ? { ...p, conteudo: novoConteudo } : p)));
-  };
-
-  const removerParagrafo = (id: string) => {
-    setParagrafos(
-      paragrafos
-        .filter((p) => p.id !== id)
-        .map((p, idx) => ({ ...p, ordem: idx + 1 }))
-    );
-    toast.success('Parágrafo removido');
-  };
-
-  const moverParagrafo = (id: string, direcao: 'cima' | 'baixo') => {
-    const index = paragrafos.findIndex((p) => p.id === id);
-    if (index === -1) return;
-
-    const novaPosicao = direcao === 'cima' ? index - 1 : index + 1;
-    if (novaPosicao < 0 || novaPosicao >= paragrafos.length) return;
-
-    const novosParagrafos = [...paragrafos];
-    [novosParagrafos[index], novosParagrafos[novaPosicao]] = [
-      novosParagrafos[novaPosicao],
-      novosParagrafos[index],
-    ];
-
-    setParagrafos(novosParagrafos.map((p, idx) => ({ ...p, ordem: idx + 1 })));
-  };
-
-  const onSubmit = async (data: DocumentoFormData) => {
+  const onSubmit = async (data: FormData) => {
     setSaving(true);
     try {
-      const updateData: Partial<Documento> = {
-        titulo: data.titulo,
-        descricao: data.descricao || '',
-        pastaId: data.pastaId,
-        tags: data.tags,
-        tipo: data.tipo,
-        nivelConformidade: data.nivelConformidade,
-        dataValidade: data.dataValidade?.toISOString() || undefined,
-        edicaoColaborativa: data.edicaoColaborativa,
-        paragrafos: paragrafos.map((p) => ({
-          ...p,
-          conteudo:
-            p.tipo === 'imagem' && (p.conteudo as ImagemConteudo).arquivo
-              ? { ...(p.conteudo as ImagemConteudo), arquivo: undefined }
-              : p.conteudo,
-        })),
+      const payload = {
+        ...data,
+        pasta_id: data.pastaId === '' ? null : Number(data.pastaId),
+        data_validade: data.dataValidade?.toISOString() || null,
+        conteudo: {
+          paragraphs: paragrafos.map(p => ({
+            id: p.id,
+            type: p.tipo,
+            content: p.conteudo,
+          })),
+        },
       };
 
-      // Se criar nova versão, atualizar versões e anexos
-      if (data.criarNovaVersao && arquivo) {
-        const novaVersao: Versao = {
-          numero: documento.versaoAtual + 1,
-          comentario: data.comentarioVersao || 'Atualização',
-          arquivo: arquivo.name,
-          criadoPor: 'Usuário Atual',
-          criadoEm: new Date().toISOString(),
-          snapshot: {
-            paragrafos: paragrafos.map((p) => ({
-              ...p,
-              conteudo:
-                p.tipo === 'imagem' && (p.conteudo as ImagemConteudo).arquivo
-                  ? { ...(p.conteudo as ImagemConteudo), arquivo: undefined }
-                  : p.conteudo,
-            })),
-            metadados: {
-              titulo: data.titulo,
-              descricao: data.descricao || '',
-              tags: data.tags,
-            },
-          },
-        };
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/sgdnc/documentos/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
 
-        const novoAnexo: Anexo = {
-          id: Date.now().toString(),
-          nome: arquivo.name,
-          tipo: arquivo.type,
-          tamanho: arquivo.size,
-          url: URL.createObjectURL(arquivo),
-          uploadPor: 'Usuário Atual',
-          uploadEm: new Date().toISOString(),
-        };
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Erro ao salvar');
 
-        updateData.versaoAtual = documento.versaoAtual + 1;
-        updateData.versoes = [...documento.versoes, novaVersao];
-        updateData.anexos = [...documento.anexos, novoAnexo];
-      }
-
-      await updateDocumento(id!, updateData);
-
-      toast.success(
-        data.criarNovaVersao
-          ? 'Documento atualizado e nova versão criada!'
-          : 'Documento atualizado com sucesso!'
-      );
+      toast.success('Documento atualizado com sucesso!');
       navigate('/apps/sgdnc/documentos');
-    } catch (error) {
-      toast.error('Erro ao atualizar documento');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao atualizar');
     } finally {
       setSaving(false);
     }
   };
 
-  const criarNovaVersao = form.watch('criarNovaVersao');
-  const edicaoColaborativa = form.watch('edicaoColaborativa');
+  const adicionarParagrafo = (tipo: 'texto' | 'imagem' | 'tabela') => {
+    const novo: Paragrafo = {
+      id: `${Date.now()}-${Math.random()}`,
+      ordem: paragrafos.length + 1,
+      tipo,
+      conteudo: tipo === 'texto' ? '' : tipo === 'imagem' ? { url: '' } : { colunas: [], linhas: [] },
+    };
+    setParagrafos([...paragrafos, novo]);
+  };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const atualizarParagrafo = (id: string, conteudo: any) => {
+    setParagrafos(p => p.map(p => p.id === id ? { ...p, conteudo } : p));
+  };
 
-  if (!documento) {
-    return (
-      <div className="container max-w-4xl py-8">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Documento não encontrado</AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
+  const removerParagrafo = (id: string) => {
+    setParagrafos(p => p.filter(p => p.id !== id).map((p, i) => ({ ...p, ordem: i + 1 })));
+  };
+
+  const moverParagrafo = (id: string, dir: 'cima' | 'baixo') => {
+    const idx = paragrafos.findIndex(p => p.id === id);
+    if (idx === -1) return;
+    const novoIdx = dir === 'cima' ? idx - 1 : idx + 1;
+    if (novoIdx < 0 || novoIdx >= paragrafos.length) return;
+
+    const novos = [...paragrafos];
+    [novos[idx], novos[novoIdx]] = [novos[novoIdx], novos[idx]];
+    setParagrafos(novos.map((p, i) => ({ ...p, ordem: i + 1 })));
+  };
+
+  if (loading) return <div className="p-8 text-center">Carregando...</div>;
+  if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
+  if (!documento) return null;
 
   return (
     <div className="container max-w-4xl py-8">
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Editar Documento</h1>
-        <p className="text-muted-foreground">
-          Atualize as informações do documento
-        </p>
+        <p className="text-muted-foreground">Atualize as informações do documento</p>
       </div>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {/* Informações Básicas */}
+          {/* === INFORMAÇÕES BÁSICAS === */}
           <Card>
             <CardHeader>
               <CardTitle>Informações Básicas</CardTitle>
-              <CardDescription>Dados principais do documento</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <FormField
-                control={form.control}
-                name="titulo"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Título *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ex: Procedimento Operacional Padrão" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="descricao"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Descrição</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Descreva o conteúdo do documento..."
-                        className="min-h-[100px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      {field.value?.length || 0} / 1000 caracteres
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="pastaId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Pasta *</FormLabel>
-                    <FormControl>
-                      <PastaTreeSelect
-                        pastas={pastas}
-                        value={field.value}
-                        onChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="tags"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tags</FormLabel>
-                    <div className="mb-2">
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Tags sugeridas (clique para adicionar):
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {tagsSugeridas.map((tag) => (
-                          <Badge
-                            key={tag}
-                            variant="outline"
-                            className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                            onClick={() => {
-                              if (!field.value.includes(tag) && field.value.length < 10) {
-                                field.onChange([...field.value, tag]);
-                              }
-                            }}
-                          >
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <FormControl>
-                      <TagsInput
-                        value={field.value}
-                        onChange={field.onChange}
-                        placeholder="Digite uma tag e pressione Enter"
-                        maxTags={10}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Use tags para facilitar a busca (máximo 10)
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <FormField control={form.control} name="titulo" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Título *</FormLabel>
+                  <FormControl><Input {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="descricao" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Descrição</FormLabel>
+                  <FormControl><Textarea className="min-h-[100px]" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="pastaId" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Pasta</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="">Raiz</SelectItem>
+                      {pastas.map(p => (
+                        <SelectItem key={p.ID_PASTA} value={String(p.ID_PASTA)}>
+                          {p.NOME}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )} />
             </CardContent>
           </Card>
 
-          {/* Conteúdo do Documento */}
+          {/* === CONTEÚDO === */}
           <Card>
             <CardHeader>
-              <CardTitle>Conteúdo do Documento</CardTitle>
-              <CardDescription>
-                Estruture o conteúdo em parágrafos dinâmicos com texto, imagens e tabelas
-              </CardDescription>
+              <CardTitle>Conteúdo</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {paragrafos.length === 0 ? (
-                <div className="text-center p-8 border-2 border-dashed rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Nenhum parágrafo adicionado ainda
-                  </p>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Comece adicionando parágrafos de texto, imagens ou tabelas
-                  </p>
-                </div>
+                <p className="text-center text-muted-foreground py-8">Nenhum parágrafo</p>
               ) : (
-                <div className="space-y-4">
-                  {paragrafos.map((paragrafo, index) => (
-                    <ParagrafoEditor
-                      key={paragrafo.id}
-                      paragrafo={paragrafo}
-                      onUpdate={(conteudo) => atualizarParagrafo(paragrafo.id, conteudo)}
-                      onDelete={() => removerParagrafo(paragrafo.id)}
-                      onMoveUp={() => moverParagrafo(paragrafo.id, 'cima')}
-                      onMoveDown={() => moverParagrafo(paragrafo.id, 'baixo')}
-                      isFirst={index === 0}
-                      isLast={index === paragrafos.length - 1}
-                    />
-                  ))}
-                </div>
-              )}
-              
-              <SelecionarTipoParagrafo onSelect={adicionarParagrafo} />
-              
-              {paragrafos.length > 0 && (
-                <p className="text-xs text-muted-foreground text-center">
-                  {paragrafos.length} parágrafo{paragrafos.length !== 1 ? 's' : ''} adicionado{paragrafos.length !== 1 ? 's' : ''}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Controle de Versão */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Controle de Versão</CardTitle>
-              <CardDescription>
-                Versão atual: {documento.versaoAtual}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FormField
-                control={form.control}
-                name="criarNovaVersao"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>Criar nova versão</FormLabel>
-                      <FormDescription>
-                        Uma nova versão será criada mantendo o histórico anterior
-                      </FormDescription>
-                    </div>
-                  </FormItem>
-                )}
-              />
-
-              {criarNovaVersao && (
-                <>
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      Uma nova versão será criada automaticamente. A versão anterior
-                      permanecerá disponível no histórico.
-                    </AlertDescription>
-                  </Alert>
-
-                  <FormField
-                    control={form.control}
-                    name="comentarioVersao"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Comentário da Versão *</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Descreva as alterações realizadas..."
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Obrigatório ao criar nova versão
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                paragrafos.map((p, i) => (
+                  <ParagrafoEditor
+                    key={p.id}
+                    paragrafo={p}
+                    onUpdate={c => atualizarParagrafo(p.id, c)}
+                    onDelete={() => removerParagrafo(p.id)}
+                    onMoveUp={() => moverParagrafo(p.id, 'cima')}
+                    onMoveDown={() => moverParagrafo(p.id, 'baixo')}
+                    isFirst={i === 0}
+                    isLast={i === paragrafos.length - 1}
                   />
+                ))
+              )}
+              <SelecionarTipoParagrafo onSelect={adicionarParagrafo} />
+            </CardContent>
+          </Card>
 
-                  <div
-                    {...getRootProps()}
-                    className={cn(
-                      'border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors',
-                      isDragActive
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                    )}
-                  >
-                    <input {...getInputProps()} />
-                    {arquivo ? (
-                      <div className="flex items-center justify-center gap-4">
-                        <FileText className="h-8 w-8 text-primary" />
-                        <div className="text-left">
-                          <p className="font-medium">{arquivo.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {(arquivo.size / 1024 / 1024).toFixed(2)} MB
-                          </p>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setArquivo(null);
-                          }}
-                        >
-                          <X className="h-4 w-4" />
+          {/* === METADADOS === */}
+          <Card>
+            <CardHeader><CardTitle>Metadados</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <FormField control={form.control} name="tipo" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tipo</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="procedimento">Procedimento</SelectItem>
+                      <SelectItem value="registro-mapa">Registro MAPA</SelectItem>
+                      <SelectItem value="exportacao">Exportação</SelectItem>
+                      <SelectItem value="outro">Outro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="nivelConformidade" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nível</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="critico">Crítico</SelectItem>
+                      <SelectItem value="alto">Alto</SelectItem>
+                      <SelectItem value="medio">Médio</SelectItem>
+                      <SelectItem value="baixo">Baixo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="dataValidade" render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Validade</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button variant="outline" className={cn('w-full', !field.value && 'text-muted-foreground')}>
+                          {field.value ? format(field.value, 'PPP', { locale: ptBR }) : 'Selecione'}
+                          <CalendarIcon className="ml-auto h-4 w-4" />
                         </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <Upload className="h-12 w-12 mx-auto text-muted-foreground" />
-                        <div>
-                          <p className="font-medium">
-                            Arraste o novo arquivo ou clique para selecionar
-                          </p>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            PDF, DOCX, XLSX, PNG, JPG, MP4 (máx. 50MB)
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Metadados Regulatórios */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Metadados Regulatórios</CardTitle>
-              <CardDescription>Informações de conformidade e rastreabilidade</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FormField
-                control={form.control}
-                name="tipo"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo de Documento *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o tipo" />
-                        </SelectTrigger>
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="procedimento">
-                          Procedimento Operacional
-                        </SelectItem>
-                        <SelectItem value="registro-mapa">Registro MAPA</SelectItem>
-                        <SelectItem value="exportacao">
-                          Relatório de Exportação
-                        </SelectItem>
-                        <SelectItem value="outro">Outro</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="nivelConformidade"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nível de Conformidade *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="critico">Crítico</SelectItem>
-                        <SelectItem value="alto">Alto</SelectItem>
-                        <SelectItem value="medio">Médio</SelectItem>
-                        <SelectItem value="baixo">Baixo</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="dataValidade"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Data de Validade</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              'w-full pl-3 text-left font-normal',
-                              !field.value && 'text-muted-foreground'
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, 'PPP', { locale: ptBR })
-                            ) : (
-                              <span>Selecione uma data</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value || undefined}
-                          onSelect={field.onChange}
-                          disabled={(date) => date < new Date()}
-                          initialFocus
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormDescription>
-                      Deixe em branco se não houver validade
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                    </PopoverTrigger>
+                    <PopoverContent><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent>
+                  </Popover>
+                </FormItem>
+              )} />
             </CardContent>
           </Card>
 
-          {/* Permissões */}
+          {/* === APROVAÇÃO === */}
           <Card>
-            <CardHeader>
-              <CardTitle>Permissões</CardTitle>
-              <CardDescription>Controle de acesso ao documento</CardDescription>
-            </CardHeader>
+            <CardHeader><CardTitle>Aprovação</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              <FormField
-                control={form.control}
-                name="edicaoColaborativa"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>Habilitar edição colaborativa</FormLabel>
-                      <FormDescription>
-                        Outros usuários poderão editar este documento simultaneamente
-                      </FormDescription>
-                    </div>
-                  </FormItem>
-                )}
-              />
-
-              {edicaoColaborativa && (
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Outros usuários podem estar editando este documento. Mudanças são
-                    sincronizadas em tempo real.
-                  </AlertDescription>
-                </Alert>
-              )}
+              <FormField control={form.control} name="responsavelAprovacao" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Responsável</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {mockAprovadores.map(a => (
+                        <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="comentarioSubmissao" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Comentário</FormLabel>
+                  <FormControl><Textarea {...field} /></FormControl>
+                </FormItem>
+              )} />
             </CardContent>
           </Card>
 
-          {/* Botões de Ação */}
+          {/* === AÇÕES === */}
           <div className="flex gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate('/apps/sgdnc/documentos')}
-              disabled={saving}
-            >
+            <Button type="button" variant="outline" onClick={() => navigate(-1)} disabled={saving}>
               Cancelar
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                'Salvar Alterações'
-              )}
+              {saving ? 'Salvando...' : 'Salvar Alterações'}
             </Button>
           </div>
         </form>

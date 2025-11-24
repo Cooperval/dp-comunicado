@@ -7,8 +7,10 @@ import {
   Settings,
   LogOut,
   ClipboardCheck,
+  ArrowLeft,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, NavLink } from 'react-router-dom';
+import logo from '@/assets/logo-4.png';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Sidebar,
@@ -48,20 +50,30 @@ export function SGDNCSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="border-b border-border p-4">
-        {!isCollapsed && (
-          <div className="flex items-center gap-2">
-            <FolderOpen className="h-6 w-6 text-primary" />
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">SGDNC</h2>
-              <p className="text-xs text-muted-foreground">Documentos & Conformidade</p>
-            </div>
-          </div>
-        )}
-        {isCollapsed && <FolderOpen className="h-6 w-6 text-primary mx-auto" />}
-      </SidebarHeader>
+
 
       <SidebarContent>
+        <div className="p-6 border-b border-border">
+          <h2 className="transition-smooth text-xl">
+            <img src={logo} alt="Cooperval" className="h-15 object-contain" />
+          </h2>
+        </div>
+
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink to="/portal">
+                    <ArrowLeft className="h-4 w-4" />
+                    <span>Voltar ao Portal</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         <SidebarGroup>
           <SidebarGroupLabel>Navegação</SidebarGroupLabel>
           <SidebarGroupContent>

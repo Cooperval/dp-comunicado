@@ -1,4 +1,4 @@
-import { Home, ClipboardCheck, Plus, List, FileText, UserPlus } from 'lucide-react';
+import { Home, ClipboardCheck, Plus, List, FileText, UserPlus, ArrowLeft } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import {
   Sidebar,
@@ -16,6 +16,8 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 
+import logo from '@/assets/logo-4.png';
+
 export function AvaliacaoSidebar() {
   const { user } = useAuth();
   const { state } = useSidebar();
@@ -24,21 +26,26 @@ export function AvaliacaoSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2 px-2 py-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            asChild
-            className="w-full justify-start"
-          >
-            <NavLink to="/portal">
-              <Home className="h-4 w-4" />
-              {!isCollapsed && <span className="ml-2">Voltar ao Portal</span>}
-            </NavLink>
-          </Button>
-        </div>
-      </SidebarHeader>
+      <div className="p-6 border-b border-border">
+        <h2 className="transition-smooth text-xl">
+          <img src={logo} alt="Cooperval" className="h-15 object-contain" />
+        </h2>
+      </div>
+
+      <SidebarGroup>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild>
+                <NavLink to="/portal">
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Voltar ao Portal</span>
+                </NavLink>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
 
       <SidebarContent>
         <SidebarGroup>
@@ -74,6 +81,25 @@ export function AvaliacaoSidebar() {
                   </SidebarMenuItem>
                 </>
               )}
+
+              <>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                      <NavLink to="/apps/avaliacao/modelos">
+                        <FileText className="h-4 w-4" />
+                        <span>Gerenciar Modelos</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                      <NavLink to="/apps/avaliacao/atribuir">
+                        <UserPlus className="h-4 w-4" />
+                        <span>Atribuir Avaliação</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </>
 
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>

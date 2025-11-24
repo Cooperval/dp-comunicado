@@ -146,11 +146,10 @@ export interface Treinamento {
 
 // Mock de aprovadores
 export const mockAprovadores: Aprovador[] = [
-  { id: 'quimico1', nome: 'Dr. João Silva', cargo: 'quimico' },
-  { id: 'quimico2', nome: 'Dra. Ana Paula', cargo: 'quimico' },
-  { id: 'supervisor1', nome: 'Maria Santos', cargo: 'supervisor' },
-  { id: 'supervisor2', nome: 'Carlos Oliveira', cargo: 'supervisor' },
-  { id: 'gerente1', nome: 'Roberto Lima', cargo: 'gerente' },
+  { id: '1868', nome: 'Jose Luiz Bernardi Junior', cargo: '' },
+  { id: '9933', nome: 'Fernando Teuber', cargo: '' },
+  { id: '2063', nome: 'Fernando Fernandes Nardine', cargo: '' },
+
 ];
 
 const STORAGE_KEYS = {
@@ -167,53 +166,53 @@ const mockPastas: Pasta[] = [
   { id: '2', nome: 'Registros MAPA', cor: 'hsl(142 76% 40%)' },
   { id: '3', nome: 'Exportação China', cor: 'hsl(25 95% 55%)' },
   { id: '4', nome: 'ISO 9001', cor: 'hsl(260 70% 55%)' },
-  
+
   // ===== Subpastas de "Procedimentos Operacionais" =====
   { id: '1-1', nome: 'Higienização', pastaParentId: '1', cor: 'hsl(210 75% 60%)' },
   { id: '1-2', nome: 'Manutenção', pastaParentId: '1', cor: 'hsl(210 75% 65%)' },
   { id: '1-3', nome: 'Segurança', pastaParentId: '1', cor: 'hsl(210 75% 70%)' },
-  
+
   // ===== Sub-subpastas de "Higienização" =====
   { id: '1-1-1', nome: 'Equipamentos', pastaParentId: '1-1', cor: 'hsl(210 60% 70%)' },
   { id: '1-1-2', nome: 'Ambientes', pastaParentId: '1-1', cor: 'hsl(210 60% 75%)' },
   { id: '1-1-3', nome: 'Veículos', pastaParentId: '1-1', cor: 'hsl(210 60% 80%)' },
-  
+
   // ===== Sub-subpastas de "Manutenção" =====
   { id: '1-2-1', nome: 'Preventiva', pastaParentId: '1-2', cor: 'hsl(210 60% 70%)' },
   { id: '1-2-2', nome: 'Corretiva', pastaParentId: '1-2', cor: 'hsl(210 60% 75%)' },
-  
+
   // ===== Subpastas de "Registros MAPA" =====
   { id: '2-1', nome: 'Inspeções', pastaParentId: '2', cor: 'hsl(142 65% 50%)' },
   { id: '2-2', nome: 'Auditorias', pastaParentId: '2', cor: 'hsl(142 65% 55%)' },
   { id: '2-3', nome: 'Certificações', pastaParentId: '2', cor: 'hsl(142 65% 60%)' },
-  
+
   // ===== Sub-subpastas de "Inspeções" =====
   { id: '2-1-1', nome: '2024', pastaParentId: '2-1', cor: 'hsl(142 55% 60%)' },
   { id: '2-1-2', nome: '2023', pastaParentId: '2-1', cor: 'hsl(142 55% 65%)' },
   { id: '2-1-3', nome: 'Arquivo', pastaParentId: '2-1', cor: 'hsl(142 55% 70%)' },
-  
+
   // ===== Sub-subpastas de "Auditorias" =====
   { id: '2-2-1', nome: 'Internas', pastaParentId: '2-2', cor: 'hsl(142 55% 60%)' },
   { id: '2-2-2', nome: 'Externas', pastaParentId: '2-2', cor: 'hsl(142 55% 65%)' },
-  
+
   // ===== Subpastas de "Exportação China" =====
   { id: '3-1', nome: 'Certificados', pastaParentId: '3', cor: 'hsl(25 85% 65%)' },
   { id: '3-2', nome: 'Análises', pastaParentId: '3', cor: 'hsl(25 85% 70%)' },
   { id: '3-3', nome: 'Embarques', pastaParentId: '3', cor: 'hsl(25 85% 75%)' },
-  
+
   // ===== Sub-subpastas de "Certificados" =====
   { id: '3-1-1', nome: 'Sanitários', pastaParentId: '3-1', cor: 'hsl(25 70% 70%)' },
   { id: '3-1-2', nome: 'Qualidade', pastaParentId: '3-1', cor: 'hsl(25 70% 75%)' },
-  
+
   // ===== Sub-subpastas de "Análises" =====
   { id: '3-2-1', nome: 'Microbiológicas', pastaParentId: '3-2', cor: 'hsl(25 70% 70%)' },
   { id: '3-2-2', nome: 'Físico-Químicas', pastaParentId: '3-2', cor: 'hsl(25 70% 75%)' },
-  
+
   // ===== Subpastas de "ISO 9001" =====
   { id: '4-1', nome: 'Processos', pastaParentId: '4', cor: 'hsl(260 60% 65%)' },
   { id: '4-2', nome: 'Indicadores', pastaParentId: '4', cor: 'hsl(260 60% 70%)' },
   { id: '4-3', nome: 'Reuniões', pastaParentId: '4', cor: 'hsl(260 60% 75%)' },
-  
+
   // ===== Sub-subpastas de "Processos" =====
   { id: '4-1-1', nome: 'Produção', pastaParentId: '4-1', cor: 'hsl(260 50% 70%)' },
   { id: '4-1-2', nome: 'Qualidade', pastaParentId: '4-1', cor: 'hsl(260 50% 75%)' },
@@ -274,7 +273,7 @@ const mockDocumentos: Documento[] = [
     criadoEm: '2024-01-10T10:00:00Z',
     atualizadoEm: '2024-10-15T14:30:00Z',
   },
-  
+
   // ===== Documentos em Subpastas - Higienização =====
   {
     id: '2',
@@ -319,7 +318,7 @@ const mockDocumentos: Documento[] = [
     criadoEm: '2024-02-15T10:00:00Z',
     atualizadoEm: '2024-10-15T14:30:00Z',
   },
-  
+
   // ===== Documentos em Sub-subpastas - Equipamentos =====
   {
     id: '3',
@@ -458,7 +457,7 @@ const mockDocumentos: Documento[] = [
     criadoEm: '2024-02-20T10:00:00Z',
     atualizadoEm: '2024-08-12T09:00:00Z',
   },
-  
+
   // ===== Documentos em Sub-subpastas - Ambientes =====
   {
     id: '6',
@@ -525,7 +524,7 @@ const mockDocumentos: Documento[] = [
     criadoEm: '2024-04-10T10:00:00Z',
     atualizadoEm: '2024-09-15T10:00:00Z',
   },
-  
+
   // ===== Documentos em Manutenção - Preventiva =====
   {
     id: '8',
@@ -559,7 +558,7 @@ const mockDocumentos: Documento[] = [
     criadoEm: '2024-01-05T10:00:00Z',
     atualizadoEm: '2024-01-05T10:00:00Z',
   },
-  
+
   // ===== Documentos em Registros MAPA - Inspeções 2024 =====
   {
     id: '9',
@@ -623,7 +622,7 @@ const mockDocumentos: Documento[] = [
     criadoEm: '2024-10-25T15:00:00Z',
     atualizadoEm: '2024-10-25T15:00:00Z',
   },
-  
+
   // ===== Documentos em Auditorias - Internas =====
   {
     id: '11',
@@ -656,7 +655,7 @@ const mockDocumentos: Documento[] = [
     criadoEm: '2024-03-31T17:00:00Z',
     atualizadoEm: '2024-03-31T17:00:00Z',
   },
-  
+
   // ===== Documentos em Exportação - Certificados Sanitários =====
   {
     id: '12',
@@ -689,7 +688,7 @@ const mockDocumentos: Documento[] = [
     criadoEm: '2024-10-20T10:00:00Z',
     atualizadoEm: '2024-10-20T10:00:00Z',
   },
-  
+
   // ===== Documentos em Análises - Microbiológicas =====
   {
     id: '13',
@@ -722,7 +721,7 @@ const mockDocumentos: Documento[] = [
     criadoEm: '2024-10-18T14:00:00Z',
     atualizadoEm: '2024-10-18T14:00:00Z',
   },
-  
+
   // ===== Documentos em ISO 9001 - Processos - Produção =====
   {
     id: '14',
@@ -1028,7 +1027,7 @@ export const aprovarDocumento = async (id: string, usuario: string, comentario?:
     comentario,
     data: new Date().toISOString(),
   });
-  
+
   saveToStorage(STORAGE_KEYS.DOCUMENTOS, docs);
 };
 
@@ -1048,7 +1047,7 @@ export const rejeitarDocumento = async (id: string, usuario: string, motivo: str
     comentario: motivo,
     data: new Date().toISOString(),
   });
-  
+
   saveToStorage(STORAGE_KEYS.DOCUMENTOS, docs);
 };
 
@@ -1066,7 +1065,7 @@ export const solicitarRevisaoDocumento = async (id: string, usuario: string, com
     comentario,
     data: new Date().toISOString(),
   });
-  
+
   saveToStorage(STORAGE_KEYS.DOCUMENTOS, docs);
 };
 
@@ -1135,7 +1134,7 @@ export const confirmarLeitura = async (
   if (!treinamento) throw new Error('Treinamento não encontrado');
 
   treinamento.confirmacoes.push(confirmacao);
-  
+
   // Atualizar status se todos confirmaram
   if (treinamento.confirmacoes.length === treinamento.participantes.length) {
     treinamento.status = 'concluido';
@@ -1165,7 +1164,7 @@ export const getKPIs = async () => {
 
 export const getDadosGrafico = async (tipo: string) => {
   await delay(300);
-  
+
   if (tipo === 'ncs-mes') {
     return [
       { mes: 'Mai', abertas: 5, resolvidas: 3 },
@@ -1194,12 +1193,12 @@ export const getDocumentoByVersao = async (id: string, versaoNumero: number): Pr
   await delay(300);
   const documentos = getFromStorage(STORAGE_KEYS.DOCUMENTOS, mockDocumentos);
   const doc = documentos.find((d) => d.id === id);
-  
+
   if (!doc) throw new Error('Documento não encontrado');
-  
+
   const versao = doc.versoes.find((v) => v.numero === versaoNumero);
   if (!versao) throw new Error('Versão não encontrada');
-  
+
   // Retornar documento com dados da versão específica
   return {
     ...doc,
@@ -1215,21 +1214,21 @@ export const getDocumentoByVersao = async (id: string, versaoNumero: number): Pr
 
 // Função para restaurar versão antiga (cria nova versão com conteúdo da versão antiga)
 export const restaurarVersao = async (
-  id: string, 
-  versaoNumero: number, 
+  id: string,
+  versaoNumero: number,
   comentario: string = `Restaurado da versão ${versaoNumero}`
 ): Promise<Documento> => {
   await delay(500);
   const documentos = getFromStorage(STORAGE_KEYS.DOCUMENTOS, mockDocumentos);
   const docIndex = documentos.findIndex((d) => d.id === id);
-  
+
   if (docIndex === -1) throw new Error('Documento não encontrado');
-  
+
   const doc = documentos[docIndex];
   const versaoAntiga = doc.versoes.find((v) => v.numero === versaoNumero);
-  
+
   if (!versaoAntiga) throw new Error('Versão não encontrada');
-  
+
   // Criar nova versão baseada na versão antiga
   const novaVersao: Versao = {
     numero: doc.versaoAtual + 1,
@@ -1239,12 +1238,12 @@ export const restaurarVersao = async (
     criadoEm: new Date().toISOString(),
     snapshot: versaoAntiga.snapshot, // Copiar snapshot da versão antiga
   };
-  
+
   // Atualizar documento
   doc.versoes.push(novaVersao);
   doc.versaoAtual = novaVersao.numero;
   doc.atualizadoEm = new Date().toISOString();
-  
+
   // Se tinha snapshot, restaurar os parágrafos
   if (versaoAntiga.snapshot) {
     doc.paragrafos = versaoAntiga.snapshot.paragrafos;
@@ -1252,7 +1251,7 @@ export const restaurarVersao = async (
     doc.descricao = versaoAntiga.snapshot.metadados.descricao;
     doc.tags = versaoAntiga.snapshot.metadados.tags;
   }
-  
+
   // Adicionar no histórico
   doc.historico.push({
     id: `${doc.id}-restore-${Date.now()}`,
@@ -1262,7 +1261,7 @@ export const restaurarVersao = async (
     comentario: `Versão ${versaoNumero} restaurada`,
     data: new Date().toISOString(),
   });
-  
+
   saveToStorage(STORAGE_KEYS.DOCUMENTOS, documentos);
   return doc;
 };

@@ -3,14 +3,20 @@ import { AppCard } from '@/components/portal/AppCard';
 import { applications } from '@/config/applications';
 
 export default function Portal() {
-  const { user } = useAuth();
+  const { user, acessos } = useAuth();
 
-  const userApps = applications.filter((app) => {
-    if (app.adminOnly && user?.role !== 'admin') {
-      return false;
-    }
-    return user?.allowedApps?.includes(app.id) || false;
+  console.log('user', user);
+  
+  console.log('acessos', acessos);
+
+  // Filter applications based on user access
+  const accessibleApps = applications.filter((app) => {
+    if (!app.cod_modulo) return false; // Skip apps without cod_modulo
+    const access = acessos.find((acesso) => acesso.COD_MODULO === app.cod_modulo);
+    return access && ['A', 'S', 'G', 'U'].includes(access.TIPO_ACESSO);
   });
+
+    console.log('accessibleApps', accessibleApps);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -24,7 +30,7 @@ export default function Portal() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {userApps.map((app) => (
+        {accessibleApps.map((app) => (
           <AppCard
             key={app.id}
             name={app.name}
@@ -43,10 +49,10 @@ export default function Portal() {
         </h2>
         <p className="text-muted-foreground">
           Entre em contato com o suporte através do email{' '}
-          <a href="mailto:suporte@empresa.com" className="text-primary hover:underline">
-            suporte@empresa.com
+          <a href="mailto:fasilva@cooperval.coop.br" className="text-primary hover:underline">
+            fasilva@cooperval.coop.br
           </a>{' '}
-          ou ramal 2000.
+          ou ramal 9899 ou 9299.
         </p>
       </div>
     </div>

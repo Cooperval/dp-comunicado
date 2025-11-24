@@ -1,417 +1,197 @@
-import { useState, useEffect } from 'react';
+// src/pages/sgdnc/VisualizarDocumento.tsx
 import { useParams, useNavigate } from 'react-router-dom';
+import { useDocumentos } from '@/hooks/sgdnc/useDocumentos';
+import { useEffect, useState } from 'react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import {
-  ArrowLeft,
-  Edit,
-  Download,
-  Share2,
-  ChevronRight,
-  ChevronLeft,
-  FileText,
-  Paperclip,
-  History,
-  Activity,
-  Loader2,
+  ArrowLeft, Edit, Download, Share2, ChevronRight, ChevronLeft,
+  FileText, History, Activity, Loader2
 } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { getDocumentoById, type Documento } from '@/services/sgdncMockData';
-import { VersionHistory } from '@/components/sgdnc/VersionHistory';
-import { AuditLog } from '@/components/sgdnc/AuditLog';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import type { ImagemConteudo, TabelaConteudo } from '@/types/paragrafo';
-
-// Mock audit logs
-const mockAuditLogs = [
-  {
-    id: '1',
-    tipo: 'visualizacao' as const,
-    usuario: 'João Silva',
-    data: new Date().toISOString(),
-    detalhes: 'Abriu o documento para leitura',
-  },
-  {
-    id: '2',
-    tipo: 'edicao' as const,
-    usuario: 'Maria Santos',
-    data: new Date(Date.now() - 86400000).toISOString(),
-    detalhes: 'Atualizou informações do documento',
-  },
-  {
-    id: '3',
-    tipo: 'download' as const,
-    usuario: 'Pedro Costa',
-    data: new Date(Date.now() - 172800000).toISOString(),
-    detalhes: 'Baixou versão 2.0',
-  },
-];
+import { ParagrafoViewer } from '@/components/sgdnc/editor/ParagrafoViewer';
 
 export default function VisualizarDocumento() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [documento, setDocumento] = useState<Documento | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { documentos, loading: loadingDocs } = useDocumentos();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  useEffect(() => {
-    carregarDocumento();
-  }, [id]);
+  // Encontra o documento pelo id_documento
+  const documento = documentos.find(doc => doc.id_documento === Number(id));
 
-  const carregarDocumento = async () => {
-    try {
-      setLoading(true);
-      const doc = await getDocumentoById(id!);
-      if (!doc) {
-        toast.error('Documento não encontrado');
-        navigate('/apps/sgdnc/documentos');
-        return;
-      }
-      setDocumento(doc);
-    } catch (error) {
-      toast.error('Erro ao carregar documento');
+  useEffect(() => {
+    if (!loadingDocs && !documento) {
+      toast.error('Documento não encontrado');
       navigate('/apps/sgdnc/documentos');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [documento, loadingDocs, navigate]);
 
   const handleDownload = () => {
+    if (!documento?.conteudo) return;
+
+    const texto = documento.conteudo.paragraphs
+      .map(p => {
+        if (p.type === 'texto') return p.content;
+        if (p.type === 'tabela') {
+          return p.content.colunas.join(' | ') + '\n' +
+            p.content.linhas.map((row: string[]) => row.join(' | ')).join('\n');
+        }
+        return '';
+      })
+      .join('\n\n');
+
+    const blob = new Blob([`
+TÍTULO: ${documento.titulo}
+TIPO: ${documento.tipo}
+NÍVEL: ${documento.nivel_conformidade}
+VALIDADE: ${documento.data_validade ? new Date(documento.data_validade).toLocaleDateString() : 'Sem'}
+CONTEÚDO:
+${texto}
+    `.trim()], { type: 'text/plain' });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${documento.titulo.replace(/[^a-z0-9]/gi, '_')}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
     toast.success('Download iniciado');
   };
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
-    toast.success('Link copiado para a área de transferência');
+    toast.success('Link copiado!');
   };
 
-  const handleRestore = (versao: number) => {
-    toast.success(`Versão ${versao} restaurada com sucesso`);
-    carregarDocumento();
-  };
-
-  if (loading) {
+  if (loadingDocs) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
 
   if (!documento) {
-    return null;
+    return null; // useEffect redireciona
   }
-
-  const isPDF = documento.anexos[0]?.tipo === 'application/pdf';
-  const isImage = documento.anexos[0]?.tipo?.startsWith('image/');
 
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="border-b bg-background p-4 space-y-4">
+      <div className="border-b bg-background p-4">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 space-y-2">
+          <div className="flex-1">
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate('/apps/sgdnc/documentos')}
-              >
+              <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <h1 className="text-2xl font-bold">{documento.titulo}</h1>
             </div>
-
-            <div className="flex flex-wrap items-center gap-2 ml-10">
-              <Badge variant="secondary">v{documento.versaoAtual}</Badge>
-              {documento.tags.map((tag) => (
-                <Badge key={tag} variant="outline">
-                  {tag}
-                </Badge>
-              ))}
+            <div className="flex items-center gap-2 mt-2 ml-10">
+              <Badge variant="secondary">v{documento.versao}</Badge>
+              <Badge variant="outline">{documento.tipo.replace('-', ' ')}</Badge>
             </div>
-
             {documento.descricao && (
-              <p className="text-sm text-muted-foreground ml-10">{documento.descricao}</p>
+              <p className="text-sm text-muted-foreground mt-1 ml-10">{documento.descricao}</p>
             )}
           </div>
-
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => navigate(`/apps/sgdnc/documentos/${id}/editar`)}
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Editar
+            <Button variant="outline" onClick={() => navigate(`/apps/sgdnc/documentos/${id}/editar`)}>
+              <Edit className="h-4 w-4 mr-2" /> Editar
             </Button>
             <Button variant="outline" onClick={handleDownload}>
-              <Download className="h-4 w-4 mr-2" />
-              Baixar
+              <Download className="h-4 w-4 mr-2" /> Baixar
             </Button>
             <Button variant="outline" onClick={handleShare}>
-              <Share2 className="h-4 w-4 mr-2" />
-              Compartilhar
+              <Share2 className="h-4 w-4 mr-2" /> Compartilhar
             </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-            >
-              {sidebarOpen ? (
-                <ChevronRight className="h-4 w-4" />
-              ) : (
-                <ChevronLeft className="h-4 w-4" />
-              )}
+            <Button variant="outline" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
+              {sidebarOpen ? <ChevronRight /> : <ChevronLeft />}
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Viewer Area */}
-        <div className="flex-1 overflow-auto bg-muted/30">
-          <div className="container max-w-5xl py-8">
+        <div className="flex-1 overflow-auto bg-muted/30 p-6">
+          <div className="max-w-4xl mx-auto space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
-                  Visualização do Documento
+                  Conteúdo do Documento
                 </CardTitle>
                 <CardDescription>
-                  Última atualização:{' '}
-                  {format(new Date(documento.atualizadoEm), "dd/MM/yyyy 'às' HH:mm", {
-                    locale: ptBR,
-                  })}
+                  Criado em: {format(new Date(documento.created_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {isPDF ? (
-                  <div className="aspect-[8.5/11] bg-white rounded-lg border">
-                    <iframe
-                      src={documento.anexos[0].url}
-                      className="w-full h-full rounded-lg"
-                      title={documento.titulo}
-                    />
-                  </div>
-                ) : isImage ? (
-                  <div className="flex justify-center">
-                    <img
-                      src={documento.anexos[0].url}
-                      alt={documento.titulo}
-                      className="max-w-full h-auto rounded-lg border"
-                    />
+                {documento.conteudo?.paragraphs && documento.conteudo.paragraphs.length > 0 ? (
+                  <div className="space-y-6">
+                    {documento.conteudo.paragraphs.map((p, i) => (
+                      <ParagrafoViewer key={p.id || i} paragrafo={p} />
+                    ))}
                   </div>
                 ) : (
-                  <div className="text-center py-12 space-y-4">
-                    <FileText className="h-16 w-16 mx-auto text-muted-foreground" />
-                    <div>
-                      <h3 className="text-lg font-medium">
-                        Pré-visualização não disponível
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        Formato: {documento.anexos[0]?.tipo || 'Desconhecido'}
-                      </p>
-                    </div>
-                    <Button onClick={handleDownload}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Baixar Documento
-                    </Button>
-                  </div>
+                  <p className="text-center text-muted-foreground py-8">Sem conteúdo estruturado.</p>
                 )}
               </CardContent>
             </Card>
 
-            {/* Document Content (Paragraphs) */}
-            {documento.paragrafos && documento.paragrafos.length > 0 && (
-              <Card className="mt-6">
-                <CardHeader>
-                  <CardTitle>Conteúdo do Documento</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {documento.paragrafos.map((paragrafo) => (
-                    <div key={paragrafo.id} className="space-y-2">
-                      {paragrafo.tipo === 'texto' && (
-                        <div className="prose prose-sm max-w-none dark:prose-invert">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {paragrafo.conteudo as string}
-                          </ReactMarkdown>
-                        </div>
-                      )}
-                      
-                      {paragrafo.tipo === 'imagem' && (
-                        <div className="space-y-2">
-                          <img
-                            src={(paragrafo.conteudo as ImagemConteudo).url}
-                            alt={(paragrafo.conteudo as ImagemConteudo).legenda || 'Imagem do documento'}
-                            className="max-w-full h-auto rounded-lg border"
-                          />
-                          {(paragrafo.conteudo as ImagemConteudo).legenda && (
-                            <p className="text-sm text-muted-foreground text-center">
-                              {(paragrafo.conteudo as ImagemConteudo).legenda}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                      
-                      {paragrafo.tipo === 'tabela' && (
-                        <div className="overflow-x-auto">
-                          <table className="w-full border-collapse border">
-                            <thead>
-                              <tr className="bg-muted/50">
-                                {(paragrafo.conteudo as TabelaConteudo).colunas.map((coluna, idx) => (
-                                  <th key={idx} className="border px-4 py-2 text-left font-medium">
-                                    {coluna}
-                                  </th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {(paragrafo.conteudo as TabelaConteudo).linhas.map((linha, rowIdx) => (
-                                <tr key={rowIdx}>
-                                  {linha.map((celula, cellIdx) => (
-                                    <td key={cellIdx} className="border px-4 py-2">
-                                      {celula}
-                                    </td>
-                                  ))}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                      
-                      {paragrafo.ordem < documento.paragrafos!.length && (
-                        <Separator className="my-4" />
-                      )}
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Metadata Card */}
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle>Informações do Documento</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-2">
+            <Card>
+              <CardHeader><CardTitle>Metadados</CardTitle></CardHeader>
+              <CardContent className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm font-medium">Tipo</p>
-                  <p className="text-sm text-muted-foreground capitalize">
-                    {documento.tipo.replace('-', ' ')}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Nível de Conformidade</p>
-                  <Badge
-                    variant={
-                      documento.nivelConformidade === 'critico'
-                        ? 'destructive'
-                        : documento.nivelConformidade === 'alto'
-                        ? 'default'
-                        : 'secondary'
-                    }
-                    className="capitalize"
-                  >
-                    {documento.nivelConformidade}
+                  <p className="font-medium text-sm">Nível</p>
+                  <Badge className="mt-1" variant={
+                    documento.nivel_conformidade === 'critico' ? 'destructive' :
+                    documento.nivel_conformidade === 'alto' ? 'default' : 'secondary'
+                  }>
+                    {documento.nivel_conformidade}
                   </Badge>
                 </div>
-                {documento.dataValidade && (
+                {documento.data_validade && (
                   <div>
-                    <p className="text-sm font-medium">Data de Validade</p>
+                    <p className="font-medium text-sm">Validade</p>
                     <p className="text-sm text-muted-foreground">
-                      {format(new Date(documento.dataValidade), 'dd/MM/yyyy', {
-                        locale: ptBR,
-                      })}
+                      {format(new Date(documento.data_validade), 'dd/MM/yyyy')}
                     </p>
                   </div>
                 )}
                 <div>
-                  <p className="text-sm font-medium">Criado por</p>
-                  <p className="text-sm text-muted-foreground">{documento.criadoPor}</p>
+                  <p className="font-medium text-sm">Responsável</p>
+                  <p className="text-sm text-muted-foreground">ID: {documento.responsavel_aprovacao}</p>
+                </div>
+                <div>
+                  <p className="font-medium text-sm">Pasta</p>
+                  <p className="text-sm text-muted-foreground">ID: {documento.pasta_id || 'Raiz'}</p>
                 </div>
               </CardContent>
             </Card>
           </div>
         </div>
 
-        {/* Sidebar */}
         {sidebarOpen && (
-          <div className="w-96 border-l bg-background overflow-auto">
-            <Tabs defaultValue="historico" className="h-full">
+          <div className="w-96 border-l bg-background">
+            <Tabs defaultValue="historico">
               <div className="border-b p-4">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="historico" className="text-xs">
-                    <History className="h-3 w-3 mr-1" />
-                    Histórico
-                  </TabsTrigger>
-                  <TabsTrigger value="anexos" className="text-xs">
-                    <Paperclip className="h-3 w-3 mr-1" />
-                    Anexos
-                  </TabsTrigger>
-                  <TabsTrigger value="auditoria" className="text-xs">
-                    <Activity className="h-3 w-3 mr-1" />
-                    Auditoria
-                  </TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="historico"><History className="h-3 w-3 mr-1" /> Histórico</TabsTrigger>
+                  <TabsTrigger value="auditoria"><Activity className="h-3 w-3 mr-1" /> Auditoria</TabsTrigger>
                 </TabsList>
               </div>
-
-              <TabsContent value="historico" className="m-0">
-                <div className="p-4">
-                  <h3 className="font-semibold mb-4">Histórico de Versões</h3>
-                  <VersionHistory
-                    versoes={documento.versoes}
-                    versaoAtual={documento.versaoAtual}
-                    documentoId={documento.id}
-                    onRestore={handleRestore}
-                    isAdmin={true}
-                  />
-                </div>
+              <TabsContent value="historico" className="p-4">
+                <p className="text-sm text-muted-foreground">Histórico em desenvolvimento.</p>
               </TabsContent>
-
-              <TabsContent value="anexos" className="m-0">
-                <div className="p-4">
-                  <h3 className="font-semibold mb-4">Anexos do Documento</h3>
-                  <div className="space-y-2">
-                    {documento.anexos.map((anexo) => (
-                      <Card key={anexo.id}>
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium truncate">
-                                  {anexo.nome}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {(anexo.tamanho / 1024 / 1024).toFixed(2)} MB
-                                </p>
-                              </div>
-                            </div>
-                            <Button variant="ghost" size="icon" className="shrink-0">
-                              <Download className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="auditoria" className="m-0">
-                <div className="p-4">
-                  <h3 className="font-semibold mb-4">Log de Auditoria</h3>
-                  <AuditLog logs={mockAuditLogs} />
-                </div>
+              <TabsContent value="auditoria" className="p-4">
+                <p className="text-sm text-muted-foreground">Logs em desenvolvimento.</p>
               </TabsContent>
             </Tabs>
           </div>

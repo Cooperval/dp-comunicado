@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Folder, FolderOpen, ChevronRight, ChevronDown, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,8 +20,8 @@ export interface Pasta {
 
 interface FolderTreeProps {
   pastas: Pasta[];
-  pastaAtual: string;
-  onSelectPasta: (pastaId: string) => void;
+  pastaAtual: number | null;
+  onSelectPasta: (pastaId: number | null) => void;
   onEditPasta?: (pasta: Pasta) => void;
   onDeletePasta?: (pasta: Pasta) => void;
 }
@@ -39,11 +40,10 @@ export function FolderTree({ pastas, pastaAtual, onSelectPasta, onEditPasta, onD
   };
 
   const renderPasta = (pasta: Pasta, level: number = 0) => {
-    const parentId = pasta.pasta_parent_id || pasta.pastaParentId;
-    const subPastas = pastas.filter(p => (p.pasta_parent_id || p.pastaParentId) === pasta.id);
+    const subPastas = pastas.filter(p => p.PASTA_PARENT_ID === pasta.ID_PASTA);
     const hasChildren = subPastas.length > 0;
-    const isExpanded = pastasExpandidas.has(pasta.id);
-    const isSelected = pastaAtual === pasta.id;
+    const isExpanded = pastasExpandidas.has(pasta.ID_PASTA);
+    const isSelected = pastaAtual === pasta.ID_PASTA;
 
     return (
       <div key={pasta.id}>
@@ -55,13 +55,13 @@ export function FolderTree({ pastas, pastaAtual, onSelectPasta, onEditPasta, onD
               isSelected && 'bg-accent text-accent-foreground'
             )}
             style={{ paddingLeft: `${level * 16 + 8}px` }}
-            onClick={() => onSelectPasta(pasta.id)}
+            onClick={() => onSelectPasta(pasta.ID_PASTA)}
           >
             {hasChildren && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  togglePasta(pasta.id);
+                  togglePasta(pasta.ID_PASTA);
                 }}
                 className="p-0 h-4 w-4 hover:bg-accent rounded"
               >
@@ -74,11 +74,11 @@ export function FolderTree({ pastas, pastaAtual, onSelectPasta, onEditPasta, onD
             )}
             {!hasChildren && <div className="w-4" />}
             {isExpanded && hasChildren ? (
-              <FolderOpen className="h-4 w-4" style={{ color: pasta.cor }} />
+              <FolderOpen className="h-4 w-4" style={{ color: pasta.COR }} />
             ) : (
-              <Folder className="h-4 w-4" style={{ color: pasta.cor }} />
+              <Folder className="h-4 w-4" style={{ color: pasta.COR }} />
             )}
-            <span className="text-sm truncate">{pasta.nome}</span>
+            <span className="text-sm truncate">{pasta.NOME}</span>
           </Button>
           
           {/* Menu de ações */}
@@ -118,7 +118,7 @@ export function FolderTree({ pastas, pastaAtual, onSelectPasta, onEditPasta, onD
     );
   };
 
-  const pastasRaiz = pastas.filter(p => !p.pasta_parent_id && !p.pastaParentId);
+  const pastasRaiz = pastas.filter(p => !p.PASTA_PARENT_ID);
 
   return (
     <div className="space-y-1">

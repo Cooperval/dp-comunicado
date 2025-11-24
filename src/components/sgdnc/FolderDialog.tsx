@@ -1,3 +1,5 @@
+// src/components/sgdnc/FolderDialog.tsx
+
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,114 +19,136 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Loader2 } from 'lucide-react';
 
-export interface Pasta {
-  id: string;
-  nome: string;
-  pasta_parent_id?: string | null;
-  pastaParentId?: string;
-  cor?: string;
-}
 
-export interface CreatePastaInput {
-  nome: string;
-  pasta_parent_id?: string;
-  cor?: string;
+interface Pasta {
+  ID_PASTA: string;
+  NOME: string;
+  PASTA_PARENT_ID?: string | null;
+  COR?: string;
 }
 
 interface FolderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (data: CreatePastaInput) => Promise<void>;
-  pastas: Pasta[];
+  onSave: (data: { nome: string; pastaParentId?: string; cor?: string }) => void;
   pastaEditando?: Pasta | null;
+  pastas: Pasta[];
 }
 
-export function FolderDialog({ open, onOpenChange, onSave, pastas, pastaEditando }: FolderDialogProps) {
+export function FolderDialog({
+  open,
+  onOpenChange,
+  onSave,
+  pastaEditando,
+  pastas,
+}: FolderDialogProps) {
   const [nome, setNome] = useState('');
-  const [pastaParentId, setPastaParentId] = useState('');
+  const [pastaParentId, setPastaParentId] = useState<string | null>(null);
   const [cor, setCor] = useState('#3B82F6');
   const [loading, setLoading] = useState(false);
 
-  // Sincronizar estado com pasta editando
+  // Preenche os campos quando pastaEditando muda
   useEffect(() => {
     if (pastaEditando) {
-      setNome(pastaEditando.nome);
-      setPastaParentId(pastaEditando.pasta_parent_id || pastaEditando.pastaParentId || '');
-      setCor(pastaEditando.cor || '#3B82F6');
+      setNome(pastaEditando.NOME || '');
+      setPastaParentId(pastaEditando.PASTA_PARENT_ID || null);
+      setCor(pastaEditando.COR || '#3B82F6');
     } else {
       setNome('');
-      setPastaParentId('');
+      setPastaParentId(null);
       setCor('#3B82F6');
     }
   }, [pastaEditando]);
 
-  const handleSave = async () => {
-    console.log('=== FOLDER DIALOG - Início do handleSave ===');
-    console.log('Nome da pasta:', nome);
-    console.log('Pasta Parent ID:', pastaParentId);
-    console.log('Cor:', cor);
-    
-    if (!nome.trim()) {
-      console.log('❌ Nome vazio, abortando');
+  // Reseta ao fechar
+  const handleClose = (open: boolean) => {
+    if (!open) {
+      setNome('');
+      setPastaParentId(null);
+      setCor('#3B82F6');
+    }
+    onOpenChange(open);
+  };
+
+  const handleSave = () => {
+    if (!nome.trim()) return;
+
+    const novaProfundidade = pastaParentId
+      ? getProfundidade(pastaParentId, pastas) + 1
+      : 1;
+
+    if (novaProfundidade > 4) {
+      alert('Não é possível criar pastas além do nível bisneto (máximo 4 níveis).');
       return;
     }
-    
+
     setLoading(true);
-    try {
-      console.log('📤 Chamando onSave com dados:', {
-        nome: nome.trim(),
-        pasta_parent_id: pastaParentId || undefined,
-        cor,
-      });
-      
-      await onSave({
-        nome: nome.trim(),
-        pasta_parent_id: pastaParentId || undefined,
-        cor,
-      });
+    onSave({
+      nome: nome.trim(),
+      pastaParentId: pastaParentId || undefined,
+      cor,
+    });
+    setLoading(false);
+  };
 
-      console.log('✅ onSave concluído com sucesso');
-      setNome('');
-      setPastaParentId('');
-      setCor('#3B82F6');
-      onOpenChange(false);
-    } catch (error) {
-      console.error('❌ Erro no handleSave do Dialog:', error);
-      // Não relançar o erro - o toast já foi mostrado em handleSavePasta
-      // Manter o dialog aberto para o usuário tentar novamente
-    } finally {
-      setLoading(false);
+  const isEdit = !!pastaEditando;
+
+
+  const buildPastaPath = (pastaId: string, pastas: Pasta[]): string => {
+    const path: string[] = [];
+    let current = pastas.find(p => p.ID_PASTA === pastaId);
+
+    while (current) {
+      path.unshift(current.NOME);
+      if (!current.PASTA_PARENT_ID) break;
+      current = pastas.find(p => p.ID_PASTA === current.PASTA_PARENT_ID);
     }
+
+    return path.length > 0 ? path.join(' > ') : 'Raiz';
   };
 
-  // Função auxiliar para verificar se uma pasta é descendente de outra
-  const isDescendente = (pastaId: string, ancestralId: string): boolean => {
-    const pasta = pastas.find(p => p.id === pastaId);
-    if (!pasta) return false;
-    const parentId = pasta.pasta_parent_id || pasta.pastaParentId;
-    if (!parentId) return false;
-    if (parentId === ancestralId) return true;
-    return isDescendente(parentId, ancestralId);
+
+  // Função para calcular a profundidade de uma pasta
+  const getProfundidade = (pastaId: string | null, pastas: Pasta[]): number => {
+    if (!pastaId) return 1; // Raiz = nível 1
+
+    let profundidade = 1;
+    let currentId: string | null = pastaId;
+
+    while (currentId) {
+      const pasta = pastas.find(p => p.ID_PASTA === currentId);
+      if (!pasta) break;
+      if (!pasta.PASTA_PARENT_ID) break;
+      profundidade++;
+      currentId = pasta.PASTA_PARENT_ID;
+    }
+
+    return profundidade;
   };
 
-  // Filtrar pastas para não permitir selecionar a própria pasta ou suas filhas como pai
-  const pastasDisponiveis = pastaEditando
-    ? pastas.filter(p => p.id !== pastaEditando.id && !isDescendente(p.id, pastaEditando.id))
-    : pastas;
+  // Profundidade da pasta que está sendo editada (ou 1 se for nova)
+  const profundidadeAtual = pastaEditando
+    ? getProfundidade(pastaEditando.ID_PASTA, pastas)
+    : (pastaParentId ? getProfundidade(pastaParentId, pastas) + 1 : 1);
+
+
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{pastaEditando ? 'Editar Pasta' : 'Nova Pasta'}</DialogTitle>
+          <DialogTitle>{isEdit ? 'Editar Pasta' : 'Nova Pasta'}</DialogTitle>
           <DialogDescription>
-            {pastaEditando
-              ? 'Edite as informações da pasta'
+            {isEdit
+              ? 'Altere os dados da pasta selecionada'
               : 'Crie uma nova pasta para organizar seus documentos'}
           </DialogDescription>
         </DialogHeader>
+
         <div className="space-y-4 py-4">
+          {/* Nome */}
           <div className="space-y-2">
             <Label htmlFor="nome">Nome da Pasta *</Label>
             <Input
@@ -132,23 +156,59 @@ export function FolderDialog({ open, onOpenChange, onSave, pastas, pastaEditando
               placeholder="Ex: Procedimentos ISO"
               value={nome}
               onChange={(e) => setNome(e.target.value)}
+              disabled={loading}
             />
           </div>
+
+          {/* Pasta Pai */}
           <div className="space-y-2">
             <Label htmlFor="parent">Pasta Pai (opcional)</Label>
-            <Select value={pastaParentId} onValueChange={setPastaParentId}>
+            <Select
+              value={pastaParentId ?? 'root'}
+              onValueChange={(value) => setPastaParentId(value === 'root' ? null : value)}
+              disabled={loading}
+            >
               <SelectTrigger id="parent">
-                <SelectValue placeholder="Nenhuma (pasta raiz)" />
+                <SelectValue placeholder="Selecione uma pasta pai" />
               </SelectTrigger>
               <SelectContent>
-                {pastasDisponiveis.map((pasta) => (
-                  <SelectItem key={pasta.id} value={pasta.id}>
-                    {pasta.nome}
-                  </SelectItem>
-                ))}
+                <SelectItem value="root">Nenhuma (pasta raiz)</SelectItem>
+                {pastas
+                  .filter((p) => {
+                    // Evita auto-referência
+                    if (p.ID_PASTA === pastaEditando?.ID_PASTA) return false;
+
+                    // Calcula profundidade se essa pasta fosse pai
+                    const novaProfundidadeSeFilho = getProfundidade(p.ID_PASTA, pastas) + 1;
+
+                    // Bloqueia se ultrapassar 4 níveis
+                    return novaProfundidadeSeFilho <= 4;
+                  })
+                  .map((pasta) => {
+                    const caminho = buildPastaPath(pasta.ID_PASTA, pastas);
+                    const profundidade = getProfundidade(pasta.ID_PASTA, pastas);
+
+                    return (
+                      <SelectItem
+                        key={pasta.ID_PASTA}
+                        value={pasta.ID_PASTA}
+                        // Opcional: desabilita visualmente se estiver no limite
+                        className={getProfundidade(pasta.ID_PASTA, pastas) >= 4 ? 'text-muted-foreground' : ''}
+                      >
+                        <div className="flex flex-col">
+                          <span className="font-medium">{pasta.NOME}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {caminho} (nível {profundidade + 1})
+                          </span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
               </SelectContent>
             </Select>
           </div>
+
+          {/* Cor */}
           <div className="space-y-2">
             <Label htmlFor="cor">Cor da Pasta</Label>
             <div className="flex gap-2">
@@ -157,23 +217,36 @@ export function FolderDialog({ open, onOpenChange, onSave, pastas, pastaEditando
                 type="color"
                 value={cor}
                 onChange={(e) => setCor(e.target.value)}
-                className="w-20 h-10"
+                className="w-20 h-10 cursor-pointer"
+                disabled={loading}
               />
               <Input
                 type="text"
                 value={cor}
                 onChange={(e) => setCor(e.target.value)}
                 placeholder="#3B82F6"
+                className="flex-1"
+                disabled={loading}
               />
             </div>
           </div>
         </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Cancelar
           </Button>
           <Button onClick={handleSave} disabled={!nome.trim() || loading}>
-            {loading ? 'Salvando...' : pastaEditando ? 'Salvar' : 'Criar Pasta'}
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Salvando...
+              </>
+            ) : isEdit ? (
+              'Salvar Alterações'
+            ) : (
+              'Criar Pasta'
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

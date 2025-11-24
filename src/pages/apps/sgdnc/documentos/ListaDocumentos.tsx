@@ -7,13 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Pagination,
   PaginationContent,
   PaginationItem,
@@ -38,9 +31,7 @@ import {
   ArrowDown,
   FolderPlus,
 } from 'lucide-react';
-import { getDocumentos, deleteDocumento, type Documento } from '@/services/sgdncMockData';
-import * as pastasService from '@/services/pastasService';
-import type { Pasta } from '@/services/pastasService';
+import { getDocumentos, getPastas, deleteDocumento, type Documento } from '@/services/sgdncMockData';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -56,21 +47,30 @@ import { FolderTree } from '@/components/sgdnc/FolderTree';
 import { FolderDialog } from '@/components/sgdnc/FolderDialog';
 import { DocumentHistoryDialog } from '@/components/sgdnc/DocumentHistoryDialog';
 import { FilterAdvancedPopover } from '@/components/sgdnc/FilterAdvancedPopover';
+import { useAuth } from "@/contexts/AuthContext";
+import { useDocumentos } from '@/hooks/sgdnc/useDocumentos';
+import { usePastas, type Pasta } from '@/hooks/sgdnc/usePastas';
 
 export default function ListaDocumentos() {
   const navigate = useNavigate();
-  const [documentos, setDocumentos] = useState<Documento[]>([]);
-  const [pastas, setPastas] = useState<Pasta[]>([]);
+  const { token } = useAuth();
+
+  const { pastas, loading: loadingPastas, fetchPastas } = usePastas();
+  const { documentos, loading: loadingDocs, error: errorDocs, fetchDocumentos } = useDocumentos();
+
+  console.log('pastas', pastas)
+  console.log('documentos', documentos)
+
   const [busca, setBusca] = useState('');
   const [pastaAtual, setPastaAtual] = useState('');
   const [visualizacao, setVisualizacao] = useState<'grid' | 'lista'>('grid');
-  const [docParaExcluir, setDocParaExcluir] = useState<string | null>(null);
+  const [docParaExcluir, setDocParaExcluir] = useState<number | null>(null);
   const [docHistorico, setDocHistorico] = useState<Documento | null>(null);
-  const [loading, setLoading] = useState(true);
   const [sidebarAberta, setSidebarAberta] = useState(false);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [pastaEditando, setPastaEditando] = useState<Pasta | null>(null);
   const [pastaParaDeletar, setPastaParaDeletar] = useState<Pasta | null>(null);
+
   const [filtros, setFiltros] = useState({
     dataInicio: null as Date | null,
     dataFim: null as Date | null,
@@ -78,127 +78,137 @@ export default function ListaDocumentos() {
     status: 'todos',
   });
   const [ordenacao, setOrdenacao] = useState<{
-    campo: 'titulo' | 'versaoAtual' | 'atualizadoEm' | null;
+    campo: 'titulo' | 'versao' | 'created_at' | null;
     ordem: 'asc' | 'desc';
   }>({ campo: null, ordem: 'asc' });
-  const [paginacao, setPaginacao] = useState({
-    page: 1,
-    itemsPerPage: 12,
-  });
+  const [paginacao, setPaginacao] = useState({ page: 1, itemsPerPage: 12 });
 
-  useEffect(() => {
-    carregarDados();
-  }, [busca, pastaAtual, filtros]);
+  // ...
 
-  const carregarDados = async () => {
-    setLoading(true);
+  // FILTRAGEM
+  const documentosFiltrados = documentos
+    .filter(doc => {
+      const matchesBusca = doc.titulo.toLowerCase().includes(busca.toLowerCase()) ||
+        doc.descricao?.toLowerCase().includes(busca.toLowerCase());
+      const matchesPasta = !pastaAtual || doc.pasta_id === Number(pastaAtual);
+      return matchesBusca && matchesPasta;
+    });
+
+  // ORDENAÇÃO
+  let documentosOrdenados = [...documentosFiltrados];
+  if (ordenacao.campo) {
+    documentosOrdenados.sort((a, b) => {
+      let aVal: any = a[ordenacao.campo];
+      let bVal: any = b[ordenacao.campo];
+
+      if (ordenacao.campo === 'created_at') {
+        aVal = new Date(a.created_at).getTime();
+        bVal = new Date(b.created_at).getTime();
+      }
+
+      if (aVal < bVal) return ordenacao.ordem === 'asc' ? -1 : 1;
+      if (aVal > bVal) return ordenacao.ordem === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+  //===========================================================CRIAR PASTA
+  // Substitua handleCreatePasta por handleSavePasta
+  const handleSavePasta = async (data: {
+    nome: string;
+    pastaParentId?: string;
+    cor?: string;
+  }) => {
+    if (!data.nome.trim()) {
+      toast.error('O nome da pasta é obrigatório');
+      return;
+    }
+
+    const urlApi = import.meta.env.VITE_API_URL?.replace(/\/+$/, '');
+    if (!urlApi) {
+      toast.error('Erro de configuração: URL da API não definida');
+      return;
+    }
+
+    const isEdit = !!pastaEditando;
+
+    // URL CORRIGIDA para sua rota
+    const url = isEdit
+      ? `${urlApi}/sgdnc/atualizar-pasta/${pastaEditando!.ID_PASTA}`  // ✅ Sua rota
+      : `${urlApi}/sgdnc/nova-pasta`;
+
+    const method = isEdit ? 'PUT' : 'POST';
+
     try {
-      const [docsData, pastasData] = await Promise.all([
-        getDocumentos({ busca, pastaId: pastaAtual || undefined }),
-        pastasService.getPastas(),
-      ]);
-    
-    let filteredDocs = docsData;
-    
-    // Aplicar filtros avançados
-    if (filtros.dataInicio) {
-      filteredDocs = filteredDocs.filter(
-        (doc) => new Date(doc.criadoEm) >= filtros.dataInicio!
-      );
-    }
-    if (filtros.dataFim) {
-      filteredDocs = filteredDocs.filter(
-        (doc) => new Date(doc.criadoEm) <= filtros.dataFim!
-      );
-    }
-    if (filtros.autor && filtros.autor !== 'todos') {
-      filteredDocs = filteredDocs.filter((doc) => doc.criadoPor === filtros.autor);
-    }
-    if (filtros.status && filtros.status !== 'todos') {
-      // Mock: considerar status com base na data de validade
-      filteredDocs = filteredDocs.filter((doc) => {
-        if (filtros.status === 'vencido') {
-          return doc.dataValidade && new Date(doc.dataValidade) < new Date();
-        }
-        return true;
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          nome: data.nome,
+          pasta_parent_id: data.pastaParentId || null,
+          cor: data.cor || '#3B82F6',
+        }),
       });
-    }
-    
-      setDocumentos(filteredDocs);
-      setPastas(pastasData);
-      setPaginacao((prev) => ({ ...prev, page: 1 })); // Reset page on filter
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      toast.error('Erro ao carregar dados');
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleSavePasta = async (data: pastasService.CreatePastaInput) => {
-    console.log('=== LISTA DOCUMENTOS - handleSavePasta ===');
-    console.log('Dados recebidos:', data);
-    console.log('Modo:', pastaEditando ? 'EDIÇÃO' : 'CRIAÇÃO');
-    
-    if (pastaEditando) {
-      // Modo edição
-      console.log('Editando pasta:', pastaEditando);
-      try {
-        await pastasService.updatePasta(pastaEditando.id, data);
-        await carregarDados();
-        toast.success('Pasta atualizada com sucesso!');
-        setPastaEditando(null);
-      } catch (error) {
-        console.error('Erro ao atualizar pasta:', error);
-        toast.error('Erro ao atualizar pasta');
-        throw error;
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || result.details || 'Erro ao salvar pasta');
       }
-    } else {
-      // Modo criação
-      try {
-        console.log('📤 Chamando pastasService.createPasta...');
-        const resultado = await pastasService.createPasta(data);
-        console.log('✅ Pasta criada com sucesso:', resultado);
-        
-        console.log('🔄 Recarregando dados...');
-        await carregarDados();
-        console.log('✅ Dados recarregados');
-        
-        toast.success('Pasta criada com sucesso!');
-      } catch (error) {
-        console.error('❌ Erro completo ao criar pasta:', {
-          error,
-          message: error instanceof Error ? error.message : 'Erro desconhecido',
-          stack: error instanceof Error ? error.stack : undefined,
-          data
-        });
-        toast.error(error instanceof Error ? error.message : 'Erro ao criar pasta');
-        // Não relançar o erro - já foi tratado e exibido
+
+      toast.success(isEdit ? 'Pasta atualizada com sucesso!' : 'Pasta criada com sucesso!');
+
+      setFolderDialogOpen(false);
+      setPastaEditando(null);
+
+      // Recarrega pastas
+      await fetchPastas();
+
+      // Se estava na pasta editada, mantém a seleção
+      if (isEdit && pastaAtual === pastaEditando!.ID_PASTA) {
+        setPastaAtual(pastaEditando!.ID_PASTA);
       }
+    } catch (error: any) {
+      console.error('Erro ao salvar pasta:', error);
+      toast.error(error.message || 'Falha ao conectar com o servidor');
     }
   };
 
-  const handleEditPasta = (pasta: Pasta) => {
-    setPastaEditando(pasta);
-    setFolderDialogOpen(true);
-  };
 
-  const handleDeletePasta = (pasta: Pasta) => {
-    setPastaParaDeletar(pasta);
-  };
 
-  const confirmarDelecao = async () => {
+  const handleDeletePastaConfirm = async () => {
     if (!pastaParaDeletar) return;
 
+    const urlApi = import.meta.env.VITE_API_URL?.replace(/\/+$/, '');
+    if (!urlApi) {
+      toast.error('Erro de configuração: URL da API não definida');
+      return;
+    }
+
     try {
-      await pastasService.deletePasta(pastaParaDeletar.id);
-      await carregarDados();
-      toast.success('Pasta deletada com sucesso!');
-      
-      // Se estava visualizando a pasta deletada, voltar para "Todas"
-      if (pastaAtual === pastaParaDeletar.id) {
+      const response = await fetch(`${urlApi}/sgdnc/deletar-pasta/${pastaParaDeletar.ID_PASTA}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao deletar pasta');
+      }
+
+      toast.success(result.message || 'Pasta deletada com sucesso!');
+
+      // Se estava visualizando a pasta deletada, volta para "Todas"
+      if (pastaAtual === pastaParaDeletar.ID_PASTA) {
         setPastaAtual('');
       }
+
+      await fetchPastas(); // Recarrega a árvore de pastas
     } catch (error: any) {
       console.error('Erro ao deletar pasta:', error);
       toast.error(error.message || 'Erro ao deletar pasta');
@@ -206,16 +216,32 @@ export default function ListaDocumentos() {
       setPastaParaDeletar(null);
     }
   };
-
   const handleExcluir = async () => {
     if (!docParaExcluir) return;
-    
+
+    const urlApi = import.meta.env.VITE_API_URL?.replace(/\/+$/, '');
+    if (!urlApi) {
+      toast.error('Erro de configuração: URL da API não definida');
+      return;
+    }
+
     try {
-      await deleteDocumento(docParaExcluir);
+      const response = await fetch(`${urlApi}/sgdnc/documentos/${docParaExcluir}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Erro ao excluir');
+      }
+
       toast.success('Documento excluído com sucesso');
-      carregarDados();
-    } catch (error) {
-      toast.error('Erro ao excluir documento');
+      fetchDocumentos(); // recarrega
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao excluir documento');
     } finally {
       setDocParaExcluir(null);
     }
@@ -232,17 +258,34 @@ export default function ListaDocumentos() {
   };
 
   const handleDownload = (doc: Documento) => {
-    // Mock download
-    const blob = new Blob([`Documento: ${doc.titulo}\nVersão: ${doc.versaoAtual}`], {
-      type: 'text/plain',
-    });
+    const conteudoTexto = doc.conteudo?.paragraphs
+      .map(p => {
+        if (p.type === 'texto') return p.content;
+        if (p.type === 'tabela') {
+          return p.content.colunas.join(' | ') + '\n' +
+            p.content.linhas.map(row => row.join(' | ')).join('\n');
+        }
+        return '';
+      })
+      .join('\n\n');
+
+    const texto = `
+TÍTULO: ${doc.titulo}
+TIPO: ${doc.tipo}
+NÍVEL: ${doc.nivel_conformidade}
+RESPONSÁVEL: ${doc.responsavel_aprovacao}
+VALIDADE: ${doc.data_validade ? new Date(doc.data_validade).toLocaleDateString() : 'Sem validade'}
+
+CONTEÚDO:
+${conteudoTexto}
+  `.trim();
+
+    const blob = new Blob([texto], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${doc.titulo}.txt`;
-    document.body.appendChild(a);
+    a.download = `${doc.titulo.replace(/[^a-z0-9]/gi, '_')}.txt`;
     a.click();
-    document.body.removeChild(a);
     URL.revokeObjectURL(url);
     toast.success('Download iniciado');
   };
@@ -270,23 +313,7 @@ export default function ListaDocumentos() {
     );
   };
 
-  // Aplicar ordenação
-  let documentosOrdenados = [...documentos];
-  if (ordenacao.campo) {
-    documentosOrdenados.sort((a, b) => {
-      let aVal: any = a[ordenacao.campo!];
-      let bVal: any = b[ordenacao.campo!];
 
-      if (ordenacao.campo === 'atualizadoEm') {
-        aVal = new Date(aVal).getTime();
-        bVal = new Date(bVal).getTime();
-      }
-
-      if (aVal < bVal) return ordenacao.ordem === 'asc' ? -1 : 1;
-      if (aVal > bVal) return ordenacao.ordem === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }
 
   // Paginação
   const totalPaginas = Math.ceil(documentosOrdenados.length / paginacao.itemsPerPage);
@@ -296,6 +323,23 @@ export default function ListaDocumentos() {
   );
 
   const autoresUnicos = Array.from(new Set(documentos.map((d) => d.criadoPor)));
+
+
+
+  const handleEditPasta = (pasta: Pasta) => {
+    setPastaEditando(pasta);
+    setFolderDialogOpen(true);
+  };
+
+  const handleDeletePasta = (pasta: Pasta) => {
+    setPastaParaDeletar(pasta);
+  };
+
+
+  useEffect(() => {
+    fetchPastas();
+    fetchDocumentos();
+  }, [fetchPastas, fetchDocumentos]);
 
   return (
     <div className="flex gap-6 animate-fade-in">
@@ -413,7 +457,7 @@ export default function ListaDocumentos() {
         </Card>
 
         {/* Lista de Documentos */}
-        {loading ? (
+        {loadingDocs ? (
           <div className="text-center py-12">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
             <p className="mt-4 text-muted-foreground">Carregando documentos...</p>
@@ -433,91 +477,80 @@ export default function ListaDocumentos() {
         ) : visualizacao === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {documentosPaginados.map((doc) => (
-              <Card key={doc.id} className="hover:shadow-md transition-shadow">
+              <Card key={doc.id_documento} className="hover:shadow-md transition-shadow">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <FileText
                       className="h-8 w-8 p-1.5 rounded"
                       style={{
-                        backgroundColor: getNivelColor(doc.nivelConformidade),
+                        backgroundColor: getNivelColor(doc.nivel_conformidade),
                         color: 'white',
                       }}
                     />
                     <div className="flex flex-col items-end gap-1">
-                      <Badge variant="secondary">v{doc.versaoAtual}</Badge>
-                      <StatusBadge 
-                        variant={
-                          doc.statusAprovacao === 'pendente' ? 'pending' :
-                          doc.statusAprovacao === 'aprovado' ? 'approved' :
-                          doc.statusAprovacao === 'rejeitado' ? 'rejected' :
-                          'draft'
-                        }
-                        showDot={false}
-                        className="text-xs"
-                      >
-                        {doc.statusAprovacao === 'pendente' ? 'Pendente' :
-                         doc.statusAprovacao === 'aprovado' ? 'Aprovado' :
-                         doc.statusAprovacao === 'rejeitado' ? 'Rejeitado' :
-                         'Rascunho'}
-                      </StatusBadge>
+                      <Badge variant="secondary">v{doc.versao}</Badge>
                     </div>
                   </div>
-                  <CardTitle className="text-lg mt-2">{doc.titulo}</CardTitle>
+                  <CardTitle className="text-lg mt-2">{doc.documento} {doc.titulo}</CardTitle>
                   <CardDescription className="line-clamp-2">
-                    {doc.descricao}
+                    {doc.descricao || 'Sem descrição'}
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-1 mb-4">
-                    {doc.tags.slice(0, 3).map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                    {doc.tags.length > 3 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{doc.tags.length - 3}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => navigate(`/apps/sgdnc/documentos/${doc.id}`)}
-                    >
-                      <Eye className="h-3 w-3 mr-1" />
-                      Ver
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => navigate(`/apps/sgdnc/documentos/${doc.id}/editar`)}
-                    >
-                      <Edit className="h-3 w-3 mr-1" />
-                      Editar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setDocHistorico(doc)}
-                    >
-                      <History className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDownload(doc)}
-                    >
-                      <Download className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setDocParaExcluir(doc.id)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+
+                {/* AÇÕES NO CARD */}
+                <CardContent className="pt-0">
+                  <div className="flex justify-between items-center mt-4">
+                    <div className="text-xs text-muted-foreground">
+                      <span className="font-medium">Atualizado:</span>{' '}
+                      {new Date(doc.created_at || doc.atualizadoEm).toLocaleDateString('pt-BR')}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => navigate(`/apps/sgdnc/documentos/${doc.id_documento}`)}
+                        title="Visualizar"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => navigate(`/apps/sgdnc/documentos/${doc.id_documento}/editar`)}
+                        title="Editar"
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => setDocHistorico(doc)}
+                        title="Histórico"
+                      >
+                        <History className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => handleDownload(doc)}
+                        title="Baixar"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => setDocParaExcluir(doc.id_documento)}
+                        title="Excluir"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -558,14 +591,14 @@ export default function ListaDocumentos() {
                       <tr key={doc.id} className="border-b border-border hover:bg-muted/50">
                         <td className="p-4">
                           <div>
-                            <p className="font-medium">{doc.titulo}</p>
+                            <p className="font-medium">{doc.documento} {doc.titulo}</p>
                             <p className="text-sm text-muted-foreground line-clamp-1">
                               {doc.descricao}
                             </p>
                           </div>
                         </td>
                         <td className="p-4">
-                          <Badge variant="secondary">v{doc.versaoAtual}</Badge>
+                          <Badge variant="secondary">v{doc.versao}</Badge>
                         </td>
                         <td className="p-4">
                           <Badge
@@ -579,18 +612,18 @@ export default function ListaDocumentos() {
                           </Badge>
                         </td>
                         <td className="p-4">
-                          <StatusBadge 
+                          <StatusBadge
                             variant={
                               doc.statusAprovacao === 'pendente' ? 'pending' :
-                              doc.statusAprovacao === 'aprovado' ? 'approved' :
-                              doc.statusAprovacao === 'rejeitado' ? 'rejected' :
-                              'draft'
+                                doc.statusAprovacao === 'aprovado' ? 'approved' :
+                                  doc.statusAprovacao === 'rejeitado' ? 'rejected' :
+                                    'draft'
                             }
                           >
                             {doc.statusAprovacao === 'pendente' ? 'Pendente' :
-                             doc.statusAprovacao === 'aprovado' ? 'Aprovado' :
-                             doc.statusAprovacao === 'rejeitado' ? 'Rejeitado' :
-                             'Rascunho'}
+                              doc.statusAprovacao === 'aprovado' ? 'Aprovado' :
+                                doc.statusAprovacao === 'rejeitado' ? 'Rejeitado' :
+                                  'Rascunho'}
                           </StatusBadge>
                         </td>
                         <td className="p-4 text-sm text-muted-foreground">
@@ -601,7 +634,7 @@ export default function ListaDocumentos() {
                             <Button
                               size="icon"
                               variant="ghost"
-                              onClick={() => navigate(`/apps/sgdnc/documentos/${doc.id}`)}
+                              onClick={() => navigate(`/apps/sgdnc/documentos/${doc.id_documento}`)}
                               title="Visualizar"
                             >
                               <Eye className="h-4 w-4" />
@@ -609,9 +642,7 @@ export default function ListaDocumentos() {
                             <Button
                               size="icon"
                               variant="ghost"
-                              onClick={() =>
-                                navigate(`/apps/sgdnc/documentos/${doc.id}/editar`)
-                              }
+                              onClick={() => navigate(`/apps/sgdnc/documentos/${doc.id_documento}/editar`)}
                               title="Editar"
                             >
                               <Edit className="h-4 w-4" />
@@ -754,6 +785,7 @@ export default function ListaDocumentos() {
         </AlertDialogContent>
       </AlertDialog>
 
+
       <AlertDialog
         open={!!pastaParaDeletar}
         onOpenChange={(open) => !open && setPastaParaDeletar(null)}
@@ -762,14 +794,14 @@ export default function ListaDocumentos() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Deleção</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja deletar a pasta "{pastaParaDeletar?.nome}"?
-              Todas as subpastas também serão deletadas.
+              Tem certeza que deseja deletar a pasta "{pastaParaDeletar?.NOME}"?
+              Todas as subpastas e documentos serão movidos ou perdidos.
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmarDelecao} className="bg-destructive">
+            <AlertDialogAction onClick={handleDeletePastaConfirm} className="bg-destructive">
               Deletar
             </AlertDialogAction>
           </AlertDialogFooter>

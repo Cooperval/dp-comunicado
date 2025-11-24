@@ -16,43 +16,34 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { applications } from '@/config/applications';
 import { Button } from '@/components/ui/button';
+import logo from '@/assets/logo-4.png';
 
 export function PortalSidebar() {
-  const { user, logout } = useAuth();
+  const { user, logout, acessos } = useAuth();
   const navigate = useNavigate();
   const { state } = useSidebar();
   const isCollapsed = state === 'collapsed';
+
+  // Filter applications based on user access
+  const accessibleApps = applications.filter((app) => {
+    if (!app.cod_modulo) return false; // Skip apps without cod_modulo
+    const access = acessos.find((acesso) => acesso.COD_MODULO === app.cod_modulo);
+    return access && ['A', 'S'].includes(access.TIPO_ACESSO);
+  });
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  const userApps = applications.filter((app) => {
-    if (app.adminOnly && user?.role !== 'admin') {
-      return false;
-    }
-    return user?.allowedApps?.includes(app.id) || false;
-  });
-
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2 px-2 py-4">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <Home className="h-5 w-5 text-primary-foreground" />
-          </div>
-          {!isCollapsed && (
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold text-sidebar-foreground">
-                Portal do Colaborador
-              </span>
-            </div>
-          )}
-        </div>
-      </SidebarHeader>
-
       <SidebarContent>
+        <div className="p-6 border-b border-border">
+          <h2 className="transition-smooth text-xl">
+            <img src={logo} alt="Cooperval" className="h-15 object-contain" />
+          </h2>
+        </div>
         <SidebarGroup>
           <SidebarGroupLabel>Navegação</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -73,7 +64,7 @@ export function PortalSidebar() {
           <SidebarGroupLabel>Aplicações</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {userApps.map((app) => (
+              {accessibleApps.map((app) => (
                 <SidebarMenuItem key={app.id}>
                   <SidebarMenuButton
                     asChild={app.status === 'active'}
@@ -110,9 +101,7 @@ export function PortalSidebar() {
                 <span className="text-sm font-medium text-sidebar-foreground truncate">
                   {user.name}
                 </span>
-                <span className="text-xs text-muted-foreground truncate">
-                  {user.department}
-                </span>
+                
               </div>
             </div>
             <Button

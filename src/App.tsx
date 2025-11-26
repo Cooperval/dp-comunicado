@@ -361,145 +361,121 @@ const App = () => (
             <Route
               path="/apps/simulador-cenarios/cotacoes"
               element={
-                <ProtectedRoute requiredModule={10}>
-                  <SimulatorProvider>
-                    <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
-                      <MarketQuotations />
-                    </AppLayout>
-                  </SimulatorProvider>
-                </ProtectedRoute>
+                <SimulatorProvider>
+                  <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
+                    <MarketQuotations />
+                  </AppLayout>
+                </SimulatorProvider>
               }
             />
             <Route
               path="/apps/simulador-cenarios/sugarcane-premises"
               element={
-                <ProtectedRoute requiredModule={10}>
-                  <SimulatorProvider>
-                    <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
-                      <Productions />
-                    </AppLayout>
-                  </SimulatorProvider>
-                </ProtectedRoute>
+                <SimulatorProvider>
+                  <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
+                    <Productions />
+                  </AppLayout>
+                </SimulatorProvider>
               }
             />
             <Route
               path="/apps/simulador-cenarios/corn-premises"
               element={
-                <ProtectedRoute requiredModule={10}>
-                  <SimulatorProvider>
-                    <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
-                      <CornProduction />
-                    </AppLayout>
-                  </SimulatorProvider>
-                </ProtectedRoute>
+                <SimulatorProvider>
+                  <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
+                    <CornProduction />
+                  </AppLayout>
+                </SimulatorProvider>
               }
             />
             <Route
               path="/apps/simulador-cenarios/other-productions"
               element={
-                <ProtectedRoute requiredModule={10}>
-                  <SimulatorProvider>
-                    <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
-                      <OtherProductions />
-                    </AppLayout>
-                  </SimulatorProvider>
-                </ProtectedRoute>
+                <SimulatorProvider>
+                  <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
+                    <OtherProductions />
+                  </AppLayout>
+                </SimulatorProvider>
               }
             />
             <Route
               path="/apps/simulador-cenarios/commercialization"
               element={
-                <ProtectedRoute requiredModule={10}>
-                  <SimulatorProvider>
-                    <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
-                      <Commercialization />
-                    </AppLayout>
-                  </SimulatorProvider>
-                </ProtectedRoute>
+                <SimulatorProvider>
+                  <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
+                    <Commercialization />
+                  </AppLayout>
+                </SimulatorProvider>
               }
             />
             <Route
               path="/apps/simulador-cenarios/sales-prices"
               element={
-                <ProtectedRoute requiredModule={10}>
-                  <SimulatorProvider>
-                    <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
-                      <SalesPrices />
-                    </AppLayout>
-                  </SimulatorProvider>
-                </ProtectedRoute>
+                <SimulatorProvider>
+                  <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
+                    <SalesPrices />
+                  </AppLayout>
+                </SimulatorProvider>
               }
             />
             <Route
               path="/apps/simulador-cenarios/production-costs"
               element={
-                <ProtectedRoute requiredModule={10}>
-                  <SimulatorProvider>
-                    <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
-                      <ProductionCosts />
-                    </AppLayout>
-                  </SimulatorProvider>
-                </ProtectedRoute>
+                <SimulatorProvider>
+                  <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
+                    <ProductionCosts />
+                  </AppLayout>
+                </SimulatorProvider>
               }
             />
             <Route
               path="/apps/simulador-cenarios/cpv"
               element={
-                <ProtectedRoute requiredModule={10}>
-                  <SimulatorProvider>
-                    <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
-                      <CPV />
-                    </AppLayout>
-                  </SimulatorProvider>
-                </ProtectedRoute>
+                <SimulatorProvider>
+                  <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
+                    <CPV />
+                  </AppLayout>
+                </SimulatorProvider>
               }
             />
             <Route
               path="/apps/simulador-cenarios/resultado-operacional"
               element={
-                <ProtectedRoute requiredModule={10}>
-                  <SimulatorProvider>
-                    <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
-                      <DRE />
-                    </AppLayout>
-                  </SimulatorProvider>
-                </ProtectedRoute>
+                <SimulatorProvider>
+                  <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
+                    <DRE />
+                  </AppLayout>
+                </SimulatorProvider>
               }
             />
             <Route
               path="/apps/simulador-cenarios/dsp-por-produto"
               element={
-                <ProtectedRoute requiredModule={10}>
-                  <SimulatorProvider>
-                    <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
-                      <DREByProduct />
-                    </AppLayout>
-                  </SimulatorProvider>
-                </ProtectedRoute>
+                <SimulatorProvider>
+                  <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
+                    <DREByProduct />
+                  </AppLayout>
+                </SimulatorProvider>
               }
             />
             <Route
               path="/apps/simulador-cenarios/resumo-executivo"
               element={
-                <ProtectedRoute requiredModule={10}>
-                  <SimulatorProvider>
-                    <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
-                      <ExecutiveSummary />
-                    </AppLayout>
-                  </SimulatorProvider>
-                </ProtectedRoute>
+                <SimulatorProvider>
+                  <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
+                    <ExecutiveSummary />
+                  </AppLayout>
+                </SimulatorProvider>
               }
             />
             <Route
               path="/apps/simulador-cenarios/consolidado"
               element={
-                <ProtectedRoute requiredModule={10}>
-                  <SimulatorProvider>
-                    <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
-                      <Consolidated />
-                    </AppLayout>
-                  </SimulatorProvider>
-                </ProtectedRoute>
+                <SimulatorProvider>
+                  <AppLayout sidebar={<SimuladorCenariosSidebar />} appName="Simulador de Cenários">
+                    <Consolidated />
+                  </AppLayout>
+                </SimulatorProvider>
               }
             />
 

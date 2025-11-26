@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Calculator } from 'lucide-react';
 import loginBg from '@/assets/campo.jpeg';
 import logoLight from '@/assets/logomarca-cooperval-01.png';
 import logoDark from '@/assets/logomarca-cooperval-02.png';
@@ -157,6 +158,25 @@ export default function Login(): JSX.Element {
 
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Entrando...' : 'Entrar'}
+            </Button>
+
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">ou</span>
+              </div>
+            </div>
+
+            <Button 
+              type="button" 
+              variant="outline" 
+              className="w-full"
+              onClick={() => navigate('/apps/simulador-cenarios/cotacoes')}
+            >
+              <Calculator className="mr-2 h-4 w-4" />
+              Acessar Simulador de Cenários
             </Button>
           </form>
         </CardContent>

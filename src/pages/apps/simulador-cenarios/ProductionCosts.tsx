@@ -149,7 +149,6 @@ const ProductionCosts: React.FC = () => {
       <Card className="shadow-card">
         <CardHeader className="bg-gradient-to-r from-green-700 to-green-600 text-white rounded-t-lg">
           <CardTitle className="flex items-center gap-2">
-            {/* <span>🏢</span> */}
             Custos Administrativos
           </CardTitle>
           <CardDescription className="text-success-foreground/80">
@@ -164,6 +163,36 @@ const ProductionCosts: React.FC = () => {
               value={data.productionCosts.administration}
               onChange={(value) => handleInputChange('administration', value)}
               placeholder="0.00"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Despesas de Comercialização */}
+      <Card className="shadow-card">
+        <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-t-lg">
+          <CardTitle className="flex items-center gap-2">
+            Despesas de Comercialização
+          </CardTitle>
+          <CardDescription className="text-blue-100">
+            Custos por volume comercializado
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <NumericInput
+              label="Etanol"
+              unit="R$/m³"
+              value={data.productionCosts.salesExpenseEthanol}
+              onChange={(value) => handleInputChange('salesExpenseEthanol', value)}
+              placeholder="5.04"
+            />
+            <NumericInput
+              label="Açúcar"
+              unit="R$/ton"
+              value={data.productionCosts.salesExpenseSugar}
+              onChange={(value) => handleInputChange('salesExpenseSugar', value)}
+              placeholder="165.09"
             />
           </div>
         </CardContent>

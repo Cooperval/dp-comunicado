@@ -298,8 +298,8 @@ export function calcularDRE(data: SimulatorData) {
   const totalEthanol = prodEHC + (prodEAC) +
     data.corn.hydratedEthanol + (prodEAM);
 
-  const despesasComercializacaoEtanol = totalEthanol * 5.04;
-  const despesasComercializacaoAcucar = prodVHP * 165;
+  const despesasComercializacaoEtanol = totalEthanol * data.productionCosts.salesExpenseEthanol;
+  const despesasComercializacaoAcucar = prodVHP * data.productionCosts.salesExpenseSugar;
   const totalDespesasVendas = despesasComercializacaoEtanol + despesasComercializacaoAcucar;
 
 
@@ -487,7 +487,7 @@ export function calcularDREPorProduto(data: SimulatorData): DREPorProdutoResulta
       custoCCT: (p.caneCct * caneProcessed * vhpProportion) / 1000,
       custoIndustria: (p.caneIndustry * caneProcessed * vhpProportion) / 1000,
       custoBiomassa: 0,
-      comercializacao: (prodVHP * 165) / 1000,
+      comercializacao: (prodVHP * p.salesExpenseSugar) / 1000,
       administracao: (p.administration * caneProcessed * vhpProportion) / 1000,
       margemBruta: 0,
       ebitda: 0,
@@ -500,7 +500,7 @@ export function calcularDREPorProduto(data: SimulatorData): DREPorProdutoResulta
       custoCCT: (p.caneCct * caneProcessed * ehcProportion) / 1000,
       custoIndustria: (p.caneIndustry * caneProcessed * ehcProportion) / 1000,
       custoBiomassa: 0,
-      comercializacao: (prodEHC * 5.04) / 1000,
+      comercializacao: (prodEHC * p.salesExpenseEthanol) / 1000,
       administracao: (p.administration * caneProcessed * ehcProportion) / 1000,
       margemBruta: 0,
       ebitda: 0,
@@ -513,7 +513,7 @@ export function calcularDREPorProduto(data: SimulatorData): DREPorProdutoResulta
       custoCCT: (p.caneCct * caneProcessed * eacProportion) / 1000,
       custoIndustria: (p.caneIndustry * caneProcessed * eacProportion) / 1000,
       custoBiomassa: 0,
-      comercializacao: (prodEAC * 5.04) / 1000,
+      comercializacao: (prodEAC * p.salesExpenseEthanol) / 1000,
       administracao: (p.administration * caneProcessed * eacProportion) / 1000,
       margemBruta: 0,
       ebitda: 0,
@@ -539,7 +539,7 @@ export function calcularDREPorProduto(data: SimulatorData): DREPorProdutoResulta
       custoCCT: 0,
       custoIndustria: (p.cornIndustry * cornProcessed * eamProportion * 0.97) / 1000,
       custoBiomassa: (p.cornBiomass * cornProcessed * eamProportion * 0.97) / 1000,
-      comercializacao: (prodEAM * 5.04) / 1000,
+      comercializacao: (prodEAM * p.salesExpenseEthanol) / 1000,
       administracao: 0,
       margemBruta: 0,
       ebitda: 0,
@@ -655,10 +655,10 @@ export function calcularDREPorProduto(data: SimulatorData): DREPorProdutoResulta
 
   // Despesas com Vendas
 
-  const despesasVEtanolCana = totalEthanolCane * 5.04;
-  const despesasVEtanolMilho = totalEthanolCorn * 5.04;
+  const despesasVEtanolCana = totalEthanolCane * p.salesExpenseEthanol;
+  const despesasVEtanolMilho = totalEthanolCorn * p.salesExpenseEthanol;
 
-  const despesasVVHP = prodVHP * 165;
+  const despesasVVHP = prodVHP * p.salesExpenseSugar;
   const despesasVCana = despesasVEtanolCana + despesasVVHP;
 
 
@@ -827,8 +827,8 @@ export function calcularResumoFinanceiro(data: SimulatorData): IndicadoresFinanc
     administration: data.productionCosts.administration,
     OtherCosts: data.dre.otherCosts,
     salesExpenses: {
-      ethanol: totalProduction.totalEthanol * 5.04,
-      sugar: totalProduction.sugar * 165,
+      ethanol: totalProduction.totalEthanol * data.productionCosts.salesExpenseEthanol,
+      sugar: totalProduction.sugar * data.productionCosts.salesExpenseSugar,
     }
   };
 

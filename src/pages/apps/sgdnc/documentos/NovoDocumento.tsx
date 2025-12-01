@@ -37,9 +37,9 @@ import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-import { createDocumento, mockAprovadores, type Pasta } from '@/services/sgdncMockData';
+import { createDocumento, mockAprovadores } from '@/services/sgdncMockData';
 import { useAuth } from "@/contexts/AuthContext";
-import { usePastas } from '@/hooks/sgdnc/usePastas';
+import { usePastas, type Pasta } from '@/hooks/sgdnc/usePastas';
 
 
 
@@ -71,16 +71,6 @@ const documentoSchema = z.object({
   responsavelAprovacao: z.string().min(1, 'Selecione um responsável para aprovação'),
   comentarioSubmissao: z.string().optional(),
 });
-
-// types/pasta.ts
-export interface Pasta {
-  ID_PASTA: string | number;
-  NOME: string;
-  PASTA_PARENT_ID: string | number | null;
-  COR?: string;
-  CREATED_AT?: string;
-  UPDATED_AT?: string;
-}
 
 type DocumentoFormData = z.infer<typeof documentoSchema>;
 
@@ -241,12 +231,12 @@ export default function NovoDocumento() {
   // Calcula o caminho completo: "Raiz > Qualidade > BPF"
   const buildPastaPath = (pastaId: string | number, pastas: Pasta[]): string => {
     const path: string[] = [];
-    let current = pastas.find(p => p.ID_PASTA === pastaId);
+    let current = pastas.find(p => p.id_pasta === Number(pastaId));
 
     while (current) {
-      path.unshift(current.NOME);
-      if (!current.PASTA_PARENT_ID) break;
-      current = pastas.find(p => p.ID_PASTA === current.PASTA_PARENT_ID);
+      path.unshift(current.nome);
+      if (!current.pasta_parent_id) break;
+      current = pastas.find(p => p.id_pasta === current!.pasta_parent_id);
     }
 
     return path.length > 0 ? path.join(' > ') : 'Raiz';
@@ -260,10 +250,10 @@ export default function NovoDocumento() {
     let currentId: string | number | null = pastaId;
 
     while (currentId) {
-      const pasta = pastas.find(p => p.ID_PASTA === currentId);
-      if (!pasta || !pasta.PASTA_PARENT_ID) break;
+      const pasta = pastas.find(p => p.id_pasta === Number(currentId));
+      if (!pasta || !pasta.pasta_parent_id) break;
       profundidade++;
-      currentId = pasta.PASTA_PARENT_ID;
+      currentId = pasta.pasta_parent_id;
     }
 
     return profundidade;
@@ -372,24 +362,24 @@ export default function NovoDocumento() {
                             // Evita auto-referência
 
                             // Calcula profundidade se essa pasta for pai
-                            const novaProfundidade = getProfundidade(pasta.ID_PASTA, pastas) + 1;
+                            const novaProfundidade = getProfundidade(pasta.id_pasta, pastas) + 1;
 
                             // Bloqueia se ultrapassar 4 níveis
                             return novaProfundidade <= 4;
                           })
                           .map((pasta) => {
-                            const caminho = buildPastaPath(pasta.ID_PASTA, pastas);
-                            const nivelAtual = getProfundidade(pasta.ID_PASTA, pastas);
+                            const caminho = buildPastaPath(pasta.id_pasta, pastas);
+                            const nivelAtual = getProfundidade(pasta.id_pasta, pastas);
                             const seriaNivel = nivelAtual + 1;
 
                             return (
                               <SelectItem
-                                key={pasta.ID_PASTA}
-                                value={String(pasta.ID_PASTA)}
+                                key={pasta.id_pasta}
+                                value={String(pasta.id_pasta)}
                                 className={seriaNivel >= 4 ? 'text-muted-foreground' : ''}
                               >
                                 <div className="flex flex-col">
-                                  <span className="font-medium">{pasta.NOME}</span>
+                                  <span className="font-medium">{pasta.nome}</span>
                                   <span className="text-xs text-muted-foreground">
                                     {caminho}
                                   </span>

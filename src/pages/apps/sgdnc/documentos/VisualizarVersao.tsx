@@ -211,7 +211,7 @@ export default function VisualizarVersao() {
             Baixar PDF
           </Button>
           
-          {!isVersaoAtual && user?.role === 'admin' && (
+          {!isVersaoAtual && user?.roles?.includes('admin') && (
             <Button 
               variant="outline"
               onClick={() => setRestaurarDialogOpen(true)}

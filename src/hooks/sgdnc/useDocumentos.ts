@@ -22,11 +22,15 @@ export interface Documento {
   } | null;
   created_at: string;
   versao: number;
-  // Futuro: codigo?: string;
+  // Extended properties for compatibility
+  status_aprovacao?: 'rascunho' | 'pendente' | 'aprovado' | 'rejeitado';
+  criado_por?: string;
+  versoes?: any[];
 }
 
 export function useDocumentos() {
   const [documentos, setDocumentos] = useState<Documento[]>([]);
+  const [documento, setDocumento] = useState<Documento | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { token } = useAuth();
@@ -82,5 +86,47 @@ export function useDocumentos() {
     }
   }, [token]);
 
-  return { documentos, loading, error, fetchDocumentos };
+  const fetchDocumento = useCallback(async (id: string) => {
+    const reqId = ++activeReq.current;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const urlApi = import.meta.env.VITE_API_URL?.replace(/\/+$/, '');
+      if (!urlApi) throw new Error("VITE_API_URL não configurada");
+      if (!token) throw new Error("Token de autenticação não encontrado");
+
+      const url = `${urlApi}/sgdnc/documentos/${id}`;
+
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || data.details || `Erro HTTP: ${res.status}`);
+      }
+
+      if (reqId === activeReq.current) {
+        setDocumento(data);
+      }
+    } catch (err: any) {
+      if (reqId === activeReq.current) {
+        setError(err.message || "Erro ao carregar documento");
+        setDocumento(null);
+      }
+    } finally {
+      if (reqId === activeReq.current) {
+        setLoading(false);
+      }
+    }
+  }, [token]);
+
+  return { documentos, documento, loading, error, fetchDocumentos, fetchDocumento };
 }

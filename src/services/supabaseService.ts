@@ -6,9 +6,9 @@ import { supabase } from '@/integrations/supabase/client';
  */
 export const testConnection = async (): Promise<boolean> => {
   try {
-    const { error } = await supabase.from('_healthcheck').select('*').limit(1);
-    // Se retornar erro de tabela não encontrada, significa que está conectado
-    return !error || error.code === 'PGRST116' || error.code === '42P01';
+    // Test connection by checking auth status
+    const { error } = await supabase.auth.getSession();
+    return !error;
   } catch (err) {
     console.error('Erro ao testar conexão Supabase:', err);
     return false;

@@ -31,7 +31,6 @@ import {
   ArrowDown,
   FolderPlus,
 } from 'lucide-react';
-import { getDocumentos, getPastas, deleteDocumento, type Documento } from '@/services/sgdncMockData';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -48,7 +47,7 @@ import { FolderDialog } from '@/components/sgdnc/FolderDialog';
 import { DocumentHistoryDialog } from '@/components/sgdnc/DocumentHistoryDialog';
 import { FilterAdvancedPopover } from '@/components/sgdnc/FilterAdvancedPopover';
 import { useAuth } from "@/contexts/AuthContext";
-import { useDocumentos } from '@/hooks/sgdnc/useDocumentos';
+import { useDocumentos, type Documento } from '@/hooks/sgdnc/useDocumentos';
 import { usePastas, type Pasta } from '@/hooks/sgdnc/usePastas';
 
 export default function ListaDocumentos() {
@@ -133,7 +132,7 @@ export default function ListaDocumentos() {
 
     // URL CORRIGIDA para sua rota
     const url = isEdit
-      ? `${urlApi}/sgdnc/atualizar-pasta/${pastaEditando!.ID_PASTA}`  // ✅ Sua rota
+      ? `${urlApi}/sgdnc/atualizar-pasta/${pastaEditando!.id_pasta}`
       : `${urlApi}/sgdnc/nova-pasta`;
 
     const method = isEdit ? 'PUT' : 'POST';
@@ -167,8 +166,8 @@ export default function ListaDocumentos() {
       await fetchPastas();
 
       // Se estava na pasta editada, mantém a seleção
-      if (isEdit && pastaAtual === pastaEditando!.ID_PASTA) {
-        setPastaAtual(pastaEditando!.ID_PASTA);
+      if (isEdit && pastaAtual === String(pastaEditando!.id_pasta)) {
+        setPastaAtual(String(pastaEditando!.id_pasta));
       }
     } catch (error: any) {
       console.error('Erro ao salvar pasta:', error);
@@ -188,7 +187,7 @@ export default function ListaDocumentos() {
     }
 
     try {
-      const response = await fetch(`${urlApi}/sgdnc/deletar-pasta/${pastaParaDeletar.ID_PASTA}`, {
+      const response = await fetch(`${urlApi}/sgdnc/deletar-pasta/${pastaParaDeletar.id_pasta}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -204,7 +203,7 @@ export default function ListaDocumentos() {
       toast.success(result.message || 'Pasta deletada com sucesso!');
 
       // Se estava visualizando a pasta deletada, volta para "Todas"
-      if (pastaAtual === pastaParaDeletar.ID_PASTA) {
+      if (pastaAtual === String(pastaParaDeletar.id_pasta)) {
         setPastaAtual('');
       }
 
@@ -259,15 +258,15 @@ export default function ListaDocumentos() {
 
   const handleDownload = (doc: Documento) => {
     const conteudoTexto = doc.conteudo?.paragraphs
-      .map(p => {
+      ?.map(p => {
         if (p.type === 'texto') return p.content;
         if (p.type === 'tabela') {
-          return p.content.colunas.join(' | ') + '\n' +
-            p.content.linhas.map(row => row.join(' | ')).join('\n');
+          return p.content.colunas?.join(' | ') + '\n' +
+            p.content.linhas?.map((row: string[]) => row.join(' | ')).join('\n');
         }
         return '';
       })
-      .join('\n\n');
+      .join('\n\n') || '';
 
     const texto = `
 TÍTULO: ${doc.titulo}
@@ -290,7 +289,7 @@ ${conteudoTexto}
     toast.success('Download iniciado');
   };
 
-  const toggleOrdenacao = (campo: 'titulo' | 'versaoAtual' | 'atualizadoEm') => {
+  const toggleOrdenacao = (campo: 'titulo' | 'versao' | 'created_at') => {
     if (ordenacao.campo === campo) {
       if (ordenacao.ordem === 'asc') {
         setOrdenacao({ campo, ordem: 'desc' });
@@ -302,7 +301,7 @@ ${conteudoTexto}
     }
   };
 
-  const getOrdenacaoIcon = (campo: 'titulo' | 'versaoAtual' | 'atualizadoEm') => {
+  const getOrdenacaoIcon = (campo: 'titulo' | 'versao' | 'created_at') => {
     if (ordenacao.campo !== campo) {
       return <ArrowUpDown className="h-3 w-3 ml-1 inline" />;
     }
@@ -322,7 +321,7 @@ ${conteudoTexto}
     paginacao.page * paginacao.itemsPerPage
   );
 
-  const autoresUnicos = Array.from(new Set(documentos.map((d) => d.criadoPor)));
+  const autoresUnicos = Array.from(new Set(documentos.map((d) => d.criado_por || 'Sistema')));
 
 
 
@@ -502,7 +501,7 @@ ${conteudoTexto}
                   <div className="flex justify-between items-center mt-4">
                     <div className="text-xs text-muted-foreground">
                       <span className="font-medium">Atualizado:</span>{' '}
-                      {new Date(doc.created_at || doc.atualizadoEm).toLocaleDateString('pt-BR')}
+                      {new Date(doc.created_at).toLocaleDateString('pt-BR')}
                     </div>
                     <div className="flex gap-1">
                       <Button
@@ -571,24 +570,24 @@ ${conteudoTexto}
                       </th>
                       <th
                         className="text-left p-4 font-medium cursor-pointer hover:bg-muted/50"
-                        onClick={() => toggleOrdenacao('versaoAtual')}
+                        onClick={() => toggleOrdenacao('versao')}
                       >
-                        Versão {getOrdenacaoIcon('versaoAtual')}
+                        Versão {getOrdenacaoIcon('versao')}
                       </th>
                       <th className="text-left p-4 font-medium">Nível</th>
                       <th className="text-left p-4 font-medium">Status</th>
                       <th
                         className="text-left p-4 font-medium cursor-pointer hover:bg-muted/50"
-                        onClick={() => toggleOrdenacao('atualizadoEm')}
+                        onClick={() => toggleOrdenacao('created_at')}
                       >
-                        Atualizado {getOrdenacaoIcon('atualizadoEm')}
+                        Atualizado {getOrdenacaoIcon('created_at')}
                       </th>
                       <th className="text-right p-4 font-medium">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
                     {documentosPaginados.map((doc) => (
-                      <tr key={doc.id} className="border-b border-border hover:bg-muted/50">
+                      <tr key={doc.id_documento} className="border-b border-border hover:bg-muted/50">
                         <td className="p-4">
                           <div>
                             <p className="font-medium">{doc.documento} {doc.titulo}</p>
@@ -603,31 +602,31 @@ ${conteudoTexto}
                         <td className="p-4">
                           <Badge
                             style={{
-                              backgroundColor: `${getNivelColor(doc.nivelConformidade)}20`,
-                              color: getNivelColor(doc.nivelConformidade),
-                              borderColor: getNivelColor(doc.nivelConformidade),
+                              backgroundColor: `${getNivelColor(doc.nivel_conformidade)}20`,
+                              color: getNivelColor(doc.nivel_conformidade),
+                              borderColor: getNivelColor(doc.nivel_conformidade),
                             }}
                           >
-                            {doc.nivelConformidade}
+                            {doc.nivel_conformidade}
                           </Badge>
                         </td>
                         <td className="p-4">
                           <StatusBadge
                             variant={
-                              doc.statusAprovacao === 'pendente' ? 'pending' :
-                                doc.statusAprovacao === 'aprovado' ? 'approved' :
-                                  doc.statusAprovacao === 'rejeitado' ? 'rejected' :
+                              doc.status_aprovacao === 'pendente' ? 'pending' :
+                                doc.status_aprovacao === 'aprovado' ? 'approved' :
+                                  doc.status_aprovacao === 'rejeitado' ? 'rejected' :
                                     'draft'
                             }
                           >
-                            {doc.statusAprovacao === 'pendente' ? 'Pendente' :
-                              doc.statusAprovacao === 'aprovado' ? 'Aprovado' :
-                                doc.statusAprovacao === 'rejeitado' ? 'Rejeitado' :
+                            {doc.status_aprovacao === 'pendente' ? 'Pendente' :
+                              doc.status_aprovacao === 'aprovado' ? 'Aprovado' :
+                                doc.status_aprovacao === 'rejeitado' ? 'Rejeitado' :
                                   'Rascunho'}
                           </StatusBadge>
                         </td>
                         <td className="p-4 text-sm text-muted-foreground">
-                          {new Date(doc.atualizadoEm).toLocaleDateString('pt-BR')}
+                          {new Date(doc.created_at).toLocaleDateString('pt-BR')}
                         </td>
                         <td className="p-4">
                           <div className="flex justify-end gap-1">
@@ -666,7 +665,7 @@ ${conteudoTexto}
                             <Button
                               size="icon"
                               variant="ghost"
-                              onClick={() => setDocParaExcluir(doc.id)}
+                              onClick={() => setDocParaExcluir(doc.id_documento)}
                               title="Excluir"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -767,7 +766,7 @@ ${conteudoTexto}
         onOpenChange={() => setDocHistorico(null)}
         versoes={docHistorico?.versoes || []}
         titulo={docHistorico?.titulo || ''}
-        documentoId={docHistorico?.id || ''}
+        documentoId={String(docHistorico?.id_documento || '')}
       />
 
       <AlertDialog open={!!docParaExcluir} onOpenChange={() => setDocParaExcluir(null)}>
@@ -794,7 +793,7 @@ ${conteudoTexto}
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Deleção</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja deletar a pasta "{pastaParaDeletar?.NOME}"?
+              Tem certeza que deseja deletar a pasta "{pastaParaDeletar?.nome}"?
               Todas as subpastas e documentos serão movidos ou perdidos.
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>

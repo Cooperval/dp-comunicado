@@ -279,7 +279,7 @@ const Movimentacoes = () => {
       valor: String(m.valor ?? ""),
       data_original: m.data_original || "",
       data_sugerida: m.data_sugerida || "",
-      documento: m.documento ?? "",
+      documento: String(m.documento ?? ""),
       tipo: m.tipo,
       situacao: m.situacao,
       cod_banco: m.cod_banco != null ? String(m.cod_banco) : "",

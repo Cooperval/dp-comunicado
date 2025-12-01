@@ -433,7 +433,7 @@ export default function Ocorrencias() {
                     <Card key={log.ID_SITUACAO} className="p-4 text-sm">
                       <div className="flex justify-between">
                         <div>
-                          <StatusBadge variant={log.SITUACAO === "PE" ? "warning" : log.SITUACAO === "AP" ? "success" : "destructive"}>
+                          <StatusBadge variant={log.SITUACAO === "PE" ? "pending" : log.SITUACAO === "AP" ? "approved" : "rejected"}>
                             {log.DESC_SITUACAO}
                           </StatusBadge>
                           <span className="ml-2 text-xs text-muted-foreground">{log.DATA_FORMATADA}</span>

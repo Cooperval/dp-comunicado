@@ -84,8 +84,8 @@ export const mockAPI = {
   getUsuarios: async () => {
     await delay(400);
     return [
-      { id: '1', nome: 'Admin', email: 'admin@example.com', role: 'admin', status: 'ativo' },
-      { id: '2', nome: 'User', email: 'user@example.com', role: 'user', status: 'ativo' },
+      { id: '1', matricula: '001', name: 'Admin', email: 'admin@example.com', role: 'admin' as const, department: 'TI', allowedApps: ['*'], active: true, createdAt: '2024-01-01' },
+      { id: '2', matricula: '002', name: 'User', email: 'user@example.com', role: 'gestor' as const, department: 'RH', allowedApps: ['avaliacao'], active: true, createdAt: '2024-01-01' },
     ];
   },
 

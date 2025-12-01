@@ -171,7 +171,7 @@ export default function Configuracoes() {
     descricao: string;
   }>>([]);
 
-  const [loadingOpBaixa, setLoadingOpBaixa] = useState();
+  const [loadingOpBaixa, setLoadingOpBaixa] = useState(false);
   const [errorOpBaixa, setErrorOpBaixa] = useState<string | null>(null);
 
 
@@ -262,8 +262,8 @@ export default function Configuracoes() {
       setFormOpBaixa({ descricao: '', situacao: 'A' });
     } else if (data) {
       setFormOpBaixa({
-        descricao: data.DESCRICAO || '', // ← garante string
-        situacao: (data.SITUACAO === 'A' || data.ATIVO) ? 'A' : 'I',
+        descricao: data.descricao || '',
+        situacao: 'A',
       });
     }
 
@@ -274,7 +274,7 @@ export default function Configuracoes() {
         ? {
           cod_operacaobaixa: data.cod_operacaobaixa,
           descricao: data.descricao || '',
-          situacao: (data.situacao === 'A' || data.ativo) ? 'A' : 'I',
+          situacao: 'A',
         }
         : undefined,
     });
@@ -384,8 +384,8 @@ export default function Configuracoes() {
   const filteredOperacoesBaixa = operacoesBaixa.filter(op => {
     const termo = searchOpBaixa.toLowerCase();
     return (
-      op.COD_OPERACAOBAIXA.toString().includes(termo) ||
-      op.DESCRICAO.toLowerCase().includes(termo)
+      op.cod_operacaobaixa.toString().includes(termo) ||
+      op.descricao.toLowerCase().includes(termo)
     );
   });
 
@@ -401,8 +401,8 @@ export default function Configuracoes() {
   const filteredTiposContas = tiposContasPagar.filter(op => {
     const termo = searchTipos.toLowerCase();
     return (
-      op.COD_TIPOCONTASPAGAR.toString().includes(termo) ||
-      op.DESCRICAO.toLowerCase().includes(termo)
+      op.cod_tipocontaspagar.toString().includes(termo) ||
+      op.descricao.toLowerCase().includes(termo)
     );
   });
 
@@ -519,9 +519,9 @@ export default function Configuracoes() {
                     filteredOperacoesBaixa
                       .slice((opBaixaPage - 1) * opBaixaPerPage, opBaixaPage * opBaixaPerPage)
                       .map((op) => (
-                        <TableRow key={op.COD_OPERACAOBAIXA}>
-                          <TableCell className="font-mono font-semibold">{op.COD_OPERACAOBAIXA}</TableCell>
-                          <TableCell>{op.DESCRICAO}</TableCell>
+                        <TableRow key={op.cod_operacaobaixa}>
+                          <TableCell className="font-mono font-semibold">{op.cod_operacaobaixa}</TableCell>
+                          <TableCell>{op.descricao}</TableCell>
                           <TableCell className="text-right">
                             <Button size="sm" variant="ghost" onClick={() => openDialogOpBaixa('edit', op)}>
                               <Edit className="w-4 h-4" />
@@ -646,11 +646,11 @@ export default function Configuracoes() {
                     filteredTiposContas
                       .slice((tiposPage - 1) * tiposPerPage, tiposPage * tiposPerPage)
                       .map((tipo) => (
-                        <TableRow key={tipo.COD_TIPOCONTASPAGAR}>
-                          <TableCell className="font-mono font-semibold">{tipo.COD_TIPOCONTASPAGAR}</TableCell>
-                          <TableCell>{tipo.DESCRICAO}</TableCell>
+                        <TableRow key={tipo.cod_tipocontaspagar}>
+                          <TableCell className="font-mono font-semibold">{tipo.cod_tipocontaspagar}</TableCell>
+                          <TableCell>{tipo.descricao}</TableCell>
                           <TableCell className="text-right">
-                            <Button size="sm" variant="ghost" onClick={() => alert(`Editar ${tipo.COD_TIPOCONTASPAGAR}`)}>
+                            <Button size="sm" variant="ghost" onClick={() => alert(`Editar ${tipo.cod_tipocontaspagar}`)}>
                               <Edit className="w-4 h-4" />
                             </Button>
                           </TableCell>

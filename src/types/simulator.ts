@@ -88,6 +88,10 @@ export interface ProductionCosts {
 
   // Custo administrativo por tonelada de cana
   administration: number;
+
+  // Despesas de comercialização
+  salesExpenseEthanol: number;  // R$/m³ de etanol
+  salesExpenseSugar: number;    // R$/ton de açúcar
 }
 
 
@@ -192,6 +196,8 @@ export const initialSimulatorData: SimulatorData = {
     cornIndustry: 150,
     cornBiomass: 48,
     administration: 9.8,
+    salesExpenseEthanol: 5.04,
+    salesExpenseSugar: 165.09,
   },
 
   // DRE

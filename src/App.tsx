@@ -132,7 +132,7 @@ const App = () => (
             <Route
               path="/apps/fluxo-de-caixa"
               element={
-                <ProtectedRoute requiredModule={12}>
+                <ProtectedRoute requiredModule="12">
                   <AppLayout sidebar={<FluxoCaixaSidebar />} appName="Fluxo de Caixa">
                     <DashboardFC />
                   </AppLayout>
@@ -142,7 +142,7 @@ const App = () => (
             <Route
               path="/apps/fluxo-de-caixa/saldos"
               element={
-                <ProtectedRoute requiredModule={12}>
+                <ProtectedRoute requiredModule="12">
                   <AppLayout sidebar={<FluxoCaixaSidebar />} appName="Fluxo de Caixa">
                     <SaldosBancariosFC />
                   </AppLayout>
@@ -152,7 +152,7 @@ const App = () => (
             <Route
               path="/apps/fluxo-de-caixa/movimentacoes"
               element={
-                <ProtectedRoute requiredModule={12}>
+                <ProtectedRoute requiredModule="12">
                   <AppLayout sidebar={<FluxoCaixaSidebar />} appName="Fluxo de Caixa">
                     <MovimentacoesFC />
                   </AppLayout>
@@ -162,7 +162,7 @@ const App = () => (
             <Route
               path="/apps/fluxo-de-caixa/pendencias"
               element={
-                <ProtectedRoute requiredModule={12}>
+                <ProtectedRoute requiredModule="12">
                   <AppLayout sidebar={<FluxoCaixaSidebar />} appName="Fluxo de Caixa">
                     <PendenciasFC />
                   </AppLayout>
@@ -172,7 +172,7 @@ const App = () => (
             <Route
               path="/apps/fluxo-de-caixa/relatorios"
               element={
-                <ProtectedRoute requiredModule={12}>
+                <ProtectedRoute requiredModule="12">
                   <AppLayout sidebar={<FluxoCaixaSidebar />} appName="Fluxo de Caixa">
                     <RelatorioFC />
                   </AppLayout>
@@ -182,7 +182,7 @@ const App = () => (
             <Route
               path="/apps/fluxo-de-caixa/fluxo-de-caixa"
               element={
-                <ProtectedRoute requiredModule={12}>
+                <ProtectedRoute requiredModule="12">
                   <AppLayout sidebar={<FluxoCaixaSidebar />} appName="Fluxo de Caixa">
                     <FluxoCaixaFC />
                   </AppLayout>
@@ -192,7 +192,7 @@ const App = () => (
             <Route
               path="/apps/fluxo-de-caixa/lancamento-futuro"
               element={
-                <ProtectedRoute requiredModule={12}>
+                <ProtectedRoute requiredModule="12">
                   <AppLayout sidebar={<FluxoCaixaSidebar />} appName="Fluxo de Caixa">
                     <LancamentoFuturoFC />
                   </AppLayout>
@@ -203,7 +203,7 @@ const App = () => (
             <Route
               path="/apps/fluxo-de-caixa/configuracoes"
               element={
-                <ProtectedRoute requiredModule={12}>
+                <ProtectedRoute requiredModule="12">
                   <AppLayout sidebar={<FluxoCaixaSidebar />} appName="Fluxo de Caixa">
                     <ConfiguracaoFC />
                   </AppLayout>
@@ -215,7 +215,7 @@ const App = () => (
             <Route
               path="/apps/controle-ponto"
               element={
-                <ProtectedRoute requiredModule={13}>
+                <ProtectedRoute requiredModule="13">
                   <AppLayout sidebar={<ControlePontoSidebar />} appName="Controle de Ponto">
                     <DashboardCP />
                   </AppLayout>
@@ -225,7 +225,7 @@ const App = () => (
             <Route
               path="/apps/controle-ponto/nova-ocorrencia"
               element={
-                <ProtectedRoute requiredModule={13}>
+                <ProtectedRoute requiredModule="13">
                   <AppLayout sidebar={<ControlePontoSidebar />} appName="Controle de Ponto">
                     <NovaOcorrenciaCP />
                   </AppLayout>
@@ -235,7 +235,7 @@ const App = () => (
             <Route
               path="/apps/controle-ponto/ocorrencias"
               element={
-                <ProtectedRoute requiredModule={13}>
+                <ProtectedRoute requiredModule="13">
                   <AppLayout sidebar={<ControlePontoSidebar />} appName="Controle de Ponto">
                     <OcorrenciasCP />
                   </AppLayout>
@@ -245,7 +245,7 @@ const App = () => (
             <Route
               path="/apps/controle-ponto/configuracoes"
               element={
-                <ProtectedRoute requiredModule={13}>
+                <ProtectedRoute requiredModule="13">
                   <AppLayout sidebar={<ControlePontoSidebar />} appName="Controle de Ponto">
                     <ConfiguracoesCP />
                   </AppLayout>
@@ -257,7 +257,7 @@ const App = () => (
             <Route
               path="/apps/avaliacao"
               element={
-                <ProtectedRoute requiredModule={14}>
+                <ProtectedRoute requiredModule="14">
                   <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
                     <AvaliacaoDashboard />
                   </AppLayout>
@@ -267,7 +267,7 @@ const App = () => (
             <Route
               path="/apps/avaliacao/modelos"
               element={
-                <ProtectedRoute requiredModule={14}>
+                <ProtectedRoute requiredModule="14">
                   <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
                     <GerenciarAvaliacoes />
                   </AppLayout>
@@ -277,7 +277,7 @@ const App = () => (
             <Route
               path="/apps/avaliacao/modelos/novo"
               element={
-                <ProtectedRoute requiredModule={14}>
+                <ProtectedRoute requiredModule="14">
                   <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
                     <NovoModeloAvaliacao />
                   </AppLayout>
@@ -287,7 +287,7 @@ const App = () => (
             <Route
               path="/apps/avaliacao/modelos/editar/:id"
               element={
-                <ProtectedRoute requiredModule={14}>
+                <ProtectedRoute requiredModule="14">
                   <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
                     <NovoModeloAvaliacao />
                   </AppLayout>
@@ -297,7 +297,7 @@ const App = () => (
             <Route
               path="/apps/avaliacao/modelos/visualizar/:id"
               element={
-                <ProtectedRoute requiredModule={14}>
+                <ProtectedRoute requiredModule="14">
                   <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
                     <VisualizarModelo />
                   </AppLayout>
@@ -307,7 +307,7 @@ const App = () => (
             <Route
               path="/apps/avaliacao/atribuir"
               element={
-                <ProtectedRoute requiredModule={14}>
+                <ProtectedRoute requiredModule="14">
                   <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
                     <AtribuirAvaliacao />
                   </AppLayout>
@@ -317,7 +317,7 @@ const App = () => (
             <Route
               path="/apps/avaliacao/lista"
               element={
-                <ProtectedRoute requiredModule={14}>
+                <ProtectedRoute requiredModule="14">
                   <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
                     <ListaAvaliacoes />
                   </AppLayout>
@@ -327,7 +327,7 @@ const App = () => (
             <Route
               path="/apps/avaliacao/realizar/:id"
               element={
-                <ProtectedRoute requiredModule={14}>
+                <ProtectedRoute requiredModule="14">
                   <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
                     <RealizarAvaliacao />
                   </AppLayout>
@@ -337,7 +337,7 @@ const App = () => (
             <Route
               path="/apps/avaliacao/detalhes/:id"
               element={
-                <ProtectedRoute requiredModule={14}>
+                <ProtectedRoute requiredModule="14">
                   <AppLayout sidebar={<AvaliacaoSidebar />} appName="Avaliação de Aprendizes">
                     <DetalhesAvaliacao />
                   </AppLayout>
@@ -483,7 +483,7 @@ const App = () => (
             <Route
               path="/apps/sgdnc"
               element={
-                <ProtectedRoute requiredModule={15}>
+                <ProtectedRoute requiredModule="15">
                   <AppLayout sidebar={<SGDNCSidebar />} appName="Gestão de Documentos e Não Conformidade">
                     <SGDNCDashboard />
                   </AppLayout>
@@ -493,7 +493,7 @@ const App = () => (
             <Route
               path="/apps/sgdnc/documentos"
               element={
-                <ProtectedRoute requiredModule={15}>
+                <ProtectedRoute requiredModule="15">
                   <AppLayout sidebar={<SGDNCSidebar />} appName="Gestão de Documentos e Não Conformidade">
                     <ListaDocumentos />
                   </AppLayout>
@@ -503,7 +503,7 @@ const App = () => (
             <Route
               path="/apps/sgdnc/documentos/novo"
               element={
-                <ProtectedRoute requiredModule={15}>
+                <ProtectedRoute requiredModule="15">
                   <AppLayout sidebar={<SGDNCSidebar />} appName="Gestão de Documentos e Não Conformidade">
                     <NovoDocumento />
                   </AppLayout>
@@ -513,7 +513,7 @@ const App = () => (
             <Route
               path="/apps/sgdnc/documentos/:id"
               element={
-                <ProtectedRoute requiredModule={15}>
+                <ProtectedRoute requiredModule="15">
                   <AppLayout sidebar={<SGDNCSidebar />} appName="Gestão de Documentos e Não Conformidade">
                     <VisualizarDocumento />
                   </AppLayout>
@@ -523,7 +523,7 @@ const App = () => (
             <Route
               path="/apps/sgdnc/documentos/:id/editar"
               element={
-                <ProtectedRoute requiredModule={15}>
+                <ProtectedRoute requiredModule="15">
                   <AppLayout sidebar={<SGDNCSidebar />} appName="Gestão de Documentos e Não Conformidade">
                     <EditarDocumento />
                   </AppLayout>
@@ -533,7 +533,7 @@ const App = () => (
             <Route
               path="/apps/sgdnc/documentos/:id/versoes/:versaoNumero"
               element={
-                <ProtectedRoute requiredModule={15}>
+                <ProtectedRoute requiredModule="15">
                   <AppLayout sidebar={<SGDNCSidebar />} appName="Gestão de Documentos e Não Conformidade">
                     <VisualizarVersao />
                   </AppLayout>
@@ -543,7 +543,7 @@ const App = () => (
             <Route
               path="/apps/sgdnc/documentos/aprovacoes"
               element={
-                <ProtectedRoute requiredModule={15}>
+                <ProtectedRoute requiredModule="15">
                   <AppLayout sidebar={<SGDNCSidebar />} appName="Gestão de Documentos e Não Conformidade">
                     <AprovacoesDocumentos />
                   </AppLayout>
@@ -553,7 +553,7 @@ const App = () => (
             <Route
               path="/apps/sgdnc/documentos/aprovacoes/:id"
               element={
-                <ProtectedRoute requiredModule={15}>
+                <ProtectedRoute requiredModule="15">
                   <AppLayout sidebar={<SGDNCSidebar />} appName="Gestão de Documentos e Não Conformidade">
                     <DetalhesAprovacao />
                   </AppLayout>
@@ -563,7 +563,7 @@ const App = () => (
             <Route
               path="/apps/sgdnc/nao-conformidades"
               element={
-                <ProtectedRoute requiredModule={15}>
+                <ProtectedRoute requiredModule="15">
                   <AppLayout sidebar={<SGDNCSidebar />} appName="Gestão de Documentos e Não Conformidade">
                     <ListaNaoConformidades />
                   </AppLayout>
@@ -573,7 +573,7 @@ const App = () => (
             <Route
               path="/apps/sgdnc/nao-conformidades/nova"
               element={
-                <ProtectedRoute requiredModule={15}>
+                <ProtectedRoute requiredModule="15">
                   <AppLayout sidebar={<SGDNCSidebar />} appName="Gestão de Documentos e Não Conformidade">
                     <RegistrarNC />
                   </AppLayout>
@@ -583,7 +583,7 @@ const App = () => (
             <Route
               path="/apps/sgdnc/nao-conformidades/:id"
               element={
-                <ProtectedRoute requiredModule={15}>
+                <ProtectedRoute requiredModule="15">
                   <AppLayout sidebar={<SGDNCSidebar />} appName="Gestão de Documentos e Não Conformidade">
                     <DetalhesNC />
                   </AppLayout>
@@ -593,7 +593,7 @@ const App = () => (
             <Route
               path="/apps/sgdnc/treinamentos"
               element={
-                <ProtectedRoute requiredModule={15}>
+                <ProtectedRoute requiredModule="15">
                   <AppLayout sidebar={<SGDNCSidebar />} appName="Gestão de Documentos e Não Conformidade">
                     <ListaTreinamentos />
                   </AppLayout>
@@ -603,7 +603,7 @@ const App = () => (
             <Route
               path="/apps/sgdnc/treinamentos/:id/confirmar"
               element={
-                <ProtectedRoute requiredModule={15}>
+                <ProtectedRoute requiredModule="15">
                   <AppLayout sidebar={<SGDNCSidebar />} appName="Gestão de Documentos e Não Conformidade">
                     <ConfirmacaoLeitura />
                   </AppLayout>
@@ -613,7 +613,7 @@ const App = () => (
             <Route
               path="/apps/sgdnc/relatorios"
               element={
-                <ProtectedRoute requiredModule={15}>
+                <ProtectedRoute requiredModule="15">
                   <AppLayout sidebar={<SGDNCSidebar />} appName="Gestão de Documentos e Não Conformidade">
                     <RelatoriosAuditoria />
                   </AppLayout>

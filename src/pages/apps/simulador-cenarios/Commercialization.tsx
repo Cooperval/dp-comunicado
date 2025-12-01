@@ -8,14 +8,14 @@ const Commercialization: React.FC = () => {
   const { data, updateCommerce } = useSimulator();
 
   // Compute derived values locally
-  const prodEAM = (data.corn?.hydratedEthanolProd || 0) + (data.corn?.anhydrousEthanolProd || 0);
-  const prodDDG = data.corn?.ddgProduction || 0;
-  const prodWDG = data.corn?.wdgProduction || 0;
-  const prodVHP = data.sugarCane?.sugarProduction || 0;
-  const prodEHC = data.sugarCane?.hydratedEthanolProd || 0;
-  const prodEAC = data.sugarCane?.anhydrousEthanolProd || 0;
-  const prodCO2 = data.corn?.co2Production || 0;
-  const prodCBIO = data.sugarCane?.cbioProduction || 0;
+  const prodEAM = (data.corn?.hydratedEthanol || 0) + (data.corn?.anhydrousEthanol || 0);
+  const prodDDG = data.corn?.ddg || 0;
+  const prodWDG = data.corn?.wdg || 0;
+  const prodVHP = data.sugarCane?.vhpSugar || 0;
+  const prodEHC = data.sugarCane?.hydratedEthanol || 0;
+  const prodEAC = data.sugarCane?.anhydrousEthanol || 0;
+  const prodCO2 = data.otherProductions?.co2Corn || 0;
+  const prodCBIO = data.otherProductions?.cbio || 0;
   const prodEH = prodEHC;
   const prodEA = prodEAC;
 

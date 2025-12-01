@@ -530,16 +530,8 @@ const DRE = () => {
                   <p className="font-semibold">{formatCurrency(despesasComercializacaoEtanol)}</p>
                 </div>
                 <div className="flex justify-between">
-                  <p className="text-muted-foreground">Volume Etanol (m³):</p>
-                  <p className="font-mono text-xs">{formatNumber(totalEthanol)} × R$ 5,04</p>
-                </div>
-                <div className="flex justify-between">
                   <p className="text-muted-foreground">Comercialização Açúcar:</p>
                   <p className="font-semibold">{formatCurrency(despesasComercializacaoAcucar)}</p>
-                </div>
-                <div className="flex justify-between">
-                  <p className="text-muted-foreground">Volume Açúcar (ton):</p>
-                  <p className="font-mono text-xs">{formatNumber(prodVHP)} × R$ 165,00</p>
                 </div>
               </div>
 

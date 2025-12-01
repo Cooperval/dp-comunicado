@@ -60,31 +60,6 @@ const OperationPremises: React.FC = () => {
               placeholder="0.00"
             />
 
-            <NumericInput
-              label="Extração ART"
-              unit="%"
-              value={data.extractionArt}
-              onChange={(value) => handleInputChange('extractionArt', value)}
-              placeholder="0.00"
-              max={100}
-            />
-
-            <NumericInput
-              label="Horas Efetivas no mês"
-              unit="h"
-              value={data.effectiveHours}
-              onChange={(value) => handleInputChange('effectiveHours', value)}
-              placeholder="0.00"
-            />
-
-            <NumericInput
-              label="Eficiência de Tempo Geral"
-              unit="%"
-              value={data.generalTimeEfficiency}
-              onChange={(value) => handleInputChange('generalTimeEfficiency', value)}
-              placeholder="0.00"
-              max={100}
-            />
 
             <NumericInput
               label="Rendimento Total Convertido"

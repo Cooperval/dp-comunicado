@@ -15,7 +15,8 @@ export interface User {
   email: string;
   // múltiplos roles (cada app pode atribuir 0..N roles ao usuário)
   roles?: string[];
-  // opcional: outros metadados
+  // opcional: departamento do usuário
+  department?: string;
 }
 
 interface AuthContextType {
@@ -172,11 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!stillValid) {
         console.warn("[AuthContext] Token expirou durante a sessão. Deslogando...");
         logout(); // ← força logout automático
-        toast?.({
-          title: "Sessão expirada",
-          description: "Sua sessão expirou. Faça login novamente.",
-          variant: "destructive",
-        });
+        // Toast será mostrado via redirect para login
       }
     }, 5 * 60 * 1000); // 5 minutos
 

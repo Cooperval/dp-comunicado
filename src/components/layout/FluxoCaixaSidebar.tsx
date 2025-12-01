@@ -13,7 +13,7 @@ import {
   ArrowLeft,
   Home, LogOut, User
 } from 'lucide-react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Sidebar,
   SidebarContent,
@@ -43,6 +43,7 @@ const items = [
 export function FluxoCaixaSidebar() {
   const { user, logout } = useAuth();
   const { state } = useSidebar();
+  const navigate = useNavigate();
   const isCollapsed = state === 'collapsed';
   const location = useLocation();
   const currentPath = location.pathname;

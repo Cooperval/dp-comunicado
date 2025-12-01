@@ -20,8 +20,8 @@ export interface Pasta {
 
 interface FolderTreeProps {
   pastas: Pasta[];
-  pastaAtual: number | null;
-  onSelectPasta: (pastaId: number | null) => void;
+  pastaAtual: string | null;
+  onSelectPasta: (pastaId: string | null) => void;
   onEditPasta?: (pasta: Pasta) => void;
   onDeletePasta?: (pasta: Pasta) => void;
 }
@@ -40,10 +40,10 @@ export function FolderTree({ pastas, pastaAtual, onSelectPasta, onEditPasta, onD
   };
 
   const renderPasta = (pasta: Pasta, level: number = 0) => {
-    const subPastas = pastas.filter(p => p.PASTA_PARENT_ID === pasta.ID_PASTA);
+    const subPastas = pastas.filter(p => p.pasta_parent_id === pasta.id);
     const hasChildren = subPastas.length > 0;
-    const isExpanded = pastasExpandidas.has(pasta.ID_PASTA);
-    const isSelected = pastaAtual === pasta.ID_PASTA;
+    const isExpanded = pastasExpandidas.has(pasta.id);
+    const isSelected = pastaAtual === pasta.id;
 
     return (
       <div key={pasta.id}>
@@ -55,13 +55,13 @@ export function FolderTree({ pastas, pastaAtual, onSelectPasta, onEditPasta, onD
               isSelected && 'bg-accent text-accent-foreground'
             )}
             style={{ paddingLeft: `${level * 16 + 8}px` }}
-            onClick={() => onSelectPasta(pasta.ID_PASTA)}
+            onClick={() => onSelectPasta(pasta.id)}
           >
             {hasChildren && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  togglePasta(pasta.ID_PASTA);
+                  togglePasta(pasta.id);
                 }}
                 className="p-0 h-4 w-4 hover:bg-accent rounded"
               >
@@ -74,11 +74,11 @@ export function FolderTree({ pastas, pastaAtual, onSelectPasta, onEditPasta, onD
             )}
             {!hasChildren && <div className="w-4" />}
             {isExpanded && hasChildren ? (
-              <FolderOpen className="h-4 w-4" style={{ color: pasta.COR }} />
+              <FolderOpen className="h-4 w-4" style={{ color: pasta.cor }} />
             ) : (
-              <Folder className="h-4 w-4" style={{ color: pasta.COR }} />
+              <Folder className="h-4 w-4" style={{ color: pasta.cor }} />
             )}
-            <span className="text-sm truncate">{pasta.NOME}</span>
+            <span className="text-sm truncate">{pasta.nome}</span>
           </Button>
           
           {/* Menu de ações */}
@@ -118,7 +118,7 @@ export function FolderTree({ pastas, pastaAtual, onSelectPasta, onEditPasta, onD
     );
   };
 
-  const pastasRaiz = pastas.filter(p => !p.PASTA_PARENT_ID);
+  const pastasRaiz = pastas.filter(p => !p.pasta_parent_id);
 
   return (
     <div className="space-y-1">
@@ -126,9 +126,9 @@ export function FolderTree({ pastas, pastaAtual, onSelectPasta, onEditPasta, onD
         variant="ghost"
         className={cn(
           'w-full justify-start h-9 px-2',
-          pastaAtual === '' && 'bg-accent text-accent-foreground'
+          pastaAtual === null && 'bg-accent text-accent-foreground'
         )}
-        onClick={() => onSelectPasta('')}
+        onClick={() => onSelectPasta(null)}
       >
         <Folder className="h-4 w-4 mr-2" />
         <span className="text-sm">Todas as Pastas</span>

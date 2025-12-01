@@ -9,14 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-export interface Pasta {
-  id: string;
-  nome: string;
-  pasta_parent_id?: string | null;
-  pastaParentId?: string;
-  cor?: string;
-}
+import type { Pasta } from '@/hooks/sgdnc/usePastas';
 
 interface FolderTreeProps {
   pastas: Pasta[];
@@ -27,9 +20,9 @@ interface FolderTreeProps {
 }
 
 export function FolderTree({ pastas, pastaAtual, onSelectPasta, onEditPasta, onDeletePasta }: FolderTreeProps) {
-  const [pastasExpandidas, setPastasExpandidas] = useState<Set<string>>(new Set());
+  const [pastasExpandidas, setPastasExpandidas] = useState<Set<number>>(new Set());
 
-  const togglePasta = (pastaId: string) => {
+  const togglePasta = (pastaId: number) => {
     const novasPastas = new Set(pastasExpandidas);
     if (novasPastas.has(pastaId)) {
       novasPastas.delete(pastaId);
@@ -40,13 +33,13 @@ export function FolderTree({ pastas, pastaAtual, onSelectPasta, onEditPasta, onD
   };
 
   const renderPasta = (pasta: Pasta, level: number = 0) => {
-    const subPastas = pastas.filter(p => p.pasta_parent_id === pasta.id);
+    const subPastas = pastas.filter(p => p.pasta_parent_id === pasta.id_pasta);
     const hasChildren = subPastas.length > 0;
-    const isExpanded = pastasExpandidas.has(pasta.id);
-    const isSelected = pastaAtual === pasta.id;
+    const isExpanded = pastasExpandidas.has(pasta.id_pasta);
+    const isSelected = pastaAtual === String(pasta.id_pasta);
 
     return (
-      <div key={pasta.id}>
+      <div key={pasta.id_pasta}>
         <div className="flex items-center group">
           <Button
             variant="ghost"
@@ -55,13 +48,13 @@ export function FolderTree({ pastas, pastaAtual, onSelectPasta, onEditPasta, onD
               isSelected && 'bg-accent text-accent-foreground'
             )}
             style={{ paddingLeft: `${level * 16 + 8}px` }}
-            onClick={() => onSelectPasta(pasta.id)}
+            onClick={() => onSelectPasta(String(pasta.id_pasta))}
           >
             {hasChildren && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  togglePasta(pasta.id);
+                  togglePasta(pasta.id_pasta);
                 }}
                 className="p-0 h-4 w-4 hover:bg-accent rounded"
               >

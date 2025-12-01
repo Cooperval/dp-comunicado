@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSimulator } from '@/contexts/SimulatorContext';
-import { useToast } from '@/hooks/use-toast';
 import { Download, Save, Trash2, Plus, RefreshCw } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -15,7 +14,6 @@ import * as XLSX from 'xlsx';
 
 export default function Consolidated() {
   const { savedScenarios, saveScenario, deleteScenario, updateAllScenarios, refreshScenario } = useSimulator();
-  const { toast } = useToast();
   const [scenarioName, setScenarioName] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 

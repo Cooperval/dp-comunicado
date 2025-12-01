@@ -196,8 +196,8 @@ export default function EditarDocumento() {
                     <SelectContent>
                       <SelectItem value="">Raiz</SelectItem>
                       {pastas.map(p => (
-                        <SelectItem key={p.ID_PASTA} value={String(p.ID_PASTA)}>
-                          {p.NOME}
+                        <SelectItem key={p.id_pasta} value={String(p.id_pasta)}>
+                          {p.nome}
                         </SelectItem>
                       ))}
                     </SelectContent>

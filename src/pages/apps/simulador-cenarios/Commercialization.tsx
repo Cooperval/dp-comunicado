@@ -5,27 +5,21 @@ import { useSimulator } from '@/contexts/SimulatorContext';
 import { Badge } from '@/components/ui/badge';
 
 const Commercialization: React.FC = () => {
-  const { data, updateCommerce, derivedCornProductions, derivedProductions } = useSimulator();
+  const { data, updateCommerce } = useSimulator();
 
-  if (!derivedCornProductions) return null;
-  const {
-    prodEAM,
-    prodDDG,
-    prodWDG,
-
-  } = derivedCornProductions;
-
-  if (!derivedProductions) return null;
-  const {
-    prodVHP,
-    prodEHC,
-    prodEAC,
-
-  } = derivedProductions;
+  // Compute derived values locally
+  const prodEAM = (data.corn?.hydratedEthanolProd || 0) + (data.corn?.anhydrousEthanolProd || 0);
+  const prodDDG = data.corn?.ddgProduction || 0;
+  const prodWDG = data.corn?.wdgProduction || 0;
+  const prodVHP = data.sugarCane?.sugarProduction || 0;
+  const prodEHC = data.sugarCane?.hydratedEthanolProd || 0;
+  const prodEAC = data.sugarCane?.anhydrousEthanolProd || 0;
+  const prodCO2 = data.corn?.co2Production || 0;
+  const prodCBIO = data.sugarCane?.cbioProduction || 0;
+  const prodEH = prodEHC;
+  const prodEA = prodEAC;
 
   useEffect(() => {
-    if (!derivedProductions || !derivedCornProductions) return;
-
     const shouldUpdate =
       data.commercialization.vhpSugar === 0 ||
       data.commercialization.hydratedEthanolCane === 0 ||
@@ -36,18 +30,17 @@ const Commercialization: React.FC = () => {
 
     if (shouldUpdate) {
       updateCommerce({
-        vhpSugar: derivedProductions.prodVHP,
-        hydratedEthanolCane: derivedProductions.prodEHC,
-        anhydrousEthanolCane: derivedProductions.prodEAC,
-        cornEthanol: derivedCornProductions.prodEAM,
-        ddg: derivedCornProductions.prodDDG,
-        wdg: derivedCornProductions.prodWDG,
+        vhpSugar: prodVHP,
+        hydratedEthanolCane: prodEHC,
+        anhydrousEthanolCane: prodEAC,
+        cornEthanol: prodEAM,
+        ddg: prodDDG,
+        wdg: prodWDG,
       });
     }
   }, [
     data.commercialization,
-    derivedProductions,
-    derivedCornProductions,
+    prodVHP, prodEHC, prodEAC, prodEAM, prodDDG, prodWDG,
     updateCommerce,
   ]);
 

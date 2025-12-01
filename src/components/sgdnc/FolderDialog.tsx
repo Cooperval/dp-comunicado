@@ -20,14 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
-
-
-interface Pasta {
-  ID_PASTA: string;
-  NOME: string;
-  PASTA_PARENT_ID?: string | null;
-  COR?: string;
-}
+import type { Pasta } from '@/hooks/sgdnc/usePastas';
 
 interface FolderDialogProps {
   open: boolean;
@@ -52,9 +45,9 @@ export function FolderDialog({
   // Preenche os campos quando pastaEditando muda
   useEffect(() => {
     if (pastaEditando) {
-      setNome(pastaEditando.NOME || '');
-      setPastaParentId(pastaEditando.PASTA_PARENT_ID || null);
-      setCor(pastaEditando.COR || '#3B82F6');
+      setNome(pastaEditando.nome || '');
+      setPastaParentId(pastaEditando.pasta_parent_id ? String(pastaEditando.pasta_parent_id) : null);
+      setCor(pastaEditando.cor || '#3B82F6');
     } else {
       setNome('');
       setPastaParentId(null);
@@ -98,12 +91,12 @@ export function FolderDialog({
 
   const buildPastaPath = (pastaId: string, pastas: Pasta[]): string => {
     const path: string[] = [];
-    let current = pastas.find(p => p.ID_PASTA === pastaId);
+    let current = pastas.find(p => String(p.id_pasta) === pastaId);
 
     while (current) {
-      path.unshift(current.NOME);
-      if (!current.PASTA_PARENT_ID) break;
-      current = pastas.find(p => p.ID_PASTA === current.PASTA_PARENT_ID);
+      path.unshift(current.nome);
+      if (!current.pasta_parent_id) break;
+      current = pastas.find(p => p.id_pasta === current!.pasta_parent_id);
     }
 
     return path.length > 0 ? path.join(' > ') : 'Raiz';
@@ -115,14 +108,14 @@ export function FolderDialog({
     if (!pastaId) return 1; // Raiz = nível 1
 
     let profundidade = 1;
-    let currentId: string | null = pastaId;
+    let currentId: string | number | null = pastaId;
 
     while (currentId) {
-      const pasta = pastas.find(p => p.ID_PASTA === currentId);
+      const pasta = pastas.find(p => String(p.id_pasta) === String(currentId));
       if (!pasta) break;
-      if (!pasta.PASTA_PARENT_ID) break;
+      if (!pasta.pasta_parent_id) break;
       profundidade++;
-      currentId = pasta.PASTA_PARENT_ID;
+      currentId = pasta.pasta_parent_id;
     }
 
     return profundidade;
@@ -130,7 +123,7 @@ export function FolderDialog({
 
   // Profundidade da pasta que está sendo editada (ou 1 se for nova)
   const profundidadeAtual = pastaEditando
-    ? getProfundidade(pastaEditando.ID_PASTA, pastas)
+    ? getProfundidade(String(pastaEditando.id_pasta), pastas)
     : (pastaParentId ? getProfundidade(pastaParentId, pastas) + 1 : 1);
 
 
@@ -176,27 +169,27 @@ export function FolderDialog({
                 {pastas
                   .filter((p) => {
                     // Evita auto-referência
-                    if (p.ID_PASTA === pastaEditando?.ID_PASTA) return false;
+                    if (pastaEditando && p.id_pasta === pastaEditando.id_pasta) return false;
 
                     // Calcula profundidade se essa pasta fosse pai
-                    const novaProfundidadeSeFilho = getProfundidade(p.ID_PASTA, pastas) + 1;
+                    const novaProfundidadeSeFilho = getProfundidade(String(p.id_pasta), pastas) + 1;
 
                     // Bloqueia se ultrapassar 4 níveis
                     return novaProfundidadeSeFilho <= 4;
                   })
                   .map((pasta) => {
-                    const caminho = buildPastaPath(pasta.ID_PASTA, pastas);
-                    const profundidade = getProfundidade(pasta.ID_PASTA, pastas);
+                    const caminho = buildPastaPath(String(pasta.id_pasta), pastas);
+                    const profundidade = getProfundidade(String(pasta.id_pasta), pastas);
 
                     return (
                       <SelectItem
-                        key={pasta.ID_PASTA}
-                        value={pasta.ID_PASTA}
+                        key={pasta.id_pasta}
+                        value={String(pasta.id_pasta)}
                         // Opcional: desabilita visualmente se estiver no limite
-                        className={getProfundidade(pasta.ID_PASTA, pastas) >= 4 ? 'text-muted-foreground' : ''}
+                        className={getProfundidade(String(pasta.id_pasta), pastas) >= 4 ? 'text-muted-foreground' : ''}
                       >
                         <div className="flex flex-col">
-                          <span className="font-medium">{pasta.NOME}</span>
+                          <span className="font-medium">{pasta.nome}</span>
                           <span className="text-xs text-muted-foreground">
                             {caminho} (nível {profundidade + 1})
                           </span>

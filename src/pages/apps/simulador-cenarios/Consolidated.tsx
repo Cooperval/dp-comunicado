@@ -9,7 +9,7 @@ import { useSimulator } from '@/contexts/SimulatorContext';
 import { Download, Save, Trash2, Plus, RefreshCw } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 
 export default function Consolidated() {
@@ -162,7 +162,7 @@ export default function Consolidated() {
   const generatePDF = async () => {
     const element = document.getElementById('dre-content');
     if (!element) {
-      toast.error('Erro ao gerar PDF');
+      toast({ title: "Erro", description: "Erro ao gerar PDF", variant: "destructive" });
       return;
     }
 
@@ -192,10 +192,10 @@ export default function Consolidated() {
 
       pdf.addImage(imgData, 'JPEG', margin, margin, imgWidth, finalHeight);
       pdf.save('Consolidado.pdf');
-      toast.success('PDF gerado com sucesso!');
+      toast({ title: "Sucesso", description: "PDF gerado com sucesso!" });
     } catch (err) {
       console.error(err);
-      toast.error('Erro ao gerar PDF');
+      toast({ title: "Erro", description: "Erro ao gerar PDF", variant: "destructive" });
     }
   };
 

@@ -638,7 +638,7 @@ const Movimentacoes = () => {
                     <div className={`text-3xl font-bold ${editingMovimentacao.api.TIPO === "P" ? "text-red-600" : "text-green-600"}`}>
                       {currencyBRL(editingMovimentacao.api.VALORPARCELA)}
                     </div>
-                    <Badge variant={editingMovimentacao.api.TIPO === "P" ? "destructive" : "default"} size="lg">
+                    <Badge variant={editingMovimentacao.api.TIPO === "P" ? "destructive" : "default"}>
                       {editingMovimentacao.api.DESC_TIPO}
                     </Badge>
                   </div>

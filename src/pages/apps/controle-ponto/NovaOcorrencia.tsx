@@ -183,6 +183,7 @@ export default function NovaOcorrencia() {
   };
 
   const prazoFinal = getPrazoFinal();
+  const agora = new Date();
   const ehUltimoDiaDoMes = new Date().getDate() === new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
   const deveMostrarContador = MODO_TESTE_CONTADOR || (ehUltimoDiaDoMes && agora < prazoFinal);
 

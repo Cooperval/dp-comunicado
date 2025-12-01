@@ -37,7 +37,7 @@ import { startOfMonth, endOfMonth, format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { CommitmentHierarchy } from "@/components/CommitmentHierarchy";
+import { CommitmentHierarchy } from "@/components/controle-financeiro/CommitmentHierarchy";
 import { Progress } from "@/components/ui/progress";
 
 // Types

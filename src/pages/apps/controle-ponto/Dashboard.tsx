@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 
 
 
@@ -216,9 +217,9 @@ export default function Dashboard() {
         <MetricCard
           title="Rejeitadas"
           value={loading ? "..." : `${totais?.total_rejeitada || 0}`}
-          icon={X}  // Troca Clock por X
+          icon={X}
           trend={{ value: "Não aprovadas", isPositive: false }}
-          variant="destructive"  // Já deixa o card vermelho
+          variant="danger"
         />
 
       </div>

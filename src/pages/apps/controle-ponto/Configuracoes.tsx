@@ -45,6 +45,24 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
+interface TipoOcorrencia {
+  id: number;
+  nome: string;
+  descricao: string | null;
+  cor: string;
+  ativo: boolean;
+  situacao: string;
+}
+
+interface MotivoOcorrencia {
+  id: number;
+  nome: string;
+  descricao: string | null;
+  ativo: boolean;
+  situacao: string;
+  nome_ocorrencia?: string;
+}
+
 export default function Configuracoes() {
   const { toast } = useToast();
   const { token } = useAuth();
@@ -238,7 +256,7 @@ export default function Configuracoes() {
 
       // Fechar dialog e resetar
       setDialogTipo({ open: false, mode: 'create' });
-      setFormTipo({ nome: "", descricao: "" });
+      setFormTipo({ nome: "", descricao: "", cor: '#3b82f6', situacao: 'A' });
 
       // Recarregar tipos
       fetchTipoOcorrencias();
@@ -707,7 +725,7 @@ export default function Configuracoes() {
       });
 
       setDialogResposta({ open: false, mode: 'create' });
-      setFormResposta({ desc_resposta_ocorrencia: '' });
+      setFormResposta({ desc_resposta_ocorrencia: '', situacao: 'PE' });
       fetchRespostasOcorrencia();
 
     } catch (error: any) {
@@ -755,18 +773,16 @@ export default function Configuracoes() {
   };
 
 
-  const getStatusInfo = (status: string) => {
+  const getStatusInfo = (status: string): { label: string; variant: "default" | "destructive" | "outline" | "secondary" } => {
     switch (status) {
       case "PE":
-        return { label: "Pendente", variant: "PE" };
+        return { label: "Pendente", variant: "outline" };
       case "AP":
-        return { label: "Aprovada", variant: "AP" };
+        return { label: "Aprovada", variant: "default" };
       case "RE":
-        return { label: "Rejeitada", variant: "RE" };
-      // case "AN":
-      //   return { label: "Em Análise", variant: "AN" };
+        return { label: "Rejeitada", variant: "destructive" };
       default:
-        return { label: "Desconhecido", variant: "draft" };
+        return { label: "Desconhecido", variant: "secondary" };
     }
   };
 
@@ -988,7 +1004,7 @@ export default function Configuracoes() {
       const data = Array.isArray(result.data) ? result.data : [];
 
       setTodosDepartamentos(data);
-      toast({ title: "Sucesso", description: `${validos.length} departamentos carregados.` });
+      toast({ title: "Sucesso", description: `${data.length} departamentos carregados.` });
 
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
@@ -1183,7 +1199,7 @@ export default function Configuracoes() {
     // Processa um por um com delay para evitar sobrecarga
     for (const col of colaboradoresSelecionados) {
       try {
-        await adicionarFuncionarioAoGrupo(col.codigo); // Usa o crachá como cod_funcionario
+        await adicionarFuncionarioAoGrupo(Number(col.codigo)); // Usa o crachá como cod_funcionario
         successCount++;
       } catch (err: any) {
         errorCount++;
@@ -1336,7 +1352,7 @@ export default function Configuracoes() {
                   </Button>
                   <Button
                     onClick={() => {
-                      setFormTipo({ nome: '', descricao: '', cor: '#6366f1' });
+                      setFormTipo({ nome: '', descricao: '', cor: '#6366f1', situacao: 'A' });
                       setDialogTipo({ open: true, mode: 'create' });
                     }}
                   >
@@ -1745,7 +1761,7 @@ export default function Configuracoes() {
                   </Button>
                   <Button
                     onClick={() => {
-                      setFormResposta({ desc_resposta_ocorrencia: '' });
+                      setFormResposta({ desc_resposta_ocorrencia: '', situacao: 'PE' });
                       setDialogResposta({ open: true, mode: 'create' });
                     }}
                   >
@@ -2011,19 +2027,19 @@ export default function Configuracoes() {
                       <div className="space-y-2">
                         {departamentosVinculados.map(depto => (
                           <div
-                            key={depto.ID_GRUPODPTO}
+                            key={depto.id_grupodpto}
                             className="flex items-center justify-between p-3 border rounded-lg bg-muted/30"
                           >
                             <div>
-                              <p className="font-medium">{depto.DESC_DEPARTAMENTO}</p>
+                              <p className="font-medium">{depto.desc_departamento}</p>
                               <p className="text-sm text-muted-foreground">
-                                Código: {depto.COD_DEPARTAMENTO}
+                                Código: {depto.cod_departamento}
                               </p>
                             </div>
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => removerDepartamentoDoGrupo(depto.ID_GRUPODPTO)}
+                              onClick={() => removerDepartamentoDoGrupo(depto.id_grupodpto)}
                               className="text-destructive hover:text-destructive"
                             >
                               <Trash2 className="w-6 h-6" />
@@ -2063,22 +2079,22 @@ export default function Configuracoes() {
                         {todosDepartamentos
 
                           .filter(d => {
-                            const desc = (d.DESCRICAO ?? '').toLowerCase();
-                            const codigo = (d.COD_DEPARTAMENTO?.toString() ?? '');
+                            const desc = (d.descricao ?? '').toLowerCase();
+                            const codigo = (d.cod_departamento?.toString() ?? '');
                             const termo = searchDepto.toLowerCase().trim();
                             return termo === '' || desc.includes(termo) || codigo.includes(termo);
                           })
-                          .filter(d => !departamentosVinculados.some(v => v.COD_DEPARTAMENTO === d.COD_DEPARTAMENTO))
+                          .filter(d => !departamentosVinculados.some(v => v.cod_departamento === d.cod_departamento))
 
                           .map(depto => (
                             <div
-                              key={depto.COD_DEPARTAMENTO}
+                              key={depto.cod_departamento}
                               className="flex items-center justify-between p-2 hover:bg-muted cursor-pointer border-b last:border-b-0"
-                              onClick={() => adicionarDepartamentoAoGrupo(depto.COD_DEPARTAMENTO)}
+                              onClick={() => adicionarDepartamentoAoGrupo(depto.cod_departamento)}
                             >
                               <div>
-                                <p className="font-medium text-sm">{depto.DESCRICAO}</p>
-                                <p className="text-xs text-muted-foreground">Cód: {depto.COD_DEPARTAMENTO}</p>
+                                <p className="font-medium text-sm">{depto.descricao}</p>
+                                <p className="text-xs text-muted-foreground">Cód: {depto.cod_departamento}</p>
                               </div>
                               <Plus className="w-6 h-6 text-green-600" />
                             </div>
@@ -2086,14 +2102,14 @@ export default function Configuracoes() {
 
                         {/* Mensagem se não houver resultados */}
                         {todosDepartamentos
-                          .filter((d): d is Departamento => !!d && typeof d?.COD_DEPARTAMENTO === 'number' && typeof d?.DESCRICAO === 'string')
+                          .filter((d): d is Departamento => !!d && typeof d?.cod_departamento === 'number' && typeof d?.descricao === 'string')
                           .filter(d => {
-                            const desc = (d.DESCRICAO ?? '').toLowerCase();
-                            const codigo = (d.COD_DEPARTAMENTO?.toString() ?? '');
+                            const desc = (d.descricao ?? '').toLowerCase();
+                            const codigo = (d.cod_departamento?.toString() ?? '');
                             const termo = searchDepto.toLowerCase().trim();
                             return termo !== '' && (desc.includes(termo) || codigo.includes(termo));
                           })
-                          .filter(d => !departamentosVinculados.some(v => v.COD_DEPARTAMENTO === d.COD_DEPARTAMENTO))
+                          .filter(d => !departamentosVinculados.some(v => v.cod_departamento === d.cod_departamento))
                           .length === 0 && searchDepto && (
                             <p className="text-center text-muted-foreground py-4 text-sm">
                               Nenhum departamento encontrado para "{searchDepto}"
@@ -2173,15 +2189,15 @@ export default function Configuracoes() {
                             className="flex items-center justify-between p-3 border rounded-lg bg-muted/30"
                           >
                             <div>
-                              <p className="font-medium">{func.COD_FUNCIONARIO} - {func.NOME_FUNCIONARIO}</p>
+                              <p className="font-medium">{func.cod_funcionario} - {func.nome_funcionario}</p>
                               <p className="text-sm text-muted-foreground">
-                                {func.DESC_DEPARTAMENTO}
+                                {func.desc_departamento}
                               </p>
                             </div>
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => removerFuncionarioDoGrupo(func.ID_FUNC_GRUPO)}
+                              onClick={() => removerFuncionarioDoGrupo(func.id_func_grupo)}
                               className="text-destructive hover:text-destructive"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -2394,11 +2410,10 @@ export default function Configuracoes() {
                 }
               >
                 <SelectTrigger id="motivo-tipo">
-                  <SelectValue placeholder="Selecione o tipo">
+                <SelectValue placeholder="Selecione o tipo">
                     {/* Mostra o nome do tipo selecionado com badge colorido */}
                     {formMotivo.tipoId && (
-                      <div
-                        variant="outline"
+                      <span
                         style={{
                           borderColor:
                             tipos.find((t) => t.id === Number(formMotivo.tipoId))?.cor ||
@@ -2408,7 +2423,7 @@ export default function Configuracoes() {
                       >
                         {tipos.find((t) => t.id === Number(formMotivo.tipoId))?.nome ||
                           'Tipo não encontrado'}
-                      </div>
+                      </span>
                     )}
                     {!formMotivo.tipoId && 'Selecione o tipo'}
                   </SelectValue>
@@ -2523,7 +2538,7 @@ export default function Configuracoes() {
               <Textarea
                 id="resposta-desc"
                 value={formResposta.desc_resposta_ocorrencia}
-                onChange={(e) => setFormResposta({ desc_resposta_ocorrencia: e.target.value })}
+                onChange={(e) => setFormResposta({ ...formResposta, desc_resposta_ocorrencia: e.target.value })}
                 placeholder="Ex: Aprovado pelo gestor"
                 maxLength={100}
                 rows={3}

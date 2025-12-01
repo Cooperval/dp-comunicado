@@ -21,8 +21,8 @@ export default function AvaliacaoDashboard() {
   useEffect(() => {
     const loadStats = async () => {
       setLoading(true);
-      const data = await mockAPI.getAvaliacoesStats(user?.id, isRH);
-      setStats(data);
+      const data = await mockAPI.getAvaliacoesStats();
+      setStats({ ...data, atrasadas: 0 });
       setLoading(false);
     };
     loadStats();

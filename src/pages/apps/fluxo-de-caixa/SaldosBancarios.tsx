@@ -305,6 +305,7 @@ const SaldosBancarios = () => {
               saldo: number;
               saldoOracle: number;
               novo_saldo: number | null;
+              motivo?: string | null;
             }>;
           }
         >;

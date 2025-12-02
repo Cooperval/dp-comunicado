@@ -109,10 +109,18 @@ const OperationPremises: React.FC = () => {
             />
 
             <NumericInput
-              label="Rendimento WDG Total"
+              label="Rendimento DDG"
               unit="kg/ton"
-              value={data.totalWdgYield}
-              onChange={(value) => handleInputChange('totalWdgYield', value)}
+              value={data.ddgYieldPerTon}
+              onChange={(value) => handleInputChange('ddgYieldPerTon', value)}
+              placeholder="0.00"
+            />
+
+            <NumericInput
+              label="Rendimento WDG"
+              unit="kg/ton"
+              value={data.wdgYieldPerTon}
+              onChange={(value) => handleInputChange('wdgYieldPerTon', value)}
               placeholder="0.00"
             />
           </CardContent>

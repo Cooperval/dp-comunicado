@@ -37,7 +37,7 @@ const CornProduction: React.FC = () => {
     totalDdgWdg,
     ddgProportion,
     wdgProportion
-  } = calcularProducoesMilho(data.corn, data.cornTotalConvertedYield);
+  } = calcularProducoesMilho(data.corn, data.cornTotalConvertedYield, data.ddgYieldPerTon, data.wdgYieldPerTon);
 
   const formatNumber = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -106,14 +106,25 @@ const CornProduction: React.FC = () => {
             />
 
             <NumericInput
-              label="Rendimento WDG Total"
+              label="Rendimento DDG"
               unit="kg/ton"
-              value={data.totalWdgYield}
-              onChange={(value) => handleInputChange2('totalWdgYield', value)}
+              value={data.ddgYieldPerTon}
+              onChange={(value) => handleInputChange2('ddgYieldPerTon', value)}
               placeholder="0.00"
             />
 
-            
+            <NumericInput
+              label="Rendimento WDG"
+              unit="kg/ton"
+              value={data.wdgYieldPerTon}
+              onChange={(value) => handleInputChange2('wdgYieldPerTon', value)}
+              placeholder="0.00"
+            />
+
+            <div className="flex justify-between items-center pt-2 border-t">
+              <span className="text-sm text-muted-foreground">Rendimento WDG Total:</span>
+              <Badge variant="outline">{((data.ddgYieldPerTon / 0.4) + data.wdgYieldPerTon).toFixed(1)} kg/ton</Badge>
+            </div>
           </CardContent>
         </Card>
 

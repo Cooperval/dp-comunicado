@@ -30,7 +30,7 @@ const OtherProductions: React.FC = () => {
 
       const {
         prodEAM,
-      } = calcularProducoesMilho(data.corn, data.cornTotalConvertedYield);
+      } = calcularProducoesMilho(data.corn, data.cornTotalConvertedYield, data.ddgYieldPerTon, data.wdgYieldPerTon);
 
 
 

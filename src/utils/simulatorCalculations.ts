@@ -54,12 +54,16 @@ export function calcularProducoesCana(sugarCane: SugarCaneProduction) {
 
 import { CornProduction } from '@/types/simulator';
 
-export function calcularProducoesMilho(corn: CornProduction, rendimentoTotalConvertido: number) {
-  // Produções
+export function calcularProducoesMilho(
+  corn: CornProduction, 
+  rendimentoTotalConvertido: number,
+  ddgYieldPerTon: number,
+  wdgYieldPerTon: number
+) {
+  // Produções com rendimentos dinâmicos
   const prodEAM = (corn.groundCorn * rendimentoTotalConvertido * 0.9556) / 1000;
-  //const prodEAM = (corn.groundCorn  * 0.9556) / 1000;
-  const prodDDG = (corn.groundCorn * 80) / 1000;
-  const prodWDG = (corn.groundCorn * 187.5) / 1000;
+  const prodDDG = (corn.groundCorn * ddgYieldPerTon) / 1000;
+  const prodWDG = (corn.groundCorn * wdgYieldPerTon) / 1000;
 
   // Equivalências
   const hydratedEquiv = corn.hydratedEthanol;
@@ -76,9 +80,8 @@ export function calcularProducoesMilho(corn: CornProduction, rendimentoTotalConv
 
   return {
     anhydrousPerTonCorn: rendimentoTotalConvertido * 0.9556,
-    //anhydrousPerTonCorn: corn.groundCorn,
-    ddgPerTonCorn: corn.groundCorn > 0 ? 80 : 0,
-    wdgPerTonCorn: corn.groundCorn > 0 ? 187.5 : 0,
+    ddgPerTonCorn: corn.groundCorn > 0 ? ddgYieldPerTon : 0,
+    wdgPerTonCorn: corn.groundCorn > 0 ? wdgYieldPerTon : 0,
     prodEAM,
     prodDDG,
     prodWDG,
@@ -169,8 +172,8 @@ export function calcularCpvPorProduto(data: SimulatorData) {
   // Milho - proporções
   const anhydrousPerTonCorn = data.cornTotalConvertedYield * 0.9556;
   const prodEAM = (data.corn.groundCorn * data.cornTotalConvertedYield * 0.9556) / 1000;
-  const prodDDG = (data.corn.groundCorn * 80) / 1000;
-  const prodWDG = (data.corn.groundCorn * 187.5) / 1000;
+  const prodDDG = (data.corn.groundCorn * data.ddgYieldPerTon) / 1000;
+  const prodWDG = (data.corn.groundCorn * data.wdgYieldPerTon) / 1000;
 
   const hydratedEquiv = data.corn.hydratedEthanol;
   const anhydrousEquiv = prodEAM / 0.9556;
@@ -189,11 +192,13 @@ export function calcularCpvPorProduto(data: SimulatorData) {
   const anhydrousEthanolCornCpv = data.corn.anhydrousEthanol > 0
     ? ((totalCornCost / anhydrousPerTonCorn) * ((eamProportion / 100) - 0.03)) * 1000 : 0;
 
+  const totalWdgYield = (data.ddgYieldPerTon / 0.4) + data.wdgYieldPerTon;
+  
   const ddgCpv = data.corn.ddg > 0
-    ? (totalCornCost / data.totalWdgYield) * 0.03 * 1000 * 4 : 0;
+    ? (totalCornCost / totalWdgYield) * 0.03 * 1000 * 4 : 0;
 
   const wdgCpv = data.corn.wdg > 0
-    ? (totalCornCost / data.totalWdgYield) * 0.03 * 1000 : 0;
+    ? (totalCornCost / totalWdgYield) * 0.03 * 1000 : 0;
 
   return {
     vhpSugarCpv,
@@ -246,8 +251,8 @@ export function calcularDRE(data: SimulatorData) {
 
   // Produções - Milho
   const prodEAM = (data.corn.groundCorn * data.cornTotalConvertedYield * 0.9556) / 1000;
-  const prodDDG = (data.corn.groundCorn * 80) / 1000;
-  const prodWDG = (data.corn.groundCorn * 187.5) / 1000;
+  const prodDDG = (data.corn.groundCorn * data.ddgYieldPerTon) / 1000;
+  const prodWDG = (data.corn.groundCorn * data.wdgYieldPerTon) / 1000;
 
   // Receita Operacional Bruta - Cana
   const receitaAcucarCana = prodVHP * data.salesPrices.vhpSugarGross;
@@ -446,8 +451,8 @@ export function calcularDREPorProduto(data: SimulatorData): DREPorProdutoResulta
 
   // Produções Milho
   const prodEAM = (data.corn.groundCorn * data.cornTotalConvertedYield * 0.9556) / 1000;
-  const prodDDG = (data.corn.groundCorn * 80) / 1000;
-  const prodWDG = (data.corn.groundCorn * 187.5) / 1000;
+  const prodDDG = (data.corn.groundCorn * data.ddgYieldPerTon) / 1000;
+  const prodWDG = (data.corn.groundCorn * data.wdgYieldPerTon) / 1000;
 
   // Equivalências
   const hydratedEquiv = data.corn.hydratedEthanol;

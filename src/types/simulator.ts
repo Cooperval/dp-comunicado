@@ -10,7 +10,8 @@ export interface OperationPremises {
   cornTotalConvertedYield: number; // Rendimento total convertido (L/ton) de etanol por milho
   industrialTimeEfficiency: number; // Eficiência industrial da planta de milho
   cornProcessedPerDay: number;      // Quantidade de milho processado por dia (toneladas)
-  totalWdgYield: number;            // Rendimento WDG (subproduto) por tonelada de milho (kg/ton)
+  ddgYieldPerTon: number;           // Rendimento DDG por tonelada de milho (kg/ton)
+  wdgYieldPerTon: number;           // Rendimento WDG por tonelada de milho (kg/ton)
 }
 
 
@@ -130,7 +131,8 @@ export const initialSimulatorData: SimulatorData = {
   cornTotalConvertedYield: 433,
   industrialTimeEfficiency: 95.8,
   cornProcessedPerDay: 368,
-  totalWdgYield: 387.5,
+  ddgYieldPerTon: 80,
+  wdgYieldPerTon: 187.5,
 
   // Sugar Cane Production
   sugarCane: {

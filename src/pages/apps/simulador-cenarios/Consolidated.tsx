@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,18 +6,77 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useSimulator } from '@/contexts/SimulatorContext';
-import { Download, Save, Trash2, Plus, RefreshCw, Pencil } from 'lucide-react';
+import { useSimulator, SavedScenario } from '@/contexts/SimulatorContext';
+import { Download, Save, Trash2, Plus, RefreshCw, Pencil, Upload, FileDown } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { toast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 
 export default function Consolidated() {
-  const { savedScenarios, saveScenario, deleteScenario, updateAllScenarios, refreshScenario, loadScenarioForEditing } = useSimulator();
+  const { savedScenarios, saveScenario, deleteScenario, updateAllScenarios, refreshScenario, loadScenarioForEditing, importScenario } = useSimulator();
   const [scenarioName, setScenarioName] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Função para exportar um cenário individual como JSON
+  const exportScenarioToJson = (scenario: SavedScenario) => {
+    const dataStr = JSON.stringify(scenario, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `cenario-${scenario.name.replace(/\s+/g, '-')}-${scenario.date.replace(/\//g, '-')}.json`;
+    link.click();
+    
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Sucesso",
+      description: `Cenário "${scenario.name}" exportado com sucesso!`,
+    });
+  };
+
+  // Função para importar um cenário de arquivo JSON
+  const handleImportScenario = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const scenarioData = JSON.parse(e.target?.result as string) as SavedScenario;
+        const result = importScenario(scenarioData);
+        
+        if (result.success) {
+          toast({
+            title: "Sucesso",
+            description: "Cenário importado com sucesso!",
+          });
+        } else {
+          toast({
+            title: "Erro",
+            description: result.error || "Erro ao importar cenário",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        toast({
+          title: "Erro",
+          description: "Arquivo JSON inválido",
+          variant: "destructive",
+        });
+      }
+    };
+    reader.readAsText(file);
+    
+    // Limpa o input para permitir reimportar o mesmo arquivo
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   // Função para calcular o total de um indicador específico
   const calculateTotal = (getValue: (scenario: any) => number, formatAsCurrency: boolean = false) => {
@@ -324,6 +383,24 @@ export default function Consolidated() {
             Atualizar Todos
           </Button> */}
 
+          {/* Input escondido para importar arquivo */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".json"
+            onChange={handleImportScenario}
+            className="hidden"
+          />
+          
+          <Button
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2"
+          >
+            <Upload className="h-4 w-4" />
+            Importar Cenário
+          </Button>
+
           <Button
             variant="outline"
             onClick={exportToExcel}
@@ -403,6 +480,15 @@ export default function Consolidated() {
                               title="Editar cenário"
                             >
                               <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => exportScenarioToJson(scenario)}
+                              className="text-green-600 hover:text-green-700"
+                              title="Exportar cenário"
+                            >
+                              <FileDown className="h-3 w-3" />
                             </Button>
                             <Button
                               variant="ghost"

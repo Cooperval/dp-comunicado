@@ -343,14 +343,7 @@ export default function Consolidated() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">Consolidado de Cenários</h1>
-          <p className="text-muted-foreground">
-            Compare diferentes cenários de simulação lado a lado
-          </p>
-        </div>
-
+      <div className="flex justify-start items-center">
         <div className="flex gap-2">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>

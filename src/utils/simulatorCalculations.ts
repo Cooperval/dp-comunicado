@@ -142,63 +142,66 @@ export function calcularPrecosLiquidos(precos: SalesPrices) {
 import { SimulatorData } from '@/types/simulator';
 
 export function calcularCpvPorProduto(data: SimulatorData) {
-  // Custo total de produção
+  // Custo total de produção da cana (R$/ton)
   const totalCaneCost = data.productionCosts.caneRawMaterial +
     data.productionCosts.caneCct +
     data.productionCosts.caneIndustry +
     data.productionCosts.caneExpenses;
 
+  // Custo total de produção do milho (R$/ton)
   const totalCornCost = data.productionCosts.cornRawMaterial +
     data.productionCosts.cornIndustry +
     data.productionCosts.cornBiomass;
 
-  // Cana - proporções
-  const vhpEquivHydrated = data.sugarCane.vhpSugar / 1.46707;
-  const anhydrousEquivHydrated = data.sugarCane.anhydrousEthanol / 0.9556;
-  const totalCaneProdEthanol = data.sugarCane.hydratedEthanol + anhydrousEquivHydrated;
-  const totalCaneProduction = vhpEquivHydrated + totalCaneProdEthanol;
+  // Buscar proporções calculadas em calcularProducoesCana (já em %)
+  const producoesCana = calcularProducoesCana(data.sugarCane);
+  const vhpProportion = producoesCana.vhpProportion;
+  const ehcProportion = producoesCana.ehcProportion;
+  const eacProportion = producoesCana.eacProportion;
 
-  const vhpProportion = totalCaneProduction > 0 ? (vhpEquivHydrated / totalCaneProduction) : 0;
-  const ehcProportion = totalCaneProduction > 0 ? (data.sugarCane.hydratedEthanol / totalCaneProduction) : 0;
-  const eacProportion = totalCaneProduction > 0 ? (anhydrousEquivHydrated / totalCaneProduction) : 0;
+  // Fórmula: CPV = ((Custo Total × % Proporção) ÷ Rendimento) × 1000
+  // As proporções estão em % (ex: 55.2), dividimos por 100
+  const vhpSugarCpv = data.sugarCane.vhpSugar > 0 && data.sugarCane.sugarPerTonCane > 0
+    ? (((totalCaneCost * (vhpProportion / 100)) / data.sugarCane.sugarPerTonCane) * 1000)
+    : 0;
 
-  const vhpSugarCpv = data.sugarCane.vhpSugar > 0
-    ? ((totalCaneCost / data.sugarCane.sugarPerTonCane) * vhpProportion) * 1000 : 0;
-  const hydratedEthanolCaneCpv = data.sugarCane.hydratedEthanol > 0
-    ? ((totalCaneCost / data.sugarCane.hydratedEthanolPerTonCane) * ehcProportion) * 1000 : 0;
-  const anhydrousEthanolCaneCpv = data.sugarCane.anhydrousEthanol > 0
-    ? ((totalCaneCost / data.sugarCane.anhydrousEthanolPerTonCane) * eacProportion) * 1000 : 0;
+  const hydratedEthanolCaneCpv = data.sugarCane.hydratedEthanol > 0 && data.sugarCane.hydratedEthanolPerTonCane > 0
+    ? (((totalCaneCost * (ehcProportion / 100)) / data.sugarCane.hydratedEthanolPerTonCane) * 1000)
+    : 0;
 
-  // Milho - proporções
+  const anhydrousEthanolCaneCpv = data.sugarCane.anhydrousEthanol > 0 && data.sugarCane.anhydrousEthanolPerTonCane > 0
+    ? (((totalCaneCost * (eacProportion / 100)) / data.sugarCane.anhydrousEthanolPerTonCane) * 1000)
+    : 0;
+
+  // Buscar proporções calculadas em calcularProducoesMilho (já em %)
+  const producoesMilho = calcularProducoesMilho(
+    data.corn,
+    data.cornTotalConvertedYield,
+    data.ddgYieldPerTon,
+    data.wdgYieldPerTon
+  );
+  const ehmProportion = producoesMilho.ehmProportion;
+  const eamProportion = producoesMilho.eamProportion;
+  const ddgProportion = producoesMilho.ddgProportion;
+  const wdgProportion = producoesMilho.wdgProportion;
+
+  // CPV Milho com a mesma fórmula: ((Custo Total × % Proporção) ÷ Rendimento) × 1000
+  const hydratedEthanolCornCpv = data.corn.hydratedEthanol > 0 && data.cornTotalConvertedYield > 0
+    ? (((totalCornCost * (ehmProportion / 100)) / data.cornTotalConvertedYield) * 1000)
+    : 0;
+
   const anhydrousPerTonCorn = data.cornTotalConvertedYield * 0.9556;
-  const prodEAM = (data.corn.groundCorn * data.cornTotalConvertedYield * 0.9556) / 1000;
-  const prodDDG = (data.corn.groundCorn * data.ddgYieldPerTon) / 1000;
-  const prodWDG = (data.corn.groundCorn * data.wdgYieldPerTon) / 1000;
+  const anhydrousEthanolCornCpv = data.corn.anhydrousEthanol > 0 && anhydrousPerTonCorn > 0
+    ? (((totalCornCost * (eamProportion / 100)) / anhydrousPerTonCorn) * 1000)
+    : 0;
 
-  const hydratedEquiv = data.corn.hydratedEthanol;
-  const anhydrousEquiv = prodEAM / 0.9556;
+  const ddgCpv = data.corn.ddg > 0 && data.ddgYieldPerTon > 0
+    ? (((totalCornCost * (ddgProportion / 100)) / data.ddgYieldPerTon) * 1000)
+    : 0;
 
-  const totalEthanolEquiv = hydratedEquiv + anhydrousEquiv;
-  const ehmProportion = totalEthanolEquiv > 0 ? (hydratedEquiv / totalEthanolEquiv) * 100 : 0;
-  const eamProportion = totalEthanolEquiv > 0 ? (anhydrousEquiv / totalEthanolEquiv) * 100 : 0;
-
-  const totalDdgWdg = (prodDDG * 0.88) + (prodWDG * 0.35);
-  const ddgProportion = totalDdgWdg > 0 ? ((prodDDG * 0.88) / totalDdgWdg) * 100 : 0;
-  const wdgProportion = totalDdgWdg > 0 ? ((prodWDG * 0.35) / totalDdgWdg) * 100 : 0;
-
-  const hydratedEthanolCornCpv = data.corn.hydratedEthanol > 0
-    ? ((totalCornCost / data.cornTotalConvertedYield) * (ehmProportion / 100)) * 1000 : 0;
-
-  const anhydrousEthanolCornCpv = data.corn.anhydrousEthanol > 0
-    ? ((totalCornCost / anhydrousPerTonCorn) * ((eamProportion / 100) - 0.03)) * 1000 : 0;
-
-  const totalWdgYield = (data.ddgYieldPerTon / 0.4) + data.wdgYieldPerTon;
-  
-  const ddgCpv = data.corn.ddg > 0
-    ? (totalCornCost / totalWdgYield) * 0.03 * 1000 * 4 : 0;
-
-  const wdgCpv = data.corn.wdg > 0
-    ? (totalCornCost / totalWdgYield) * 0.03 * 1000 : 0;
+  const wdgCpv = data.corn.wdg > 0 && data.wdgYieldPerTon > 0
+    ? (((totalCornCost * (wdgProportion / 100)) / data.wdgYieldPerTon) * 1000)
+    : 0;
 
   return {
     vhpSugarCpv,

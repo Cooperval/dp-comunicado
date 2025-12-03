@@ -97,7 +97,7 @@ export default function Consolidated() {
         title: "Cenário carregado",
         description: `Os dados de "${scenarioName}" foram carregados. Edite e clique em "Atualizar" quando terminar.`,
       });
-      navigate('/apps/simulador-cenarios/premissas');
+      navigate('/apps/simulador-cenarios/sugarcane-premises');
     } else {
       toast({
         title: "Erro",

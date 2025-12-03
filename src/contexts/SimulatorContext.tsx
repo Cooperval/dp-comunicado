@@ -594,8 +594,14 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
   // Carrega os dados originais de um cenário para edição
   const loadScenarioForEditing = (id: string): boolean => {
     const scenario = savedScenarios.find(s => s.id === id);
-    if (!scenario || !scenario.originalData) {
-      console.error('Cenário não encontrado ou sem dados originais');
+    if (!scenario) {
+      console.error('Cenário não encontrado');
+      return false;
+    }
+    
+    // Verifica se tem dados originais
+    if (!scenario.originalData) {
+      console.error('Este cenário foi salvo em uma versão anterior e não possui dados editáveis. Delete-o e salve novamente.');
       return false;
     }
     

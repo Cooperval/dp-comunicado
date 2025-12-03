@@ -29,6 +29,17 @@ interface SavedScenario {
     precoLiquidoCO2: number;
     precoLiquidoCBIO: number;
 
+    // Custos de Produção Unitários (R$/ton)
+    custoCanaUnitarioMateriaPrima: number;
+    custoCanaUnitarioCCT: number;
+    custoCanaUnitarioIndustria: number;
+    custoCanaUnitarioDispendios: number;
+    custoCanaUnitarioTotal: number;
+    custoMilhoUnitarioMateriaPrima: number;
+    custoMilhoUnitarioIndustria: number;
+    custoMilhoUnitarioBiomassa: number;
+    custoMilhoUnitarioTotal: number;
+
     // Resultados Financeiros
     totalRevenue: number;
     receitaAcucarVHP: number;
@@ -214,6 +225,22 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
           precoLiquidoCO2: data.salesPrices.co2Gross || 0,
           precoLiquidoCBIO: data.salesPrices.cbioGross || 0,
 
+          // Custos de Produção Unitários (R$/ton)
+          custoCanaUnitarioMateriaPrima: data.productionCosts.caneRawMaterial || 0,
+          custoCanaUnitarioCCT: data.productionCosts.caneCct || 0,
+          custoCanaUnitarioIndustria: data.productionCosts.caneIndustry || 0,
+          custoCanaUnitarioDispendios: data.productionCosts.caneExpenses || 0,
+          custoCanaUnitarioTotal: (data.productionCosts.caneRawMaterial || 0) + 
+                                  (data.productionCosts.caneCct || 0) + 
+                                  (data.productionCosts.caneIndustry || 0) + 
+                                  (data.productionCosts.caneExpenses || 0),
+          custoMilhoUnitarioMateriaPrima: data.productionCosts.cornRawMaterial || 0,
+          custoMilhoUnitarioIndustria: data.productionCosts.cornIndustry || 0,
+          custoMilhoUnitarioBiomassa: data.productionCosts.cornBiomass || 0,
+          custoMilhoUnitarioTotal: (data.productionCosts.cornRawMaterial || 0) + 
+                                   (data.productionCosts.cornIndustry || 0) + 
+                                   (data.productionCosts.cornBiomass || 0),
+
           // Resultados Financeiros (usando os cálculos atualizados)
           totalRevenue: dreCalculations.totalReceitaBruta || 0,
           receitaAcucarVHP: dreCalculations.receitaAcucarCana || 0,
@@ -293,6 +320,22 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
           precoLiquidoCO2: data.salesPrices.co2Gross || 0,
           precoLiquidoCBIO: data.salesPrices.cbioGross || 0,
 
+          // Custos de Produção Unitários (R$/ton)
+          custoCanaUnitarioMateriaPrima: data.productionCosts.caneRawMaterial || 0,
+          custoCanaUnitarioCCT: data.productionCosts.caneCct || 0,
+          custoCanaUnitarioIndustria: data.productionCosts.caneIndustry || 0,
+          custoCanaUnitarioDispendios: data.productionCosts.caneExpenses || 0,
+          custoCanaUnitarioTotal: (data.productionCosts.caneRawMaterial || 0) + 
+                                  (data.productionCosts.caneCct || 0) + 
+                                  (data.productionCosts.caneIndustry || 0) + 
+                                  (data.productionCosts.caneExpenses || 0),
+          custoMilhoUnitarioMateriaPrima: data.productionCosts.cornRawMaterial || 0,
+          custoMilhoUnitarioIndustria: data.productionCosts.cornIndustry || 0,
+          custoMilhoUnitarioBiomassa: data.productionCosts.cornBiomass || 0,
+          custoMilhoUnitarioTotal: (data.productionCosts.cornRawMaterial || 0) + 
+                                   (data.productionCosts.cornIndustry || 0) + 
+                                   (data.productionCosts.cornBiomass || 0),
+
           // Resultados Financeiros
           totalRevenue: dreCalculations.totalReceitaBruta || 0,
           receitaAcucarVHP: dreCalculations.receitaAcucarCana || 0,
@@ -365,6 +408,22 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
               precoLiquidoWDG: data.salesPrices.wdgGross || 0,
               precoLiquidoCO2: data.salesPrices.co2Gross || 0,
               precoLiquidoCBIO: data.salesPrices.cbioGross || 0,
+
+              // Custos de Produção Unitários (R$/ton)
+              custoCanaUnitarioMateriaPrima: data.productionCosts.caneRawMaterial || 0,
+              custoCanaUnitarioCCT: data.productionCosts.caneCct || 0,
+              custoCanaUnitarioIndustria: data.productionCosts.caneIndustry || 0,
+              custoCanaUnitarioDispendios: data.productionCosts.caneExpenses || 0,
+              custoCanaUnitarioTotal: (data.productionCosts.caneRawMaterial || 0) + 
+                                      (data.productionCosts.caneCct || 0) + 
+                                      (data.productionCosts.caneIndustry || 0) + 
+                                      (data.productionCosts.caneExpenses || 0),
+              custoMilhoUnitarioMateriaPrima: data.productionCosts.cornRawMaterial || 0,
+              custoMilhoUnitarioIndustria: data.productionCosts.cornIndustry || 0,
+              custoMilhoUnitarioBiomassa: data.productionCosts.cornBiomass || 0,
+              custoMilhoUnitarioTotal: (data.productionCosts.cornRawMaterial || 0) + 
+                                       (data.productionCosts.cornIndustry || 0) + 
+                                       (data.productionCosts.cornBiomass || 0),
 
               // Resultados Financeiros
               totalRevenue: dreCalculations.totalReceitaBruta || 0,

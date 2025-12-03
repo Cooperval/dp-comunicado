@@ -272,7 +272,12 @@ export default function Consolidated() {
       ['CBIO (R$)', ...savedScenarios.map(s => s.data.receitaCBIO), calcTotalNum(s => s.data.receitaCBIO)],
       ['Derivativos/Câmbio (R$)', ...savedScenarios.map(s => s.data.derivativosCambio), calcTotalNum(s => s.data.derivativosCambio)],
       ['Impostos (R$)', ...savedScenarios.map(s => s.data.impostos), calcTotalNum(s => s.data.impostos)],
+      ['  Impostos Cana (R$)', ...savedScenarios.map(s => s.data.impostosCana || 0), calcTotalNum(s => s.data.impostosCana || 0)],
+      ['  Impostos Milho (R$)', ...savedScenarios.map(s => s.data.impostosMilho || 0), calcTotalNum(s => s.data.impostosMilho || 0)],
       ['Receita Líquida (R$)', ...savedScenarios.map(s => s.data.receitaLiquida), calcTotalNum(s => s.data.receitaLiquida)],
+      ['  Receita Líquida Cana (R$)', ...savedScenarios.map(s => s.data.receitaLiquidaCana || 0), calcTotalNum(s => s.data.receitaLiquidaCana || 0)],
+      ['  Receita Líquida Milho (R$)', ...savedScenarios.map(s => s.data.receitaLiquidaMilho || 0), calcTotalNum(s => s.data.receitaLiquidaMilho || 0)],
+      ['  Receita Líquida Outras (R$)', ...savedScenarios.map(s => s.data.receitaLiquidaOutras || 0), calcTotalNum(s => s.data.receitaLiquidaOutras || 0)],
       ['CPV Total (R$)', ...savedScenarios.map(s => s.data.cpvTotal), calcTotalNum(s => s.data.cpvTotal)],
       ['  Custo Cana Total (R$)', ...savedScenarios.map(s => s.data.custoCanaTotal), calcTotalNum(s => s.data.custoCanaTotal)],
       ['    Açúcar VHP (R$)', ...savedScenarios.map(s => s.data.cpvTotalAcucarVHP || 0), calcTotalNum(s => s.data.cpvTotalAcucarVHP || 0)],
@@ -286,7 +291,6 @@ export default function Consolidated() {
       ['Margem de Contribuição (R$)', ...savedScenarios.map(s => s.data.margemContribuicao), calcTotalNum(s => s.data.margemContribuicao)],
       ['  Margem Cana (R$)', ...savedScenarios.map(s => s.data.margemCana || 0), calcTotalNum(s => s.data.margemCana || 0)],
       ['  Margem Milho (R$)', ...savedScenarios.map(s => s.data.margemMilho || 0), calcTotalNum(s => s.data.margemMilho || 0)],
-      ['  Margem Outras (R$)', ...savedScenarios.map(s => s.data.margemOutras || 0), calcTotalNum(s => s.data.margemOutras || 0)],
       ['Despesas com Vendas (R$)', ...savedScenarios.map(s => s.data.despesasVendas), calcTotalNum(s => s.data.despesasVendas)],
       ['Administração (R$)', ...savedScenarios.map(s => s.data.administracao), calcTotalNum(s => s.data.administracao)],
       ['Resultado Operacional (R$)', ...savedScenarios.map(s => s.data.resultadoOperacional), calcTotalNum(s => s.data.resultadoOperacional)],
@@ -1208,6 +1212,28 @@ export default function Consolidated() {
                     </TableCell>
                   </TableRow>
                   <TableRow>
+                    <TableCell className="font-medium pl-6 text-muted-foreground">↳ Impostos Cana</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center text-muted-foreground">
+                        R$ {(scenario.data.impostosCana || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30 text-muted-foreground">
+                      R$ {calculateTotal(s => s.data.impostosCana || 0)}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-6 text-muted-foreground">↳ Impostos Milho</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center text-muted-foreground">
+                        R$ {(scenario.data.impostosMilho || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30 text-muted-foreground">
+                      R$ {calculateTotal(s => s.data.impostosMilho || 0)}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
                     <TableCell className="font-medium">Receita Líquida</TableCell>
                     {savedScenarios.map((scenario) => (
                       <TableCell key={scenario.id} className="text-center">
@@ -1216,6 +1242,39 @@ export default function Consolidated() {
                     ))}
                     <TableCell className="text-center font-semibold bg-muted/30">
                       R$ {calculateTotal(s => s.data.receitaLiquida)}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-6 text-muted-foreground">↳ Receita Líquida Cana</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center text-muted-foreground">
+                        R$ {(scenario.data.receitaLiquidaCana || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30 text-muted-foreground">
+                      R$ {calculateTotal(s => s.data.receitaLiquidaCana || 0)}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-6 text-muted-foreground">↳ Receita Líquida Milho</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center text-muted-foreground">
+                        R$ {(scenario.data.receitaLiquidaMilho || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30 text-muted-foreground">
+                      R$ {calculateTotal(s => s.data.receitaLiquidaMilho || 0)}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-6 text-muted-foreground">↳ Receita Líquida Outras</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center text-muted-foreground">
+                        R$ {(scenario.data.receitaLiquidaOutras || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30 text-muted-foreground">
+                      R$ {calculateTotal(s => s.data.receitaLiquidaOutras || 0)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
@@ -1376,21 +1435,6 @@ export default function Consolidated() {
                     <TableCell className="text-center font-semibold bg-muted/30 text-muted-foreground">
                       <span className={calculateTotalValue(s => s.data.margemMilho || 0) >= 0 ? "text-green-600" : "text-red-600"}>
                         R$ {calculateTotal(s => s.data.margemMilho || 0)}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium pl-6 text-muted-foreground">↳ Margem Outras</TableCell>
-                    {savedScenarios.map((scenario) => (
-                      <TableCell key={scenario.id} className="text-center text-muted-foreground">
-                        <span className={(scenario.data.margemOutras || 0) >= 0 ? "text-green-600" : "text-red-600"}>
-                          R$ {(scenario.data.margemOutras || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                        </span>
-                      </TableCell>
-                    ))}
-                    <TableCell className="text-center font-semibold bg-muted/30 text-muted-foreground">
-                      <span className={calculateTotalValue(s => s.data.margemOutras || 0) >= 0 ? "text-green-600" : "text-red-600"}>
-                        R$ {calculateTotal(s => s.data.margemOutras || 0)}
                       </span>
                     </TableCell>
                   </TableRow>

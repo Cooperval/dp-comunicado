@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -6,16 +7,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSimulator } from '@/contexts/SimulatorContext';
-import { Download, Save, Trash2, Plus, RefreshCw } from 'lucide-react';
+import { Download, Save, Trash2, Plus, RefreshCw, Pencil } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { toast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 
 export default function Consolidated() {
-  const { savedScenarios, saveScenario, deleteScenario, updateAllScenarios, refreshScenario } = useSimulator();
+  const { savedScenarios, saveScenario, deleteScenario, updateAllScenarios, refreshScenario, loadScenarioForEditing } = useSimulator();
   const [scenarioName, setScenarioName] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const navigate = useNavigate();
 
   // Função para calcular o total de um indicador específico
   const calculateTotal = (getValue: (scenario: any) => number, formatAsCurrency: boolean = false) => {
@@ -86,6 +88,23 @@ export default function Consolidated() {
       title: "Sucesso",
       description: "Cenário atualizado com sucesso!",
     });
+  };
+
+  const handleEditScenario = (id: string, scenarioName: string) => {
+    const success = loadScenarioForEditing(id);
+    if (success) {
+      toast({
+        title: "Cenário carregado",
+        description: `Os dados de "${scenarioName}" foram carregados. Edite e clique em "Atualizar" quando terminar.`,
+      });
+      navigate('/apps/simulador-cenarios/premissas');
+    } else {
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar o cenário. Tente salvá-lo novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   const exportToExcel = () => {
@@ -370,6 +389,15 @@ export default function Consolidated() {
                               title="Atualizar cenário"
                             >
                               <RefreshCw className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditScenario(scenario.id, scenario.name)}
+                              className="text-amber-600 hover:text-amber-700"
+                              title="Editar cenário"
+                            >
+                              <Pencil className="h-3 w-3" />
                             </Button>
                             <Button
                               variant="ghost"

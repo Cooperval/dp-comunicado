@@ -8,6 +8,9 @@ interface SavedScenario {
   date: string;
   data: {
     // Premissas Cana
+    premissaCanaMoidaTotal: number;
+    premissaCanaMixAcucar: number;
+    premissaCanaMixEtanol: number;
     premissaCanaATR: number;
     premissaCanaRendimentoVHP: number;
     premissaCanaRendimentoEHC: number;
@@ -138,10 +141,17 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
   };
 
   const updateSugarCane = (updates: Partial<SimulatorData['sugarCane']>) => {
-    setData(prev => ({
-      ...prev,
-      sugarCane: { ...prev.sugarCane, ...updates }
-    }));
+    setData(prev => {
+      const newSugarCane = { ...prev.sugarCane, ...updates };
+      
+      // Recalcular valores derivados quando mix ou total mudar
+      if ('sugarMix' in updates || 'ethanolMix' in updates || 'totalGroundCane' in updates) {
+        newSugarCane.sugarGroundCane = newSugarCane.totalGroundCane * newSugarCane.sugarMix / 100;
+        newSugarCane.ethanolGroundCane = newSugarCane.totalGroundCane * newSugarCane.ethanolMix / 100;
+      }
+      
+      return { ...prev, sugarCane: newSugarCane };
+    });
   };
 
   const updateCorn = (updates: Partial<SimulatorData['corn']>) => {
@@ -223,6 +233,9 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
         date: new Date().toLocaleDateString('pt-BR'),
         data: {
           // Premissas Cana
+          premissaCanaMoidaTotal: data.sugarCane.totalGroundCane || 0,
+          premissaCanaMixAcucar: data.sugarCane.sugarMix || 0,
+          premissaCanaMixEtanol: data.sugarCane.ethanolMix || 0,
           premissaCanaATR: data.atr || 0,
           premissaCanaRendimentoVHP: data.sugarCane.sugarPerTonCane || 0,
           premissaCanaRendimentoEHC: data.sugarCane.hydratedEthanolPerTonCane || 0,
@@ -337,6 +350,9 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
         ...scenario,
         data: {
           // Premissas Cana
+          premissaCanaMoidaTotal: data.sugarCane.totalGroundCane || 0,
+          premissaCanaMixAcucar: data.sugarCane.sugarMix || 0,
+          premissaCanaMixEtanol: data.sugarCane.ethanolMix || 0,
           premissaCanaATR: data.atr || 0,
           premissaCanaRendimentoVHP: data.sugarCane.sugarPerTonCane || 0,
           premissaCanaRendimentoEHC: data.sugarCane.hydratedEthanolPerTonCane || 0,
@@ -445,6 +461,9 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
             ...scenario,
             data: {
               // Premissas Cana
+              premissaCanaMoidaTotal: data.sugarCane.totalGroundCane || 0,
+              premissaCanaMixAcucar: data.sugarCane.sugarMix || 0,
+              premissaCanaMixEtanol: data.sugarCane.ethanolMix || 0,
               premissaCanaATR: data.atr || 0,
               premissaCanaRendimentoVHP: data.sugarCane.sugarPerTonCane || 0,
               premissaCanaRendimentoEHC: data.sugarCane.hydratedEthanolPerTonCane || 0,

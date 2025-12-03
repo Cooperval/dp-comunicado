@@ -105,6 +105,9 @@ export default function Consolidated() {
       ['', ...Array(savedScenarios.length + 1).fill('')], // Linha em branco
       ['PREMISSAS', ...Array(savedScenarios.length + 1).fill('')],
       ['CANA', ...Array(savedScenarios.length + 1).fill('')],
+      ['  Cana Moída Total (ton)', ...savedScenarios.map(s => (s.data.premissaCanaMoidaTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })), savedScenarios.reduce((sum, s) => sum + (s.data.premissaCanaMoidaTotal || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })],
+      ['  Mix Açúcar (%)', ...savedScenarios.map(s => (s.data.premissaCanaMixAcucar || 0).toLocaleString('pt-BR', { minimumFractionDigits: 1 }) + '%'), '-'],
+      ['  Mix Etanol (%)', ...savedScenarios.map(s => (s.data.premissaCanaMixEtanol || 0).toLocaleString('pt-BR', { minimumFractionDigits: 1 }) + '%'), '-'],
       ['  ATR (kg/ton)', ...savedScenarios.map(s => (s.data.premissaCanaATR || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })), '-'],
       ['  Rendimento VHP (kg/t)', ...savedScenarios.map(s => (s.data.premissaCanaRendimentoVHP || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })), '-'],
       ['  Rendimento EHC (L/t)', ...savedScenarios.map(s => (s.data.premissaCanaRendimentoEHC || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })), '-'],
@@ -406,6 +409,35 @@ export default function Consolidated() {
                     <TableCell className="font-semibold pl-4" colSpan={savedScenarios.length + 2}>
                       CANA
                     </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-6">Cana Moída Total (ton)</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center">
+                        {(scenario.data.premissaCanaMoidaTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30">
+                      {savedScenarios.reduce((sum, s) => sum + (s.data.premissaCanaMoidaTotal || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-6">Mix Açúcar (%)</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center">
+                        {(scenario.data.premissaCanaMixAcucar || 0).toLocaleString('pt-BR', { minimumFractionDigits: 1 })}%
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30">-</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-6">Mix Etanol (%)</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center">
+                        {(scenario.data.premissaCanaMixEtanol || 0).toLocaleString('pt-BR', { minimumFractionDigits: 1 })}%
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30">-</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell className="font-medium pl-6">ATR (kg/ton)</TableCell>

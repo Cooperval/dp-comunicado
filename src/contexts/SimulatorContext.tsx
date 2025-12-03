@@ -117,7 +117,10 @@ interface SimulatorContextType {
   updateAllScenarios: () => void;
   refreshScenario: (id: string) => void;
   loadScenarioForEditing: (id: string) => boolean;
+  importScenario: (scenarioData: SavedScenario) => { success: boolean; error?: string };
 }
+
+export type { SavedScenario };
 
 const SimulatorContext = createContext<SimulatorContextType | undefined>(undefined);
 
@@ -610,6 +613,28 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
     return true;
   };
 
+  const importScenario = (scenarioData: SavedScenario): { success: boolean; error?: string } => {
+    try {
+      // Valida se o cenário tem a estrutura correta
+      if (!scenarioData.originalData || !scenarioData.data || !scenarioData.name) {
+        return { success: false, error: 'Formato de cenário inválido' };
+      }
+      
+      // Gera novo ID e atualiza a data para evitar conflitos
+      const newScenario: SavedScenario = {
+        ...scenarioData,
+        id: Date.now().toString(),
+        date: new Date().toLocaleDateString('pt-BR'),
+        name: `${scenarioData.name} (importado)`,
+      };
+      
+      setSavedScenarios(prev => [...prev, newScenario]);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: 'Erro ao importar cenário' };
+    }
+  };
+
   const value: SimulatorContextType = {
     data,
     savedScenarios,
@@ -627,6 +652,7 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
     updateAllScenarios,
     refreshScenario,
     loadScenarioForEditing,
+    importScenario,
   };
 
   return (

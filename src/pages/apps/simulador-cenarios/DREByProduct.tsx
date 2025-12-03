@@ -68,11 +68,11 @@ const DREByProduct: React.FC = () => {
   };
 
 
-  // Calcular margem bruta e EBITDA para cada produto
+  // Calcular margem bruta e resultado operacional para cada produto
   Object.keys(productMatrixData).forEach(product => {
     const prod = productMatrixData[product];
     prod.margemBruta = prod.receitaLiquida - prod.custoMateriaPrima - prod.custoCCT - prod.custoIndustria - prod.custoBiomassa;
-    prod.ebitda = prod.margemBruta - prod.administracao - prod.comercializacao; 
+    prod.resultadoOp = prod.margemBruta - prod.comercializacao - prod.administracao; 
   });
 
   // Nomes dos produtos para exibição
@@ -98,7 +98,7 @@ const DREByProduct: React.FC = () => {
     { key: 'margemBruta', label: 'Margem Bruta' },
     { key: 'comercializacao', label: 'Comercialização' },
     { key: 'administracao', label: 'Administração' },
-    { key: 'ebitda', label: 'EBITDA' },
+    { key: 'resultadoOp', label: 'Resultado Operacional' },
   ];
 
   const handleSaveScenario = () => {

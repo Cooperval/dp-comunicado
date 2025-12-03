@@ -324,14 +324,11 @@ export function calcularDRE(data: SimulatorData) {
   // Lucro Bruto
   const lucroBruto = receitaLiquida - cpvTotal;
 
-  // Resultado Operacional
-  const resultadoOp = lucroBruto - totalDespesasVendas;
-
   // Despesas Administrativas
   const despesasAdm = data.productionCosts.administration * data.sugarCane.totalGroundCane;
 
-  const ebitda = resultadoOp - despesasAdm;
-  const ebitdaPerc = (ebitda / receitaLiquida) * 100;
+  // Resultado Operacional (nova fórmula: Margem - Vendas - Admin)
+  const resultadoOp = lucroBruto - totalDespesasVendas - despesasAdm;
 
   return {
     prodVHP,
@@ -365,9 +362,7 @@ export function calcularDRE(data: SimulatorData) {
     resultadoOp,
     icmsTotal,
     pisCofinsTotal,
-    despesasAdm,
-    ebitda,
-    ebitdaPerc
+    despesasAdm
   };
 }
 
@@ -438,9 +433,7 @@ export interface ProductData {
   custoBiomassa: number;
   administracao: number;
   margemBruta: number;
-  ebitda: number;
-
-
+  resultadoOp: number;
 }
 
 export function calcularDREPorProduto(data: SimulatorData): DREPorProdutoResultado {
@@ -495,7 +488,7 @@ export function calcularDREPorProduto(data: SimulatorData): DREPorProdutoResulta
       comercializacao: (prodVHP * p.salesExpenseSugar) / 1000,
       administracao: (p.administration * caneProcessed * vhpProportion) / 1000,
       margemBruta: 0,
-      ebitda: 0,
+      resultadoOp: 0,
     },
     ethanolHydratedCane: {
       receita: (prodEHC * s.hydratedEthanolGross) / 1000,
@@ -508,7 +501,7 @@ export function calcularDREPorProduto(data: SimulatorData): DREPorProdutoResulta
       comercializacao: (prodEHC * p.salesExpenseEthanol) / 1000,
       administracao: (p.administration * caneProcessed * ehcProportion) / 1000,
       margemBruta: 0,
-      ebitda: 0,
+      resultadoOp: 0,
     },
     ethanolAnhydrousCane: {
       receita: (prodEAC * s.anhydrousEthanolGross) / 1000,
@@ -521,7 +514,7 @@ export function calcularDREPorProduto(data: SimulatorData): DREPorProdutoResulta
       comercializacao: (prodEAC * p.salesExpenseEthanol) / 1000,
       administracao: (p.administration * caneProcessed * eacProportion) / 1000,
       margemBruta: 0,
-      ebitda: 0,
+      resultadoOp: 0,
     },
     ethanolHydratedCorn: {
       receita: 0,
@@ -534,7 +527,7 @@ export function calcularDREPorProduto(data: SimulatorData): DREPorProdutoResulta
       comercializacao: 0,
       administracao: 0,
       margemBruta: 0,
-      ebitda: 0,
+      resultadoOp: 0,
     },
     ethanolAnhydrousCorn: {
       receita: (prodEAM * s.anhydrousEthanolGross) / 1000,
@@ -547,7 +540,7 @@ export function calcularDREPorProduto(data: SimulatorData): DREPorProdutoResulta
       comercializacao: (prodEAM * p.salesExpenseEthanol) / 1000,
       administracao: 0,
       margemBruta: 0,
-      ebitda: 0,
+      resultadoOp: 0,
     },
     ddg: {
       receita: (prodDDG * s.ddgGross) / 1000,
@@ -560,7 +553,7 @@ export function calcularDREPorProduto(data: SimulatorData): DREPorProdutoResulta
       comercializacao: 0,
       administracao: 0,
       margemBruta: 0,
-      ebitda: 0,
+      resultadoOp: 0,
     },
     wdg: {
       receita: (prodWDG * s.wdgGross) / 1000,
@@ -573,7 +566,7 @@ export function calcularDREPorProduto(data: SimulatorData): DREPorProdutoResulta
       comercializacao: 0,
       administracao: 0,
       margemBruta: 0,
-      ebitda: 0,
+      resultadoOp: 0,
     },
   };
 

@@ -286,6 +286,7 @@ export default function Consolidated() {
       ['Margem de Contribuição (R$)', ...savedScenarios.map(s => s.data.margemContribuicao), calcTotalNum(s => s.data.margemContribuicao)],
       ['  Margem Cana (R$)', ...savedScenarios.map(s => s.data.margemCana || 0), calcTotalNum(s => s.data.margemCana || 0)],
       ['  Margem Milho (R$)', ...savedScenarios.map(s => s.data.margemMilho || 0), calcTotalNum(s => s.data.margemMilho || 0)],
+      ['  Margem Outras (R$)', ...savedScenarios.map(s => s.data.margemOutras || 0), calcTotalNum(s => s.data.margemOutras || 0)],
       ['Despesas com Vendas (R$)', ...savedScenarios.map(s => s.data.despesasVendas), calcTotalNum(s => s.data.despesasVendas)],
       ['Administração (R$)', ...savedScenarios.map(s => s.data.administracao), calcTotalNum(s => s.data.administracao)],
       ['Resultado Operacional (R$)', ...savedScenarios.map(s => s.data.resultadoOperacional), calcTotalNum(s => s.data.resultadoOperacional)],
@@ -1375,6 +1376,21 @@ export default function Consolidated() {
                     <TableCell className="text-center font-semibold bg-muted/30 text-muted-foreground">
                       <span className={calculateTotalValue(s => s.data.margemMilho || 0) >= 0 ? "text-green-600" : "text-red-600"}>
                         R$ {calculateTotal(s => s.data.margemMilho || 0)}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-6 text-muted-foreground">↳ Margem Outras</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center text-muted-foreground">
+                        <span className={(scenario.data.margemOutras || 0) >= 0 ? "text-green-600" : "text-red-600"}>
+                          R$ {(scenario.data.margemOutras || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </span>
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30 text-muted-foreground">
+                      <span className={calculateTotalValue(s => s.data.margemOutras || 0) >= 0 ? "text-green-600" : "text-red-600"}>
+                        R$ {calculateTotal(s => s.data.margemOutras || 0)}
                       </span>
                     </TableCell>
                   </TableRow>

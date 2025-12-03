@@ -6,6 +6,7 @@ interface SavedScenario {
   id: string;
   name: string;
   date: string;
+  originalData: SimulatorData; // Dados originais completos para edição
   data: {
     // Premissas Cana
     premissaCanaMoidaTotal: number;
@@ -115,6 +116,7 @@ interface SimulatorContextType {
   deleteScenario: (id: string) => void;
   updateAllScenarios: () => void;
   refreshScenario: (id: string) => void;
+  loadScenarioForEditing: (id: string) => boolean;
 }
 
 const SimulatorContext = createContext<SimulatorContextType | undefined>(undefined);
@@ -230,6 +232,7 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
         id: Date.now().toString(),
         name,
         date: new Date().toLocaleDateString('pt-BR'),
+        originalData: JSON.parse(JSON.stringify(data)), // Cópia profunda dos dados originais
         data: {
           // Premissas Cana
           premissaCanaMoidaTotal: data.sugarCane.totalGroundCane || 0,
@@ -352,6 +355,7 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
       
       setSavedScenarios(prev => prev.map(scenario => ({
         ...scenario,
+        originalData: JSON.parse(JSON.stringify(data)), // Atualiza dados originais
         data: {
           // Premissas Cana
           premissaCanaMoidaTotal: data.sugarCane.totalGroundCane || 0,
@@ -468,6 +472,7 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
         if (scenario.id === id) {
           return {
             ...scenario,
+            originalData: JSON.parse(JSON.stringify(data)), // Atualiza dados originais
             data: {
               // Premissas Cana
               premissaCanaMoidaTotal: data.sugarCane.totalGroundCane || 0,
@@ -582,20 +587,26 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
   const [derivedSalesPrices, setDerivedSalesPrices] = useState<ReturnType<typeof calcularPrecosLiquidos>>();
 
   useEffect(() => {
-
     const resultsPrecoVenda = calcularPrecosLiquidos(data.salesPrices);
-
-
     setDerivedSalesPrices(resultsPrecoVenda);
   }, [data.salesPrices]);
 
-
-
+  // Carrega os dados originais de um cenário para edição
+  const loadScenarioForEditing = (id: string): boolean => {
+    const scenario = savedScenarios.find(s => s.id === id);
+    if (!scenario || !scenario.originalData) {
+      console.error('Cenário não encontrado ou sem dados originais');
+      return false;
+    }
+    
+    // Restaura os dados originais no estado
+    setData(JSON.parse(JSON.stringify(scenario.originalData)));
+    return true;
+  };
 
   const value: SimulatorContextType = {
     data,
     savedScenarios,
-
     derivedSalesPrices,
     updateData,
     updateSugarCane,
@@ -609,6 +620,7 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
     deleteScenario,
     updateAllScenarios,
     refreshScenario,
+    loadScenarioForEditing,
   };
 
   return (

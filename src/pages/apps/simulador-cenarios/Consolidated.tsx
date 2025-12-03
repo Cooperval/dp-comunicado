@@ -14,51 +14,64 @@ import { toast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 
 export default function Consolidated() {
-  const { savedScenarios, saveScenario, deleteScenario, updateAllScenarios, refreshScenario, loadScenarioForEditing, importScenario } = useSimulator();
+  const { savedScenarios, saveScenario, deleteScenario, updateAllScenarios, refreshScenario, loadScenarioForEditing, importMultipleScenarios } = useSimulator();
   const [scenarioName, setScenarioName] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Função para exportar um cenário individual como JSON
-  const exportScenarioToJson = (scenario: SavedScenario) => {
-    const dataStr = JSON.stringify(scenario, null, 2);
+  // Função para exportar TODOS os cenários como JSON
+  const exportAllScenariosToJson = () => {
+    if (savedScenarios.length === 0) {
+      toast({
+        title: "Aviso",
+        description: "Não há cenários para exportar.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const dataStr = JSON.stringify(savedScenarios, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     
     const link = document.createElement('a');
     link.href = url;
-    link.download = `cenario-${scenario.name.replace(/\s+/g, '-')}-${scenario.date.replace(/\//g, '-')}.json`;
+    link.download = `cenarios-simulador-${new Date().toISOString().split('T')[0]}.json`;
     link.click();
     
     URL.revokeObjectURL(url);
     
     toast({
       title: "Sucesso",
-      description: `Cenário "${scenario.name}" exportado com sucesso!`,
+      description: `${savedScenarios.length} cenário(s) exportado(s) com sucesso!`,
     });
   };
 
-  // Função para importar um cenário de arquivo JSON
-  const handleImportScenario = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Função para importar cenários de arquivo JSON (aceita array ou objeto único)
+  const handleImportScenarios = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const scenarioData = JSON.parse(e.target?.result as string) as SavedScenario;
-        const result = importScenario(scenarioData);
+        const data = JSON.parse(e.target?.result as string);
+        
+        // Verifica se é um array (múltiplos cenários) ou objeto único
+        const scenariosArray = Array.isArray(data) ? data : [data];
+        
+        const result = importMultipleScenarios(scenariosArray);
         
         if (result.success) {
           toast({
             title: "Sucesso",
-            description: "Cenário importado com sucesso!",
+            description: `${result.count} cenário(s) importado(s) com sucesso!`,
           });
         } else {
           toast({
             title: "Erro",
-            description: result.error || "Erro ao importar cenário",
+            description: result.error || "Erro ao importar cenários",
             variant: "destructive",
           });
         }
@@ -388,7 +401,7 @@ export default function Consolidated() {
             type="file"
             ref={fileInputRef}
             accept=".json"
-            onChange={handleImportScenario}
+            onChange={handleImportScenarios}
             className="hidden"
           />
           
@@ -398,7 +411,17 @@ export default function Consolidated() {
             className="flex items-center gap-2"
           >
             <Upload className="h-4 w-4" />
-            Importar Cenário
+            Importar Cenários
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={exportAllScenariosToJson}
+            disabled={savedScenarios.length === 0}
+            className="flex items-center gap-2"
+          >
+            <FileDown className="h-4 w-4" />
+            Exportar Cenários
           </Button>
 
           <Button
@@ -480,15 +503,6 @@ export default function Consolidated() {
                               title="Editar cenário"
                             >
                               <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => exportScenarioToJson(scenario)}
-                              className="text-green-600 hover:text-green-700"
-                              title="Exportar cenário"
-                            >
-                              <FileDown className="h-3 w-3" />
                             </Button>
                             <Button
                               variant="ghost"

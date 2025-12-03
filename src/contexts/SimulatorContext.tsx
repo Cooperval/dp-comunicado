@@ -118,6 +118,7 @@ interface SimulatorContextType {
   refreshScenario: (id: string) => void;
   loadScenarioForEditing: (id: string) => boolean;
   importScenario: (scenarioData: SavedScenario) => { success: boolean; error?: string };
+  importMultipleScenarios: (scenariosData: SavedScenario[]) => { success: boolean; count: number; error?: string };
 }
 
 export type { SavedScenario };
@@ -635,6 +636,40 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
     }
   };
 
+  const importMultipleScenarios = (scenariosData: SavedScenario[]): { success: boolean; count: number; error?: string } => {
+    try {
+      if (!Array.isArray(scenariosData) || scenariosData.length === 0) {
+        return { success: false, count: 0, error: 'Nenhum cenário encontrado no arquivo' };
+      }
+      
+      const newScenarios: SavedScenario[] = [];
+      
+      for (const scenarioData of scenariosData) {
+        // Valida se o cenário tem a estrutura correta
+        if (!scenarioData.originalData || !scenarioData.data || !scenarioData.name) {
+          continue; // Pula cenários inválidos
+        }
+        
+        // Gera novo ID único e atualiza a data
+        newScenarios.push({
+          ...scenarioData,
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          date: new Date().toLocaleDateString('pt-BR'),
+          name: `${scenarioData.name} (importado)`,
+        });
+      }
+      
+      if (newScenarios.length === 0) {
+        return { success: false, count: 0, error: 'Nenhum cenário válido encontrado' };
+      }
+      
+      setSavedScenarios(prev => [...prev, ...newScenarios]);
+      return { success: true, count: newScenarios.length };
+    } catch (error) {
+      return { success: false, count: 0, error: 'Erro ao importar cenários' };
+    }
+  };
+
   const value: SimulatorContextType = {
     data,
     savedScenarios,
@@ -653,6 +688,7 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
     refreshScenario,
     loadScenarioForEditing,
     importScenario,
+    importMultipleScenarios,
   };
 
   return (

@@ -108,6 +108,7 @@ interface SavedScenario {
           // Margens por Matéria-Prima
           margemCana: number;
           margemMilho: number;
+          margemOutras: number;
     
     despesasVendas: number;
     resultadoOperacional: number;
@@ -392,21 +393,34 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
                                  (data.dre.otherRevenues || 0) +
                                  (dreCalculations.totalDerivativosCambio || 0),
           
-          // Margens por Matéria-Prima
-          margemCana: ((dreCalculations.receitaAcucarCana || 0) + 
-                       (dreCalculations.receitaEtanolHidratadoCana || 0) + 
-                       (dreCalculations.receitaEtanolAnidrocana || 0)) - 
-                      (((cpvCalculado.vhpSugarCpv || 0) * (dreCalculations.prodVHP || 0)) + 
-                       ((cpvCalculado.hydratedEthanolCaneCpv || 0) * (dreCalculations.prodEHC || 0)) + 
-                       ((cpvCalculado.anhydrousEthanolCaneCpv || 0) * (dreCalculations.prodEAC || 0))),
-          margemMilho: ((dreCalculations.receitaEtanolHidratadoMilho || 0) + 
-                        (dreCalculations.receitaEtanolMilho || 0) + 
-                        (dreCalculations.receitaDDG || 0) + 
-                        (dreCalculations.receitaWDG || 0)) - 
-                       (((cpvCalculado.hydratedEthanolCornCpv || 0) * (data.corn.hydratedEthanol || 0)) + 
-                        ((cpvCalculado.anhydrousEthanolCornCpv || 0) * (dreCalculations.prodEAM || 0)) + 
-                        ((cpvCalculado.ddgCpv || 0) * (dreCalculations.prodDDG || 0)) + 
-                        ((cpvCalculado.wdgCpv || 0) * (dreCalculations.prodWDG || 0))),
+          // Margens por Matéria-Prima (Receita Líquida - CPV)
+          margemCana: (() => {
+            const receitaCana = (dreCalculations.receitaAcucarCana || 0) + (dreCalculations.receitaEtanolHidratadoCana || 0) + (dreCalculations.receitaEtanolAnidrocana || 0);
+            const receitaMilho = (dreCalculations.receitaEtanolHidratadoMilho || 0) + (dreCalculations.receitaEtanolMilho || 0) + (dreCalculations.receitaDDG || 0) + (dreCalculations.receitaWDG || 0);
+            const totalReceita = receitaCana + receitaMilho;
+            const impostosCana = totalReceita > 0 ? (dreCalculations.totalImpostos || 0) * (receitaCana / totalReceita) : 0;
+            const receitaLiquidaCana = receitaCana - impostosCana;
+            const cpvCana = ((cpvCalculado.vhpSugarCpv || 0) * (dreCalculations.prodVHP || 0)) + 
+                            ((cpvCalculado.hydratedEthanolCaneCpv || 0) * (dreCalculations.prodEHC || 0)) + 
+                            ((cpvCalculado.anhydrousEthanolCaneCpv || 0) * (dreCalculations.prodEAC || 0));
+            return receitaLiquidaCana - cpvCana;
+          })(),
+          margemMilho: (() => {
+            const receitaCana = (dreCalculations.receitaAcucarCana || 0) + (dreCalculations.receitaEtanolHidratadoCana || 0) + (dreCalculations.receitaEtanolAnidrocana || 0);
+            const receitaMilho = (dreCalculations.receitaEtanolHidratadoMilho || 0) + (dreCalculations.receitaEtanolMilho || 0) + (dreCalculations.receitaDDG || 0) + (dreCalculations.receitaWDG || 0);
+            const totalReceita = receitaCana + receitaMilho;
+            const impostosMilho = totalReceita > 0 ? (dreCalculations.totalImpostos || 0) * (receitaMilho / totalReceita) : 0;
+            const receitaLiquidaMilho = receitaMilho - impostosMilho;
+            const cpvMilho = ((cpvCalculado.hydratedEthanolCornCpv || 0) * (data.corn.hydratedEthanol || 0)) + 
+                             ((cpvCalculado.anhydrousEthanolCornCpv || 0) * (dreCalculations.prodEAM || 0)) + 
+                             ((cpvCalculado.ddgCpv || 0) * (dreCalculations.prodDDG || 0)) + 
+                             ((cpvCalculado.wdgCpv || 0) * (dreCalculations.prodWDG || 0));
+            return receitaLiquidaMilho - cpvMilho;
+          })(),
+          margemOutras: ((dreCalculations.receitaCO2Cana || 0) + (dreCalculations.receitaCO2Milho || 0)) +
+                        (dreCalculations.receitaCBIO || 0) +
+                        (data.dre.otherRevenues || 0) +
+                        (dreCalculations.totalDerivativosCambio || 0), // Outras não tem CPV
           // Margem de Contribuição = Receita Líquida - CPV Total
           margemContribuicao: (dreCalculations.receitaLiquida || 0) - (dreCalculations.cpvTotal || 0),
           
@@ -575,21 +589,34 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
                                  (data.dre.otherRevenues || 0) +
                                  (dreCalculations.totalDerivativosCambio || 0),
           
-          // Margens por Matéria-Prima
-          margemCana: ((dreCalculations.receitaAcucarCana || 0) + 
-                       (dreCalculations.receitaEtanolHidratadoCana || 0) + 
-                       (dreCalculations.receitaEtanolAnidrocana || 0)) - 
-                      (((cpvCalculado.vhpSugarCpv || 0) * (dreCalculations.prodVHP || 0)) + 
-                       ((cpvCalculado.hydratedEthanolCaneCpv || 0) * (dreCalculations.prodEHC || 0)) + 
-                       ((cpvCalculado.anhydrousEthanolCaneCpv || 0) * (dreCalculations.prodEAC || 0))),
-          margemMilho: ((dreCalculations.receitaEtanolHidratadoMilho || 0) + 
-                        (dreCalculations.receitaEtanolMilho || 0) + 
-                        (dreCalculations.receitaDDG || 0) + 
-                        (dreCalculations.receitaWDG || 0)) - 
-                       (((cpvCalculado.hydratedEthanolCornCpv || 0) * (data.corn.hydratedEthanol || 0)) + 
-                        ((cpvCalculado.anhydrousEthanolCornCpv || 0) * (dreCalculations.prodEAM || 0)) + 
-                        ((cpvCalculado.ddgCpv || 0) * (dreCalculations.prodDDG || 0)) + 
-                        ((cpvCalculado.wdgCpv || 0) * (dreCalculations.prodWDG || 0))),
+          // Margens por Matéria-Prima (Receita Líquida - CPV)
+          margemCana: (() => {
+            const receitaCana = (dreCalculations.receitaAcucarCana || 0) + (dreCalculations.receitaEtanolHidratadoCana || 0) + (dreCalculations.receitaEtanolAnidrocana || 0);
+            const receitaMilho = (dreCalculations.receitaEtanolHidratadoMilho || 0) + (dreCalculations.receitaEtanolMilho || 0) + (dreCalculations.receitaDDG || 0) + (dreCalculations.receitaWDG || 0);
+            const totalReceita = receitaCana + receitaMilho;
+            const impostosCana = totalReceita > 0 ? (dreCalculations.totalImpostos || 0) * (receitaCana / totalReceita) : 0;
+            const receitaLiquidaCana = receitaCana - impostosCana;
+            const cpvCana = ((cpvCalculado.vhpSugarCpv || 0) * (dreCalculations.prodVHP || 0)) + 
+                            ((cpvCalculado.hydratedEthanolCaneCpv || 0) * (dreCalculations.prodEHC || 0)) + 
+                            ((cpvCalculado.anhydrousEthanolCaneCpv || 0) * (dreCalculations.prodEAC || 0));
+            return receitaLiquidaCana - cpvCana;
+          })(),
+          margemMilho: (() => {
+            const receitaCana = (dreCalculations.receitaAcucarCana || 0) + (dreCalculations.receitaEtanolHidratadoCana || 0) + (dreCalculations.receitaEtanolAnidrocana || 0);
+            const receitaMilho = (dreCalculations.receitaEtanolHidratadoMilho || 0) + (dreCalculations.receitaEtanolMilho || 0) + (dreCalculations.receitaDDG || 0) + (dreCalculations.receitaWDG || 0);
+            const totalReceita = receitaCana + receitaMilho;
+            const impostosMilho = totalReceita > 0 ? (dreCalculations.totalImpostos || 0) * (receitaMilho / totalReceita) : 0;
+            const receitaLiquidaMilho = receitaMilho - impostosMilho;
+            const cpvMilho = ((cpvCalculado.hydratedEthanolCornCpv || 0) * (data.corn.hydratedEthanol || 0)) + 
+                             ((cpvCalculado.anhydrousEthanolCornCpv || 0) * (dreCalculations.prodEAM || 0)) + 
+                             ((cpvCalculado.ddgCpv || 0) * (dreCalculations.prodDDG || 0)) + 
+                             ((cpvCalculado.wdgCpv || 0) * (dreCalculations.prodWDG || 0));
+            return receitaLiquidaMilho - cpvMilho;
+          })(),
+          margemOutras: ((dreCalculations.receitaCO2Cana || 0) + (dreCalculations.receitaCO2Milho || 0)) +
+                        (dreCalculations.receitaCBIO || 0) +
+                        (data.dre.otherRevenues || 0) +
+                        (dreCalculations.totalDerivativosCambio || 0), // Outras não tem CPV
           // Margem de Contribuição = Receita Líquida - CPV Total
           margemContribuicao: (dreCalculations.receitaLiquida || 0) - (dreCalculations.cpvTotal || 0),
           
@@ -752,21 +779,34 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
                                      (data.dre.otherRevenues || 0) +
                                      (dreCalculations.totalDerivativosCambio || 0),
               
-              // Margens por Matéria-Prima
-              margemCana: ((dreCalculations.receitaAcucarCana || 0) + 
-                           (dreCalculations.receitaEtanolHidratadoCana || 0) + 
-                           (dreCalculations.receitaEtanolAnidrocana || 0)) - 
-                          (((cpvCalculado.vhpSugarCpv || 0) * (dreCalculations.prodVHP || 0)) + 
-                           ((cpvCalculado.hydratedEthanolCaneCpv || 0) * (dreCalculations.prodEHC || 0)) + 
-                           ((cpvCalculado.anhydrousEthanolCaneCpv || 0) * (dreCalculations.prodEAC || 0))),
-              margemMilho: ((dreCalculations.receitaEtanolHidratadoMilho || 0) + 
-                            (dreCalculations.receitaEtanolMilho || 0) + 
-                            (dreCalculations.receitaDDG || 0) + 
-                            (dreCalculations.receitaWDG || 0)) - 
-                           (((cpvCalculado.hydratedEthanolCornCpv || 0) * (data.corn.hydratedEthanol || 0)) + 
-                            ((cpvCalculado.anhydrousEthanolCornCpv || 0) * (dreCalculations.prodEAM || 0)) + 
-                            ((cpvCalculado.ddgCpv || 0) * (dreCalculations.prodDDG || 0)) + 
-                            ((cpvCalculado.wdgCpv || 0) * (dreCalculations.prodWDG || 0))),
+              // Margens por Matéria-Prima (Receita Líquida - CPV)
+              margemCana: (() => {
+                const receitaCana = (dreCalculations.receitaAcucarCana || 0) + (dreCalculations.receitaEtanolHidratadoCana || 0) + (dreCalculations.receitaEtanolAnidrocana || 0);
+                const receitaMilho = (dreCalculations.receitaEtanolHidratadoMilho || 0) + (dreCalculations.receitaEtanolMilho || 0) + (dreCalculations.receitaDDG || 0) + (dreCalculations.receitaWDG || 0);
+                const totalReceita = receitaCana + receitaMilho;
+                const impostosCana = totalReceita > 0 ? (dreCalculations.totalImpostos || 0) * (receitaCana / totalReceita) : 0;
+                const receitaLiquidaCana = receitaCana - impostosCana;
+                const cpvCana = ((cpvCalculado.vhpSugarCpv || 0) * (dreCalculations.prodVHP || 0)) + 
+                                ((cpvCalculado.hydratedEthanolCaneCpv || 0) * (dreCalculations.prodEHC || 0)) + 
+                                ((cpvCalculado.anhydrousEthanolCaneCpv || 0) * (dreCalculations.prodEAC || 0));
+                return receitaLiquidaCana - cpvCana;
+              })(),
+              margemMilho: (() => {
+                const receitaCana = (dreCalculations.receitaAcucarCana || 0) + (dreCalculations.receitaEtanolHidratadoCana || 0) + (dreCalculations.receitaEtanolAnidrocana || 0);
+                const receitaMilho = (dreCalculations.receitaEtanolHidratadoMilho || 0) + (dreCalculations.receitaEtanolMilho || 0) + (dreCalculations.receitaDDG || 0) + (dreCalculations.receitaWDG || 0);
+                const totalReceita = receitaCana + receitaMilho;
+                const impostosMilho = totalReceita > 0 ? (dreCalculations.totalImpostos || 0) * (receitaMilho / totalReceita) : 0;
+                const receitaLiquidaMilho = receitaMilho - impostosMilho;
+                const cpvMilho = ((cpvCalculado.hydratedEthanolCornCpv || 0) * (data.corn.hydratedEthanol || 0)) + 
+                                 ((cpvCalculado.anhydrousEthanolCornCpv || 0) * (dreCalculations.prodEAM || 0)) + 
+                                 ((cpvCalculado.ddgCpv || 0) * (dreCalculations.prodDDG || 0)) + 
+                                 ((cpvCalculado.wdgCpv || 0) * (dreCalculations.prodWDG || 0));
+                return receitaLiquidaMilho - cpvMilho;
+              })(),
+              margemOutras: ((dreCalculations.receitaCO2Cana || 0) + (dreCalculations.receitaCO2Milho || 0)) +
+                            (dreCalculations.receitaCBIO || 0) +
+                            (data.dre.otherRevenues || 0) +
+                            (dreCalculations.totalDerivativosCambio || 0), // Outras não tem CPV
               // Margem de Contribuição = Receita Líquida - CPV Total
               margemContribuicao: (dreCalculations.receitaLiquida || 0) - (dreCalculations.cpvTotal || 0),
               

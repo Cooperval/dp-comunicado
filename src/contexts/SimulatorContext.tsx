@@ -78,18 +78,17 @@ interface SavedScenario {
     receitaLiquida: number;
     cpvTotal: number;
     
-    // Custos Cana detalhados
+    // CPV Total por Produto (R$)
     custoCanaTotal: number;
-    custoCanaMateriaPrima: number;
-    custoCanaCCT: number;
-    custoCanaIndustria: number;
-    custoCanaDispendios: number;
+    cpvTotalAcucarVHP: number;
+    cpvTotalEHC: number;
+    cpvTotalEAC: number;
     
-    // Custos Milho detalhados
     custoMilhoTotal: number;
-    custoMilhoMateriaPrima: number;
-    custoMilhoIndustria: number;
-    custoMilhoBiomassa: number;
+    cpvTotalEHM: number;
+    cpvTotalEAM: number;
+    cpvTotalDDG: number;
+    cpvTotalWDG: number;
     
     margemContribuicao: number;
     despesasVendas: number;
@@ -308,18 +307,63 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
           receitaLiquida: dreCalculations.receitaLiquida || 0,
           cpvTotal: dreCalculations.cpvTotal || 0,
           
-          // Custos Cana detalhados
+          // CPV Total por Produto - Cana
           custoCanaTotal: data.sugarCane.totalGroundCane * (data.productionCosts.caneRawMaterial + data.productionCosts.caneCct + data.productionCosts.caneIndustry + data.productionCosts.caneExpenses),
-          custoCanaMateriaPrima: data.sugarCane.totalGroundCane * data.productionCosts.caneRawMaterial,
-          custoCanaCCT: data.sugarCane.totalGroundCane * data.productionCosts.caneCct,
-          custoCanaIndustria: data.sugarCane.totalGroundCane * data.productionCosts.caneIndustry,
-          custoCanaDispendios: data.sugarCane.totalGroundCane * data.productionCosts.caneExpenses,
+          cpvTotalAcucarVHP: (() => {
+            const custoCanaTotal = data.sugarCane.totalGroundCane * (data.productionCosts.caneRawMaterial + data.productionCosts.caneCct + data.productionCosts.caneIndustry + data.productionCosts.caneExpenses);
+            const prodVHP = dreCalculations.prodVHP || 0;
+            const prodEHC = dreCalculations.prodEHC || 0;
+            const prodEAC = dreCalculations.prodEAC || 0;
+            const totalProdCana = prodVHP + prodEHC + prodEAC;
+            return totalProdCana > 0 ? custoCanaTotal * (prodVHP / totalProdCana) : 0;
+          })(),
+          cpvTotalEHC: (() => {
+            const custoCanaTotal = data.sugarCane.totalGroundCane * (data.productionCosts.caneRawMaterial + data.productionCosts.caneCct + data.productionCosts.caneIndustry + data.productionCosts.caneExpenses);
+            const prodVHP = dreCalculations.prodVHP || 0;
+            const prodEHC = dreCalculations.prodEHC || 0;
+            const prodEAC = dreCalculations.prodEAC || 0;
+            const totalProdCana = prodVHP + prodEHC + prodEAC;
+            return totalProdCana > 0 ? custoCanaTotal * (prodEHC / totalProdCana) : 0;
+          })(),
+          cpvTotalEAC: (() => {
+            const custoCanaTotal = data.sugarCane.totalGroundCane * (data.productionCosts.caneRawMaterial + data.productionCosts.caneCct + data.productionCosts.caneIndustry + data.productionCosts.caneExpenses);
+            const prodVHP = dreCalculations.prodVHP || 0;
+            const prodEHC = dreCalculations.prodEHC || 0;
+            const prodEAC = dreCalculations.prodEAC || 0;
+            const totalProdCana = prodVHP + prodEHC + prodEAC;
+            return totalProdCana > 0 ? custoCanaTotal * (prodEAC / totalProdCana) : 0;
+          })(),
           
-          // Custos Milho detalhados
+          // CPV Total por Produto - Milho (3% DDG/WDG, 97% etanóis)
           custoMilhoTotal: data.corn.groundCorn * (data.productionCosts.cornRawMaterial + data.productionCosts.cornIndustry + data.productionCosts.cornBiomass),
-          custoMilhoMateriaPrima: data.corn.groundCorn * data.productionCosts.cornRawMaterial,
-          custoMilhoIndustria: data.corn.groundCorn * data.productionCosts.cornIndustry,
-          custoMilhoBiomassa: data.corn.groundCorn * data.productionCosts.cornBiomass,
+          cpvTotalEHM: (() => {
+            const custoMilhoTotal = data.corn.groundCorn * (data.productionCosts.cornRawMaterial + data.productionCosts.cornIndustry + data.productionCosts.cornBiomass);
+            const prodEHM = data.corn.hydratedEthanol || 0;
+            const prodEAM = dreCalculations.prodEAM || 0;
+            const totalEtanolMilho = prodEHM + prodEAM;
+            return totalEtanolMilho > 0 ? custoMilhoTotal * 0.97 * (prodEHM / totalEtanolMilho) : 0;
+          })(),
+          cpvTotalEAM: (() => {
+            const custoMilhoTotal = data.corn.groundCorn * (data.productionCosts.cornRawMaterial + data.productionCosts.cornIndustry + data.productionCosts.cornBiomass);
+            const prodEHM = data.corn.hydratedEthanol || 0;
+            const prodEAM = dreCalculations.prodEAM || 0;
+            const totalEtanolMilho = prodEHM + prodEAM;
+            return totalEtanolMilho > 0 ? custoMilhoTotal * 0.97 * (prodEAM / totalEtanolMilho) : 0;
+          })(),
+          cpvTotalDDG: (() => {
+            const custoMilhoTotal = data.corn.groundCorn * (data.productionCosts.cornRawMaterial + data.productionCosts.cornIndustry + data.productionCosts.cornBiomass);
+            const prodDDG = dreCalculations.prodDDG || 0;
+            const prodWDG = dreCalculations.prodWDG || 0;
+            const totalDDGWDG = prodDDG + prodWDG;
+            return totalDDGWDG > 0 ? custoMilhoTotal * 0.03 * (prodDDG / totalDDGWDG) : 0;
+          })(),
+          cpvTotalWDG: (() => {
+            const custoMilhoTotal = data.corn.groundCorn * (data.productionCosts.cornRawMaterial + data.productionCosts.cornIndustry + data.productionCosts.cornBiomass);
+            const prodDDG = dreCalculations.prodDDG || 0;
+            const prodWDG = dreCalculations.prodWDG || 0;
+            const totalDDGWDG = prodDDG + prodWDG;
+            return totalDDGWDG > 0 ? custoMilhoTotal * 0.03 * (prodWDG / totalDDGWDG) : 0;
+          })(),
           
           margemContribuicao: dreCalculations.lucroBruto || 0,
           despesasVendas: dreCalculations.totalDespesasVendas || 0,
@@ -425,18 +469,63 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
           receitaLiquida: dreCalculations.receitaLiquida || 0,
           cpvTotal: dreCalculations.cpvTotal || 0,
           
-          // Custos Cana detalhados
+          // CPV Total por Produto - Cana
           custoCanaTotal: data.sugarCane.totalGroundCane * (data.productionCosts.caneRawMaterial + data.productionCosts.caneCct + data.productionCosts.caneIndustry + data.productionCosts.caneExpenses),
-          custoCanaMateriaPrima: data.sugarCane.totalGroundCane * data.productionCosts.caneRawMaterial,
-          custoCanaCCT: data.sugarCane.totalGroundCane * data.productionCosts.caneCct,
-          custoCanaIndustria: data.sugarCane.totalGroundCane * data.productionCosts.caneIndustry,
-          custoCanaDispendios: data.sugarCane.totalGroundCane * data.productionCosts.caneExpenses,
+          cpvTotalAcucarVHP: (() => {
+            const custoCanaTotal = data.sugarCane.totalGroundCane * (data.productionCosts.caneRawMaterial + data.productionCosts.caneCct + data.productionCosts.caneIndustry + data.productionCosts.caneExpenses);
+            const prodVHP = dreCalculations.prodVHP || 0;
+            const prodEHC = dreCalculations.prodEHC || 0;
+            const prodEAC = dreCalculations.prodEAC || 0;
+            const totalProdCana = prodVHP + prodEHC + prodEAC;
+            return totalProdCana > 0 ? custoCanaTotal * (prodVHP / totalProdCana) : 0;
+          })(),
+          cpvTotalEHC: (() => {
+            const custoCanaTotal = data.sugarCane.totalGroundCane * (data.productionCosts.caneRawMaterial + data.productionCosts.caneCct + data.productionCosts.caneIndustry + data.productionCosts.caneExpenses);
+            const prodVHP = dreCalculations.prodVHP || 0;
+            const prodEHC = dreCalculations.prodEHC || 0;
+            const prodEAC = dreCalculations.prodEAC || 0;
+            const totalProdCana = prodVHP + prodEHC + prodEAC;
+            return totalProdCana > 0 ? custoCanaTotal * (prodEHC / totalProdCana) : 0;
+          })(),
+          cpvTotalEAC: (() => {
+            const custoCanaTotal = data.sugarCane.totalGroundCane * (data.productionCosts.caneRawMaterial + data.productionCosts.caneCct + data.productionCosts.caneIndustry + data.productionCosts.caneExpenses);
+            const prodVHP = dreCalculations.prodVHP || 0;
+            const prodEHC = dreCalculations.prodEHC || 0;
+            const prodEAC = dreCalculations.prodEAC || 0;
+            const totalProdCana = prodVHP + prodEHC + prodEAC;
+            return totalProdCana > 0 ? custoCanaTotal * (prodEAC / totalProdCana) : 0;
+          })(),
           
-          // Custos Milho detalhados
+          // CPV Total por Produto - Milho (3% DDG/WDG, 97% etanóis)
           custoMilhoTotal: data.corn.groundCorn * (data.productionCosts.cornRawMaterial + data.productionCosts.cornIndustry + data.productionCosts.cornBiomass),
-          custoMilhoMateriaPrima: data.corn.groundCorn * data.productionCosts.cornRawMaterial,
-          custoMilhoIndustria: data.corn.groundCorn * data.productionCosts.cornIndustry,
-          custoMilhoBiomassa: data.corn.groundCorn * data.productionCosts.cornBiomass,
+          cpvTotalEHM: (() => {
+            const custoMilhoTotal = data.corn.groundCorn * (data.productionCosts.cornRawMaterial + data.productionCosts.cornIndustry + data.productionCosts.cornBiomass);
+            const prodEHM = data.corn.hydratedEthanol || 0;
+            const prodEAM = dreCalculations.prodEAM || 0;
+            const totalEtanolMilho = prodEHM + prodEAM;
+            return totalEtanolMilho > 0 ? custoMilhoTotal * 0.97 * (prodEHM / totalEtanolMilho) : 0;
+          })(),
+          cpvTotalEAM: (() => {
+            const custoMilhoTotal = data.corn.groundCorn * (data.productionCosts.cornRawMaterial + data.productionCosts.cornIndustry + data.productionCosts.cornBiomass);
+            const prodEHM = data.corn.hydratedEthanol || 0;
+            const prodEAM = dreCalculations.prodEAM || 0;
+            const totalEtanolMilho = prodEHM + prodEAM;
+            return totalEtanolMilho > 0 ? custoMilhoTotal * 0.97 * (prodEAM / totalEtanolMilho) : 0;
+          })(),
+          cpvTotalDDG: (() => {
+            const custoMilhoTotal = data.corn.groundCorn * (data.productionCosts.cornRawMaterial + data.productionCosts.cornIndustry + data.productionCosts.cornBiomass);
+            const prodDDG = dreCalculations.prodDDG || 0;
+            const prodWDG = dreCalculations.prodWDG || 0;
+            const totalDDGWDG = prodDDG + prodWDG;
+            return totalDDGWDG > 0 ? custoMilhoTotal * 0.03 * (prodDDG / totalDDGWDG) : 0;
+          })(),
+          cpvTotalWDG: (() => {
+            const custoMilhoTotal = data.corn.groundCorn * (data.productionCosts.cornRawMaterial + data.productionCosts.cornIndustry + data.productionCosts.cornBiomass);
+            const prodDDG = dreCalculations.prodDDG || 0;
+            const prodWDG = dreCalculations.prodWDG || 0;
+            const totalDDGWDG = prodDDG + prodWDG;
+            return totalDDGWDG > 0 ? custoMilhoTotal * 0.03 * (prodWDG / totalDDGWDG) : 0;
+          })(),
           
           margemContribuicao: dreCalculations.lucroBruto || 0,
           despesasVendas: dreCalculations.totalDespesasVendas || 0,
@@ -536,18 +625,63 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
               receitaLiquida: dreCalculations.receitaLiquida || 0,
               cpvTotal: dreCalculations.cpvTotal || 0,
               
-              // Custos Cana detalhados
+              // CPV Total por Produto - Cana
               custoCanaTotal: data.sugarCane.totalGroundCane * (data.productionCosts.caneRawMaterial + data.productionCosts.caneCct + data.productionCosts.caneIndustry + data.productionCosts.caneExpenses),
-              custoCanaMateriaPrima: data.sugarCane.totalGroundCane * data.productionCosts.caneRawMaterial,
-              custoCanaCCT: data.sugarCane.totalGroundCane * data.productionCosts.caneCct,
-              custoCanaIndustria: data.sugarCane.totalGroundCane * data.productionCosts.caneIndustry,
-              custoCanaDispendios: data.sugarCane.totalGroundCane * data.productionCosts.caneExpenses,
+              cpvTotalAcucarVHP: (() => {
+                const custoCanaTotal = data.sugarCane.totalGroundCane * (data.productionCosts.caneRawMaterial + data.productionCosts.caneCct + data.productionCosts.caneIndustry + data.productionCosts.caneExpenses);
+                const prodVHP = dreCalculations.prodVHP || 0;
+                const prodEHC = dreCalculations.prodEHC || 0;
+                const prodEAC = dreCalculations.prodEAC || 0;
+                const totalProdCana = prodVHP + prodEHC + prodEAC;
+                return totalProdCana > 0 ? custoCanaTotal * (prodVHP / totalProdCana) : 0;
+              })(),
+              cpvTotalEHC: (() => {
+                const custoCanaTotal = data.sugarCane.totalGroundCane * (data.productionCosts.caneRawMaterial + data.productionCosts.caneCct + data.productionCosts.caneIndustry + data.productionCosts.caneExpenses);
+                const prodVHP = dreCalculations.prodVHP || 0;
+                const prodEHC = dreCalculations.prodEHC || 0;
+                const prodEAC = dreCalculations.prodEAC || 0;
+                const totalProdCana = prodVHP + prodEHC + prodEAC;
+                return totalProdCana > 0 ? custoCanaTotal * (prodEHC / totalProdCana) : 0;
+              })(),
+              cpvTotalEAC: (() => {
+                const custoCanaTotal = data.sugarCane.totalGroundCane * (data.productionCosts.caneRawMaterial + data.productionCosts.caneCct + data.productionCosts.caneIndustry + data.productionCosts.caneExpenses);
+                const prodVHP = dreCalculations.prodVHP || 0;
+                const prodEHC = dreCalculations.prodEHC || 0;
+                const prodEAC = dreCalculations.prodEAC || 0;
+                const totalProdCana = prodVHP + prodEHC + prodEAC;
+                return totalProdCana > 0 ? custoCanaTotal * (prodEAC / totalProdCana) : 0;
+              })(),
               
-              // Custos Milho detalhados
+              // CPV Total por Produto - Milho (3% DDG/WDG, 97% etanóis)
               custoMilhoTotal: data.corn.groundCorn * (data.productionCosts.cornRawMaterial + data.productionCosts.cornIndustry + data.productionCosts.cornBiomass),
-              custoMilhoMateriaPrima: data.corn.groundCorn * data.productionCosts.cornRawMaterial,
-              custoMilhoIndustria: data.corn.groundCorn * data.productionCosts.cornIndustry,
-              custoMilhoBiomassa: data.corn.groundCorn * data.productionCosts.cornBiomass,
+              cpvTotalEHM: (() => {
+                const custoMilhoTotal = data.corn.groundCorn * (data.productionCosts.cornRawMaterial + data.productionCosts.cornIndustry + data.productionCosts.cornBiomass);
+                const prodEHM = data.corn.hydratedEthanol || 0;
+                const prodEAM = dreCalculations.prodEAM || 0;
+                const totalEtanolMilho = prodEHM + prodEAM;
+                return totalEtanolMilho > 0 ? custoMilhoTotal * 0.97 * (prodEHM / totalEtanolMilho) : 0;
+              })(),
+              cpvTotalEAM: (() => {
+                const custoMilhoTotal = data.corn.groundCorn * (data.productionCosts.cornRawMaterial + data.productionCosts.cornIndustry + data.productionCosts.cornBiomass);
+                const prodEHM = data.corn.hydratedEthanol || 0;
+                const prodEAM = dreCalculations.prodEAM || 0;
+                const totalEtanolMilho = prodEHM + prodEAM;
+                return totalEtanolMilho > 0 ? custoMilhoTotal * 0.97 * (prodEAM / totalEtanolMilho) : 0;
+              })(),
+              cpvTotalDDG: (() => {
+                const custoMilhoTotal = data.corn.groundCorn * (data.productionCosts.cornRawMaterial + data.productionCosts.cornIndustry + data.productionCosts.cornBiomass);
+                const prodDDG = dreCalculations.prodDDG || 0;
+                const prodWDG = dreCalculations.prodWDG || 0;
+                const totalDDGWDG = prodDDG + prodWDG;
+                return totalDDGWDG > 0 ? custoMilhoTotal * 0.03 * (prodDDG / totalDDGWDG) : 0;
+              })(),
+              cpvTotalWDG: (() => {
+                const custoMilhoTotal = data.corn.groundCorn * (data.productionCosts.cornRawMaterial + data.productionCosts.cornIndustry + data.productionCosts.cornBiomass);
+                const prodDDG = dreCalculations.prodDDG || 0;
+                const prodWDG = dreCalculations.prodWDG || 0;
+                const totalDDGWDG = prodDDG + prodWDG;
+                return totalDDGWDG > 0 ? custoMilhoTotal * 0.03 * (prodWDG / totalDDGWDG) : 0;
+              })(),
               
               margemContribuicao: dreCalculations.lucroBruto || 0,
               despesasVendas: dreCalculations.totalDespesasVendas || 0,

@@ -173,34 +173,37 @@ export function calcularCpvPorProduto(data: SimulatorData) {
     ? (((totalCaneCost * (eacProportion / 100)) / data.sugarCane.anhydrousEthanolPerTonCane) * 1000)
     : 0;
 
-  // Buscar proporções calculadas em calcularProducoesMilho (já em %)
-  const producoesMilho = calcularProducoesMilho(
-    data.corn,
-    data.cornTotalConvertedYield,
-    data.ddgYieldPerTon,
-    data.wdgYieldPerTon
-  );
-  const ehmProportion = producoesMilho.ehmProportion;
-  const eamProportion = producoesMilho.eamProportion;
-  const ddgProportion = producoesMilho.ddgProportion;
-  const wdgProportion = producoesMilho.wdgProportion;
+  // Proporções do milho calculadas por equivalência (método original)
+  const cornHydratedEquiv = data.corn.hydratedEthanol;
+  const cornAnhydrousEquiv = (data.corn.groundCorn * data.cornTotalConvertedYield * 0.9556) / 1000 / 0.9556;
+  const totalCornEthanolEquiv = cornHydratedEquiv + cornAnhydrousEquiv;
 
-  // CPV Milho com a mesma fórmula: ((Custo Total × % Proporção) ÷ Rendimento) × 1000
+  const ehmProportion = totalCornEthanolEquiv > 0 ? (cornHydratedEquiv / totalCornEthanolEquiv) * 100 : 0;
+  const eamProportion = totalCornEthanolEquiv > 0 ? (cornAnhydrousEquiv / totalCornEthanolEquiv) * 100 : 0;
+
+  // Proporções DDG/WDG ponderadas por equivalência proteica
+  const prodDDG = (data.corn.groundCorn * data.ddgYieldPerTon) / 1000;
+  const prodWDG = (data.corn.groundCorn * data.wdgYieldPerTon) / 1000;
+  const totalDdgWdgEquiv = (prodDDG * 0.88) + (prodWDG * 0.35);
+  const ddgProportion = totalDdgWdgEquiv > 0 ? ((prodDDG * 0.88) / totalDdgWdgEquiv) * 100 : 0;
+  const wdgProportion = totalDdgWdgEquiv > 0 ? ((prodWDG * 0.35) / totalDdgWdgEquiv) * 100 : 0;
+
+  // Fórmula original: CPV = (Custo Total / Rendimento) × Proporção × 1000
   const hydratedEthanolCornCpv = data.corn.hydratedEthanol > 0 && data.cornTotalConvertedYield > 0
-    ? (((totalCornCost * (ehmProportion / 100)) / data.cornTotalConvertedYield) * 1000)
+    ? (totalCornCost / data.cornTotalConvertedYield) * (ehmProportion / 100) * 1000
     : 0;
 
   const anhydrousPerTonCorn = data.cornTotalConvertedYield * 0.9556;
   const anhydrousEthanolCornCpv = data.corn.anhydrousEthanol > 0 && anhydrousPerTonCorn > 0
-    ? (((totalCornCost * (eamProportion / 100)) / anhydrousPerTonCorn) * 1000)
+    ? (totalCornCost / anhydrousPerTonCorn) * (eamProportion / 100) * 1000
     : 0;
 
   const ddgCpv = data.corn.ddg > 0 && data.ddgYieldPerTon > 0
-    ? (((totalCornCost * (ddgProportion / 100)) / data.ddgYieldPerTon) * 1000)
+    ? (totalCornCost / data.ddgYieldPerTon) * (ddgProportion / 100) * 1000
     : 0;
 
   const wdgCpv = data.corn.wdg > 0 && data.wdgYieldPerTon > 0
-    ? (((totalCornCost * (wdgProportion / 100)) / data.wdgYieldPerTon) * 1000)
+    ? (totalCornCost / data.wdgYieldPerTon) * (wdgProportion / 100) * 1000
     : 0;
 
   return {

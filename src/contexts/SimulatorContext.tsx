@@ -655,7 +655,7 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
           ...scenarioData,
           id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
           date: new Date().toLocaleDateString('pt-BR'),
-          name: `${scenarioData.name} (importado)`,
+          name: scenarioData.name,
         });
       }
       

@@ -45,9 +45,13 @@ const CPV: React.FC = () => {
         </CardHeader>
         <CardContent className="text-blue-700">
           <div className="space-y-2 text-sm">
-            <p><strong>Fórmula:</strong> CPV = (Custo Total / Rendimento) × Proporção × 1000</p>
-            <p><strong>Produtos da Cana:</strong> O custo total da cana é dividido pelo rendimento específico de cada produto (açúcar ou etanol por tonelada), multiplicado pela proporção do produto na produção total.</p>
-            <p><strong>Produtos do Milho:</strong> O custo total do milho é dividido pelo rendimento específico de cada produto, multiplicado pela proporção correspondente.</p>
+            <p><strong>Fórmula:</strong> CPV = ((Custo Total × % Proporção) ÷ Rendimento) × 1000</p>
+            <p><strong>Onde:</strong></p>
+            <ul className="list-disc list-inside ml-2">
+              <li>Custo Total = Matéria Prima + CCT + Indústria + Dispêndios (R$/ton)</li>
+              <li>% Proporção = Proporção do produto exibida na tela de Produções (VHP%, EHC%, EAC%)</li>
+              <li>Rendimento = Rendimento específico do produto (kg/ton ou L/ton)</li>
+            </ul>
           </div>
         </CardContent>
       </Card>

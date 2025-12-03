@@ -7,6 +7,15 @@ interface SavedScenario {
   name: string;
   date: string;
   data: {
+    // Premissas Cana
+    premissaCanaATR: number;
+    premissaCanaRendimentoVHP: number;
+    premissaCanaRendimentoEHC: number;
+    premissaCanaRendimentoEAC: number;
+    // Premissas Milho
+    premissaMilhoRendimentoConvertido: number;
+    premissaMilhoRendimentoDDG: number;
+    premissaMilhoRendimentoWDG: number;
     // Produções
     sugarProduction: number;
     hydratedEthanolCane: number;
@@ -213,6 +222,15 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
         name,
         date: new Date().toLocaleDateString('pt-BR'),
         data: {
+          // Premissas Cana
+          premissaCanaATR: data.atr || 0,
+          premissaCanaRendimentoVHP: data.sugarCane.sugarPerTonCane || 0,
+          premissaCanaRendimentoEHC: data.sugarCane.hydratedEthanolPerTonCane || 0,
+          premissaCanaRendimentoEAC: data.sugarCane.anhydrousEthanolPerTonCane || 0,
+          // Premissas Milho
+          premissaMilhoRendimentoConvertido: data.cornTotalConvertedYield || 0,
+          premissaMilhoRendimentoDDG: data.ddgYieldPerTon || 0,
+          premissaMilhoRendimentoWDG: data.wdgYieldPerTon || 0,
           // Produções
           sugarProduction: dreCalculations.prodVHP || 0,
           hydratedEthanolCane: dreCalculations.prodEHC || 0,
@@ -318,6 +336,15 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
       setSavedScenarios(prev => prev.map(scenario => ({
         ...scenario,
         data: {
+          // Premissas Cana
+          premissaCanaATR: data.atr || 0,
+          premissaCanaRendimentoVHP: data.sugarCane.sugarPerTonCane || 0,
+          premissaCanaRendimentoEHC: data.sugarCane.hydratedEthanolPerTonCane || 0,
+          premissaCanaRendimentoEAC: data.sugarCane.anhydrousEthanolPerTonCane || 0,
+          // Premissas Milho
+          premissaMilhoRendimentoConvertido: data.cornTotalConvertedYield || 0,
+          premissaMilhoRendimentoDDG: data.ddgYieldPerTon || 0,
+          premissaMilhoRendimentoWDG: data.wdgYieldPerTon || 0,
           // Produções
           sugarProduction: dreCalculations.prodVHP || 0,
           hydratedEthanolCane: dreCalculations.prodEHC || 0,
@@ -417,6 +444,15 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
           return {
             ...scenario,
             data: {
+              // Premissas Cana
+              premissaCanaATR: data.atr || 0,
+              premissaCanaRendimentoVHP: data.sugarCane.sugarPerTonCane || 0,
+              premissaCanaRendimentoEHC: data.sugarCane.hydratedEthanolPerTonCane || 0,
+              premissaCanaRendimentoEAC: data.sugarCane.anhydrousEthanolPerTonCane || 0,
+              // Premissas Milho
+              premissaMilhoRendimentoConvertido: data.cornTotalConvertedYield || 0,
+              premissaMilhoRendimentoDDG: data.ddgYieldPerTon || 0,
+              premissaMilhoRendimentoWDG: data.wdgYieldPerTon || 0,
               // Produções
               sugarProduction: dreCalculations.prodVHP || 0,
               hydratedEthanolCane: dreCalculations.prodEHC || 0,

@@ -246,9 +246,9 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
           
           margemContribuicao: dreCalculations.lucroBruto || 0,
           despesasVendas: dreCalculations.totalDespesasVendas || 0,
-          resultadoOperacional: dreCalculations.resultadoOp || 0,
           administracao: dreCalculations.despesasAdm || 0,
-          ebitda: dreCalculations.ebitda || 0,
+          resultadoOperacional: dreCalculations.resultadoOp || 0,
+          ebitda: 0, // Deprecated
         }
       };
 
@@ -325,9 +325,9 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
           
           margemContribuicao: dreCalculations.lucroBruto || 0,
           despesasVendas: dreCalculations.totalDespesasVendas || 0,
-          resultadoOperacional: dreCalculations.resultadoOp || 0,
           administracao: dreCalculations.despesasAdm || 0,
-          ebitda: dreCalculations.ebitda || 0,
+          resultadoOperacional: dreCalculations.resultadoOp || 0,
+          ebitda: 0, // Deprecated
         }
       })));
     } catch (error) {
@@ -398,9 +398,9 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
               
               margemContribuicao: dreCalculations.lucroBruto || 0,
               despesasVendas: dreCalculations.totalDespesasVendas || 0,
-              resultadoOperacional: dreCalculations.resultadoOp || 0,
               administracao: dreCalculations.despesasAdm || 0,
-              ebitda: dreCalculations.ebitda || 0,
+              resultadoOperacional: dreCalculations.resultadoOp || 0,
+              ebitda: 0, // Deprecated
             }
           };
         }

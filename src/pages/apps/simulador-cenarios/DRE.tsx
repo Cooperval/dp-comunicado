@@ -55,8 +55,6 @@ const DRE = () => {
     icmsTotal,
     pisCofinsTotal,
     despesasAdm,
-    ebitda,
-    ebitdaPerc,
   } = calcularDRE(data);
 
   const {
@@ -641,6 +639,10 @@ const DRE = () => {
                 <span>Despesas com Vendas:</span>
                 <span className="font-semibold text-red-600">-{formatCurrency(totalDespesasVendas)}</span>
               </div>
+              <div className="flex justify-between text-lg">
+                <span>Administrativo:</span>
+                <span className="font-semibold text-red-600">-{formatCurrency(despesasAdm)}</span>
+              </div>
               <Separator />
               <div className="flex justify-between text-xl font-bold">
                 <span>Resultado Operacional:</span>
@@ -648,24 +650,6 @@ const DRE = () => {
                   {formatCurrency(resultadoOp)}
                 </span>
               </div>
-              <div className="flex justify-between text-lg">
-                <span>Administrativo:</span>
-                <span className="font-semibold text-red-600">-{formatCurrency(despesasAdm)}</span>
-              </div>
-              <Separator />
-              <div className="flex justify-between text-xl font-bold">
-                <span>EBITDA:</span>
-                <span className={resultadoOp >= 0 ? 'text-green-600' : 'text-red-600'}>
-                  {formatCurrency(ebitda)}
-                </span>
-              </div>
-
-              <div className="flex justify-between text-lg">
-                <span>% EBTIDA:</span>
-                <span className="font-normal text-black-600">{formatNumber(ebitdaPerc)}%</span>
-
-              </div>
-
             </div>
           </CardContent>
         </Card>

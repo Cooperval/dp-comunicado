@@ -149,9 +149,8 @@ export default function Consolidated() {
       ['    Biomassa (R$)', ...savedScenarios.map(s => s.data.custoMilhoBiomassa.toLocaleString('pt-BR')), calculateTotal(s => s.data.custoMilhoBiomassa)],
       ['Margem de Contribuição (R$)', ...savedScenarios.map(s => s.data.margemContribuicao.toLocaleString('pt-BR')), calculateTotal(s => s.data.margemContribuicao)],
       ['Despesas com Vendas (R$)', ...savedScenarios.map(s => s.data.despesasVendas.toLocaleString('pt-BR')), calculateTotal(s => s.data.despesasVendas)],
-      ['Resultado Operacional (R$)', ...savedScenarios.map(s => s.data.resultadoOperacional.toLocaleString('pt-BR')), calculateTotal(s => s.data.resultadoOperacional)],
       ['Administração (R$)', ...savedScenarios.map(s => s.data.administracao.toLocaleString('pt-BR')), calculateTotal(s => s.data.administracao)],
-      ['EBITDA (R$)', ...savedScenarios.map(s => s.data.ebitda.toLocaleString('pt-BR')), calculateTotal(s => s.data.ebitda)],
+      ['Resultado Operacional (R$)', ...savedScenarios.map(s => s.data.resultadoOperacional.toLocaleString('pt-BR')), calculateTotal(s => s.data.resultadoOperacional)],
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(exportData);
@@ -849,19 +848,6 @@ export default function Consolidated() {
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium">Resultado Operacional</TableCell>
-                    {savedScenarios.map((scenario) => (
-                      <TableCell key={scenario.id} className="text-center">
-                        R$ {scenario.data.resultadoOperacional.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                      </TableCell>
-                    ))}
-                    <TableCell className="text-center font-semibold bg-muted/30">
-                      <span className={calculateTotalValue(s => s.data.resultadoOperacional) >= 0 ? "text-green-600" : "text-red-600"}>
-                        R$ {calculateTotal(s => s.data.resultadoOperacional)}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
                     <TableCell className="font-medium">Administração</TableCell>
                     {savedScenarios.map((scenario) => (
                       <TableCell key={scenario.id} className="text-center">
@@ -873,17 +859,17 @@ export default function Consolidated() {
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium">EBITDA</TableCell>
+                    <TableCell className="font-medium">Resultado Operacional</TableCell>
                     {savedScenarios.map((scenario) => (
                       <TableCell key={scenario.id} className="text-center">
-                        <span className={scenario.data.ebitda >= 0 ? "text-green-600" : "text-red-600"}>
-                          R$ {scenario.data.ebitda.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        <span className={scenario.data.resultadoOperacional >= 0 ? "text-green-600" : "text-red-600"}>
+                          R$ {scenario.data.resultadoOperacional.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </span>
                       </TableCell>
                     ))}
                     <TableCell className="text-center font-semibold bg-muted/30">
-                      <span className={calculateTotalValue(s => s.data.ebitda) >= 0 ? "text-green-600" : "text-red-600"}>
-                        R$ {calculateTotal(s => s.data.ebitda)}
+                      <span className={calculateTotalValue(s => s.data.resultadoOperacional) >= 0 ? "text-green-600" : "text-red-600"}>
+                        R$ {calculateTotal(s => s.data.resultadoOperacional)}
                       </span>
                     </TableCell>
                   </TableRow>

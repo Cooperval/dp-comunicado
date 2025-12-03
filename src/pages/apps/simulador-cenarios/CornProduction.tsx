@@ -89,23 +89,6 @@ const CornProduction: React.FC = () => {
             />
 
             <NumericInput
-              label="Eficiência de Tempo Industrial"
-              unit="%"
-              value={data.industrialTimeEfficiency}
-              onChange={(value) => handleInputChange2('industrialTimeEfficiency', value)}
-              placeholder="0.00"
-              max={100}
-            />
-
-            <NumericInput
-              label="Milho Processado por Dia"
-              unit="ton/dia"
-              value={data.cornProcessedPerDay}
-              onChange={(value) => handleInputChange2('cornProcessedPerDay', value)}
-              placeholder="0.00"
-            />
-
-            <NumericInput
               label="Rendimento DDG"
               unit="kg/ton"
               value={data.ddgYieldPerTon}

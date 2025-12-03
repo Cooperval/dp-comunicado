@@ -103,6 +103,17 @@ export default function Consolidated() {
       ['Indicador', ...savedScenarios.map(s => s.name), 'Total'],
       ['Data', ...savedScenarios.map(s => s.date), ''],
       ['', ...Array(savedScenarios.length + 1).fill('')], // Linha em branco
+      ['PREMISSAS', ...Array(savedScenarios.length + 1).fill('')],
+      ['CANA', ...Array(savedScenarios.length + 1).fill('')],
+      ['  ATR (kg/ton)', ...savedScenarios.map(s => (s.data.premissaCanaATR || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })), '-'],
+      ['  Rendimento VHP (kg/t)', ...savedScenarios.map(s => (s.data.premissaCanaRendimentoVHP || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })), '-'],
+      ['  Rendimento EHC (L/t)', ...savedScenarios.map(s => (s.data.premissaCanaRendimentoEHC || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })), '-'],
+      ['  Rendimento EAC (L/t)', ...savedScenarios.map(s => (s.data.premissaCanaRendimentoEAC || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })), '-'],
+      ['MILHO', ...Array(savedScenarios.length + 1).fill('')],
+      ['  Rendimento Total Convertido (L/ton)', ...savedScenarios.map(s => (s.data.premissaMilhoRendimentoConvertido || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })), '-'],
+      ['  Rendimento DDG (kg/ton)', ...savedScenarios.map(s => (s.data.premissaMilhoRendimentoDDG || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })), '-'],
+      ['  Rendimento WDG (kg/ton)', ...savedScenarios.map(s => (s.data.premissaMilhoRendimentoWDG || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })), '-'],
+      ['', ...Array(savedScenarios.length + 1).fill('')], // Linha em branco
       ['PRODUÇÕES', ...Array(savedScenarios.length + 1).fill('')],
       ['Açúcar VHP (ton)', ...savedScenarios.map(s => s.data.sugarProduction.toLocaleString('pt-BR')), calculateTotal(s => s.data.sugarProduction)],
       ['Etanol Hidratado Cana (m³)', ...savedScenarios.map(s => s.data.hydratedEthanolCane.toLocaleString('pt-BR')), calculateTotal(s => s.data.hydratedEthanolCane)],
@@ -383,6 +394,91 @@ export default function Consolidated() {
                 </TableHeader>
 
                 <TableBody>
+                  {/* PREMISSAS */}
+                  <TableRow className="bg-muted/50">
+                    <TableCell className="font-semibold" colSpan={savedScenarios.length + 2}>
+                      PREMISSAS
+                    </TableCell>
+                  </TableRow>
+                  
+                  {/* CANA */}
+                  <TableRow className="bg-green-50/50 dark:bg-green-900/10">
+                    <TableCell className="font-semibold pl-4" colSpan={savedScenarios.length + 2}>
+                      CANA
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-6">ATR (kg/ton)</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center">
+                        {(scenario.data.premissaCanaATR || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30">-</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-6">Rendimento VHP (kg/t)</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center">
+                        {(scenario.data.premissaCanaRendimentoVHP || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30">-</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-6">Rendimento EHC (L/t)</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center">
+                        {(scenario.data.premissaCanaRendimentoEHC || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30">-</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-6">Rendimento EAC (L/t)</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center">
+                        {(scenario.data.premissaCanaRendimentoEAC || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30">-</TableCell>
+                  </TableRow>
+
+                  {/* MILHO */}
+                  <TableRow className="bg-yellow-50/50 dark:bg-yellow-900/10">
+                    <TableCell className="font-semibold pl-4" colSpan={savedScenarios.length + 2}>
+                      MILHO
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-6">Rendimento Total Convertido (L/ton)</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center">
+                        {(scenario.data.premissaMilhoRendimentoConvertido || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30">-</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-6">Rendimento DDG (kg/ton)</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center">
+                        {(scenario.data.premissaMilhoRendimentoDDG || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30">-</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-6">Rendimento WDG (kg/ton)</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center">
+                        {(scenario.data.premissaMilhoRendimentoWDG || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30">-</TableCell>
+                  </TableRow>
+
+                  {/* PRODUÇÕES */}
                   <TableRow className="bg-muted/50">
                     <TableCell className="font-semibold" colSpan={savedScenarios.length + 2}>
                       PRODUÇÕES

@@ -95,45 +95,13 @@ const Productions: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-
-              <NumericInput
-                label="ATR"
-                unit="kg/ton"
-                value={data.atr}
-                onChange={(value) => handleInputChange2('atr', value)}
-                placeholder="0.00"
-              />
-
-              <NumericInput
-                label="Extração ART"
-                unit="%"
-                value={data.extractionArt}
-                onChange={(value) => handleInputChange2('extractionArt', value)}
-                placeholder="0.00"
-                max={100}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <NumericInput
-                label="Horas Efetivas no mês"
-                unit="h"
-                value={data.effectiveHours}
-                onChange={(value) => handleInputChange2('effectiveHours', value)}
-                placeholder="0.00"
-              />
-
-              <NumericInput
-                label="Eficiência de Tempo Geral"
-                unit="%"
-                value={data.generalTimeEfficiency}
-                onChange={(value) => handleInputChange2('generalTimeEfficiency', value)}
-                placeholder="0.00"
-                max={100}
-              />
-
-            </div>
+            <NumericInput
+              label="ATR"
+              unit="kg/ton"
+              value={data.atr}
+              onChange={(value) => handleInputChange2('atr', value)}
+              placeholder="0.00"
+            />
             <div className=" border-t pt-4 space-y-3">
               <h4 className="font-semibold text-foreground">Rendimentos</h4>
               <div className='grid grid-cols-3 gap-3'>

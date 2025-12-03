@@ -259,13 +259,15 @@ export default function Consolidated() {
       ['', ...Array(savedScenarios.length + 1).fill('')],
       ['RESULTADOS FINANCEIROS', ...Array(savedScenarios.length + 1).fill('')],
       ['Receita Total (R$)', ...savedScenarios.map(s => s.data.totalRevenue), calcTotalNum(s => s.data.totalRevenue)],
-      ['Receita Açúcar VHP (R$)', ...savedScenarios.map(s => s.data.receitaAcucarVHP), calcTotalNum(s => s.data.receitaAcucarVHP)],
-      ['Receita Etanol Hidratado Cana (R$)', ...savedScenarios.map(s => s.data.receitaEtanolHidratadoCana), calcTotalNum(s => s.data.receitaEtanolHidratadoCana)],
-      ['Receita Etanol Anidro Cana (R$)', ...savedScenarios.map(s => s.data.receitaEtanolAnidroCana), calcTotalNum(s => s.data.receitaEtanolAnidroCana)],
-      ['Receita Hidratado Milho (R$)', ...savedScenarios.map(s => s.data.receitaEtanolHidratadoMilho), calcTotalNum(s => s.data.receitaEtanolHidratadoMilho)],
-      ['Receita Anidro Milho (R$)', ...savedScenarios.map(s => s.data.receitaEtanolAnidroMilho), calcTotalNum(s => s.data.receitaEtanolAnidroMilho)],
-      ['Receita DDG (R$)', ...savedScenarios.map(s => s.data.receitaDDG), calcTotalNum(s => s.data.receitaDDG)],
-      ['Receita WDG (R$)', ...savedScenarios.map(s => s.data.receitaWDG), calcTotalNum(s => s.data.receitaWDG)],
+      ['  Receita Cana Total (R$)', ...savedScenarios.map(s => s.data.receitaCanaTotal || 0), calcTotalNum(s => s.data.receitaCanaTotal || 0)],
+      ['    Açúcar VHP (R$)', ...savedScenarios.map(s => s.data.receitaAcucarVHP), calcTotalNum(s => s.data.receitaAcucarVHP)],
+      ['    Etanol Hidratado (R$)', ...savedScenarios.map(s => s.data.receitaEtanolHidratadoCana), calcTotalNum(s => s.data.receitaEtanolHidratadoCana)],
+      ['    Etanol Anidro (R$)', ...savedScenarios.map(s => s.data.receitaEtanolAnidroCana), calcTotalNum(s => s.data.receitaEtanolAnidroCana)],
+      ['  Receita Milho Total (R$)', ...savedScenarios.map(s => s.data.receitaMilhoTotal || 0), calcTotalNum(s => s.data.receitaMilhoTotal || 0)],
+      ['    Etanol Hidratado (R$)', ...savedScenarios.map(s => s.data.receitaEtanolHidratadoMilho), calcTotalNum(s => s.data.receitaEtanolHidratadoMilho)],
+      ['    Etanol Anidro (R$)', ...savedScenarios.map(s => s.data.receitaEtanolAnidroMilho), calcTotalNum(s => s.data.receitaEtanolAnidroMilho)],
+      ['    DDG (R$)', ...savedScenarios.map(s => s.data.receitaDDG), calcTotalNum(s => s.data.receitaDDG)],
+      ['    WDG (R$)', ...savedScenarios.map(s => s.data.receitaWDG), calcTotalNum(s => s.data.receitaWDG)],
       ['CO2 (R$)', ...savedScenarios.map(s => s.data.receitaCO2), calcTotalNum(s => s.data.receitaCO2)],
       ['CBIO (R$)', ...savedScenarios.map(s => s.data.receitaCBIO), calcTotalNum(s => s.data.receitaCBIO)],
       ['Derivativos/Câmbio (R$)', ...savedScenarios.map(s => s.data.derivativosCambio), calcTotalNum(s => s.data.derivativosCambio)],
@@ -282,6 +284,8 @@ export default function Consolidated() {
       ['    DDG (R$)', ...savedScenarios.map(s => s.data.cpvTotalDDG || 0), calcTotalNum(s => s.data.cpvTotalDDG || 0)],
       ['    WDG (R$)', ...savedScenarios.map(s => s.data.cpvTotalWDG || 0), calcTotalNum(s => s.data.cpvTotalWDG || 0)],
       ['Margem de Contribuição (R$)', ...savedScenarios.map(s => s.data.margemContribuicao), calcTotalNum(s => s.data.margemContribuicao)],
+      ['  Margem Cana (R$)', ...savedScenarios.map(s => s.data.margemCana || 0), calcTotalNum(s => s.data.margemCana || 0)],
+      ['  Margem Milho (R$)', ...savedScenarios.map(s => s.data.margemMilho || 0), calcTotalNum(s => s.data.margemMilho || 0)],
       ['Despesas com Vendas (R$)', ...savedScenarios.map(s => s.data.despesasVendas), calcTotalNum(s => s.data.despesasVendas)],
       ['Administração (R$)', ...savedScenarios.map(s => s.data.administracao), calcTotalNum(s => s.data.administracao)],
       ['Resultado Operacional (R$)', ...savedScenarios.map(s => s.data.resultadoOperacional), calcTotalNum(s => s.data.resultadoOperacional)],
@@ -1032,6 +1036,7 @@ export default function Consolidated() {
                       RESULTADOS FINANCEIROS
                     </TableCell>
                   </TableRow>
+                  {/* Receita Total com estrutura hierárquica */}
                   <TableRow>
                     <TableCell className="font-medium">Receita Total</TableCell>
                     {savedScenarios.map((scenario) => (
@@ -1043,80 +1048,106 @@ export default function Consolidated() {
                       R$ {calculateTotal(s => s.data.totalRevenue)}
                     </TableCell>
                   </TableRow>
+
+                  {/* Receita Cana Total */}
                   <TableRow>
-                    <TableCell className="font-medium">Receita Açúcar VHP</TableCell>
+                    <TableCell className="font-medium pl-6 text-muted-foreground">↳ Receita Cana Total</TableCell>
                     {savedScenarios.map((scenario) => (
-                      <TableCell key={scenario.id} className="text-center">
+                      <TableCell key={scenario.id} className="text-center text-muted-foreground">
+                        R$ {(scenario.data.receitaCanaTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30 text-muted-foreground">
+                      R$ {calculateTotal(s => s.data.receitaCanaTotal || 0)}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">Açúcar VHP</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center text-xs text-muted-foreground">
                         R$ {scenario.data.receitaAcucarVHP.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </TableCell>
                     ))}
-                    <TableCell className="text-center font-semibold bg-muted/30">
+                    <TableCell className="text-center text-xs bg-muted/30 text-muted-foreground">
                       R$ {calculateTotal(s => s.data.receitaAcucarVHP)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium">Receita Etanol Hidratado Cana</TableCell>
+                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">Etanol Hidratado</TableCell>
                     {savedScenarios.map((scenario) => (
-                      <TableCell key={scenario.id} className="text-center">
+                      <TableCell key={scenario.id} className="text-center text-xs text-muted-foreground">
                         R$ {scenario.data.receitaEtanolHidratadoCana.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </TableCell>
                     ))}
-                    <TableCell className="text-center font-semibold bg-muted/30">
+                    <TableCell className="text-center text-xs bg-muted/30 text-muted-foreground">
                       R$ {calculateTotal(s => s.data.receitaEtanolHidratadoCana)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium">Receita Etanol Anidro Cana</TableCell>
+                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">Etanol Anidro</TableCell>
                     {savedScenarios.map((scenario) => (
-                      <TableCell key={scenario.id} className="text-center">
+                      <TableCell key={scenario.id} className="text-center text-xs text-muted-foreground">
                         R$ {scenario.data.receitaEtanolAnidroCana.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </TableCell>
                     ))}
-                    <TableCell className="text-center font-semibold bg-muted/30">
+                    <TableCell className="text-center text-xs bg-muted/30 text-muted-foreground">
                       R$ {calculateTotal(s => s.data.receitaEtanolAnidroCana)}
                     </TableCell>
                   </TableRow>
+
+                  {/* Receita Milho Total */}
                   <TableRow>
-                    <TableCell className="font-medium">Receita Hidratado Milho</TableCell>
+                    <TableCell className="font-medium pl-6 text-muted-foreground">↳ Receita Milho Total</TableCell>
                     {savedScenarios.map((scenario) => (
-                      <TableCell key={scenario.id} className="text-center">
+                      <TableCell key={scenario.id} className="text-center text-muted-foreground">
+                        R$ {(scenario.data.receitaMilhoTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30 text-muted-foreground">
+                      R$ {calculateTotal(s => s.data.receitaMilhoTotal || 0)}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">Etanol Hidratado</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center text-xs text-muted-foreground">
                         R$ {scenario.data.receitaEtanolHidratadoMilho.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </TableCell>
                     ))}
-                    <TableCell className="text-center font-semibold bg-muted/30">
+                    <TableCell className="text-center text-xs bg-muted/30 text-muted-foreground">
                       R$ {calculateTotal(s => s.data.receitaEtanolHidratadoMilho)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium">Receita Anidro Milho</TableCell>
+                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">Etanol Anidro</TableCell>
                     {savedScenarios.map((scenario) => (
-                      <TableCell key={scenario.id} className="text-center">
+                      <TableCell key={scenario.id} className="text-center text-xs text-muted-foreground">
                         R$ {scenario.data.receitaEtanolAnidroMilho.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </TableCell>
                     ))}
-                    <TableCell className="text-center font-semibold bg-muted/30">
+                    <TableCell className="text-center text-xs bg-muted/30 text-muted-foreground">
                       R$ {calculateTotal(s => s.data.receitaEtanolAnidroMilho)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium">Receita DDG</TableCell>
+                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">DDG</TableCell>
                     {savedScenarios.map((scenario) => (
-                      <TableCell key={scenario.id} className="text-center">
+                      <TableCell key={scenario.id} className="text-center text-xs text-muted-foreground">
                         R$ {scenario.data.receitaDDG.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </TableCell>
                     ))}
-                    <TableCell className="text-center font-semibold bg-muted/30">
+                    <TableCell className="text-center text-xs bg-muted/30 text-muted-foreground">
                       R$ {calculateTotal(s => s.data.receitaDDG)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium">Receita WDG</TableCell>
+                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">WDG</TableCell>
                     {savedScenarios.map((scenario) => (
-                      <TableCell key={scenario.id} className="text-center">
+                      <TableCell key={scenario.id} className="text-center text-xs text-muted-foreground">
                         R$ {scenario.data.receitaWDG.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </TableCell>
                     ))}
-                    <TableCell className="text-center font-semibold bg-muted/30">
+                    <TableCell className="text-center text-xs bg-muted/30 text-muted-foreground">
                       R$ {calculateTotal(s => s.data.receitaWDG)}
                     </TableCell>
                   </TableRow>
@@ -1301,6 +1332,7 @@ export default function Consolidated() {
                     </TableCell>
                   </TableRow>
 
+                  {/* Margem de Contribuição com estrutura hierárquica */}
                   <TableRow>
                     <TableCell className="font-medium">Margem de Contribuição</TableCell>
                     {savedScenarios.map((scenario) => (
@@ -1313,6 +1345,36 @@ export default function Consolidated() {
                     <TableCell className="text-center font-semibold bg-muted/30">
                       <span className={calculateTotalValue(s => s.data.margemContribuicao) >= 0 ? "text-green-600" : "text-red-600"}>
                         R$ {calculateTotal(s => s.data.margemContribuicao)}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-6 text-muted-foreground">↳ Margem Cana</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center text-muted-foreground">
+                        <span className={(scenario.data.margemCana || 0) >= 0 ? "text-green-600" : "text-red-600"}>
+                          R$ {(scenario.data.margemCana || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </span>
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30 text-muted-foreground">
+                      <span className={calculateTotalValue(s => s.data.margemCana || 0) >= 0 ? "text-green-600" : "text-red-600"}>
+                        R$ {calculateTotal(s => s.data.margemCana || 0)}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-6 text-muted-foreground">↳ Margem Milho</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center text-muted-foreground">
+                        <span className={(scenario.data.margemMilho || 0) >= 0 ? "text-green-600" : "text-red-600"}>
+                          R$ {(scenario.data.margemMilho || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </span>
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-semibold bg-muted/30 text-muted-foreground">
+                      <span className={calculateTotalValue(s => s.data.margemMilho || 0) >= 0 ? "text-green-600" : "text-red-600"}>
+                        R$ {calculateTotal(s => s.data.margemMilho || 0)}
                       </span>
                     </TableCell>
                   </TableRow>

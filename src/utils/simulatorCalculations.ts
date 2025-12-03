@@ -870,3 +870,125 @@ export function calcularResumoFinanceiro(data: SimulatorData): IndicadoresFinanc
 
   };
 }
+
+/*=============================================================================================================================*/
+
+// CALCULA DADOS CONSOLIDADOS DE MÚLTIPLOS CENÁRIOS
+export function calculateConsolidatedData(scenarios: Array<{ originalData: SimulatorData }>): SimulatorData {
+  if (scenarios.length === 0) {
+    return initialSimulatorData;
+  }
+
+  // Se houver apenas um cenário, retorna diretamente
+  if (scenarios.length === 1) {
+    return scenarios[0].originalData;
+  }
+
+  // Consolidar somando os dados de todos os cenários
+  const consolidated: SimulatorData = JSON.parse(JSON.stringify(initialSimulatorData));
+
+  scenarios.forEach(scenario => {
+    const data = scenario.originalData;
+
+    // Somar produções de cana
+    consolidated.sugarCane.totalGroundCane += data.sugarCane.totalGroundCane;
+    consolidated.sugarCane.vhpSugar += data.sugarCane.vhpSugar;
+    consolidated.sugarCane.hydratedEthanol += data.sugarCane.hydratedEthanol;
+    consolidated.sugarCane.anhydrousEthanol += data.sugarCane.anhydrousEthanol;
+
+    // Somar produções de milho
+    consolidated.corn.groundCorn += data.corn.groundCorn;
+    consolidated.corn.hydratedEthanol += data.corn.hydratedEthanol;
+    consolidated.corn.anhydrousEthanol += data.corn.anhydrousEthanol;
+    consolidated.corn.ddg += data.corn.ddg;
+    consolidated.corn.wdg += data.corn.wdg;
+
+    // Somar outras produções
+    consolidated.otherProductions.co2Cane += data.otherProductions.co2Cane;
+    consolidated.otherProductions.co2Corn += data.otherProductions.co2Corn;
+    consolidated.otherProductions.cbio += data.otherProductions.cbio;
+
+    // Somar comercialização
+    consolidated.commercialization.vhpSugar += data.commercialization.vhpSugar;
+    consolidated.commercialization.hydratedEthanolCane += data.commercialization.hydratedEthanolCane;
+    consolidated.commercialization.anhydrousEthanolCane += data.commercialization.anhydrousEthanolCane;
+    consolidated.commercialization.cornEthanol += data.commercialization.cornEthanol;
+    consolidated.commercialization.ddg += data.commercialization.ddg;
+    consolidated.commercialization.wdg += data.commercialization.wdg;
+
+    // Somar DRE
+    consolidated.dre.otherRevenues += data.dre.otherRevenues;
+    consolidated.dre.derivativesResult += data.dre.derivativesResult;
+    consolidated.dre.exchangeResult += data.dre.exchangeResult;
+    consolidated.dre.otherCosts += data.dre.otherCosts;
+    consolidated.dre.ipiTotal += data.dre.ipiTotal;
+    consolidated.dre.inssTotal += data.dre.inssTotal;
+    consolidated.dre.otherTaxes += data.dre.otherTaxes;
+  });
+
+  // Calcular médias ponderadas para valores unitários (preços, custos, rendimentos)
+  const totalCana = scenarios.reduce((sum, s) => sum + s.originalData.sugarCane.totalGroundCane, 0);
+  const totalMilho = scenarios.reduce((sum, s) => sum + s.originalData.corn.groundCorn, 0);
+
+  if (totalCana > 0) {
+    // Média ponderada dos rendimentos da cana
+    consolidated.sugarCane.sugarPerTonCane = scenarios.reduce((sum, s) => 
+      sum + s.originalData.sugarCane.sugarPerTonCane * s.originalData.sugarCane.totalGroundCane, 0) / totalCana;
+    consolidated.sugarCane.hydratedEthanolPerTonCane = scenarios.reduce((sum, s) => 
+      sum + s.originalData.sugarCane.hydratedEthanolPerTonCane * s.originalData.sugarCane.totalGroundCane, 0) / totalCana;
+    consolidated.sugarCane.anhydrousEthanolPerTonCane = scenarios.reduce((sum, s) => 
+      sum + s.originalData.sugarCane.anhydrousEthanolPerTonCane * s.originalData.sugarCane.totalGroundCane, 0) / totalCana;
+
+    // Média ponderada dos custos da cana
+    consolidated.productionCosts.caneRawMaterial = scenarios.reduce((sum, s) => 
+      sum + s.originalData.productionCosts.caneRawMaterial * s.originalData.sugarCane.totalGroundCane, 0) / totalCana;
+    consolidated.productionCosts.caneCct = scenarios.reduce((sum, s) => 
+      sum + s.originalData.productionCosts.caneCct * s.originalData.sugarCane.totalGroundCane, 0) / totalCana;
+    consolidated.productionCosts.caneIndustry = scenarios.reduce((sum, s) => 
+      sum + s.originalData.productionCosts.caneIndustry * s.originalData.sugarCane.totalGroundCane, 0) / totalCana;
+    consolidated.productionCosts.caneExpenses = scenarios.reduce((sum, s) => 
+      sum + s.originalData.productionCosts.caneExpenses * s.originalData.sugarCane.totalGroundCane, 0) / totalCana;
+    consolidated.productionCosts.administration = scenarios.reduce((sum, s) => 
+      sum + s.originalData.productionCosts.administration * s.originalData.sugarCane.totalGroundCane, 0) / totalCana;
+  }
+
+  if (totalMilho > 0) {
+    // Média ponderada dos rendimentos do milho
+    consolidated.cornTotalConvertedYield = scenarios.reduce((sum, s) => 
+      sum + s.originalData.cornTotalConvertedYield * s.originalData.corn.groundCorn, 0) / totalMilho;
+    consolidated.ddgYieldPerTon = scenarios.reduce((sum, s) => 
+      sum + s.originalData.ddgYieldPerTon * s.originalData.corn.groundCorn, 0) / totalMilho;
+    consolidated.wdgYieldPerTon = scenarios.reduce((sum, s) => 
+      sum + s.originalData.wdgYieldPerTon * s.originalData.corn.groundCorn, 0) / totalMilho;
+
+    // Média ponderada dos custos do milho
+    consolidated.productionCosts.cornRawMaterial = scenarios.reduce((sum, s) => 
+      sum + s.originalData.productionCosts.cornRawMaterial * s.originalData.corn.groundCorn, 0) / totalMilho;
+    consolidated.productionCosts.cornIndustry = scenarios.reduce((sum, s) => 
+      sum + s.originalData.productionCosts.cornIndustry * s.originalData.corn.groundCorn, 0) / totalMilho;
+    consolidated.productionCosts.cornBiomass = scenarios.reduce((sum, s) => 
+      sum + s.originalData.productionCosts.cornBiomass * s.originalData.corn.groundCorn, 0) / totalMilho;
+  }
+
+  // Média simples para preços de venda (assumindo mesmo mercado)
+  const n = scenarios.length;
+  consolidated.salesPrices.vhpSugarGross = scenarios.reduce((sum, s) => sum + s.originalData.salesPrices.vhpSugarGross, 0) / n;
+  consolidated.salesPrices.hydratedEthanolGross = scenarios.reduce((sum, s) => sum + s.originalData.salesPrices.hydratedEthanolGross, 0) / n;
+  consolidated.salesPrices.anhydrousEthanolGross = scenarios.reduce((sum, s) => sum + s.originalData.salesPrices.anhydrousEthanolGross, 0) / n;
+  consolidated.salesPrices.ddgGross = scenarios.reduce((sum, s) => sum + s.originalData.salesPrices.ddgGross, 0) / n;
+  consolidated.salesPrices.wdgGross = scenarios.reduce((sum, s) => sum + s.originalData.salesPrices.wdgGross, 0) / n;
+  consolidated.salesPrices.co2Gross = scenarios.reduce((sum, s) => sum + s.originalData.salesPrices.co2Gross, 0) / n;
+  consolidated.salesPrices.cbioGross = scenarios.reduce((sum, s) => sum + s.originalData.salesPrices.cbioGross, 0) / n;
+  consolidated.salesPrices.icmsEthanol = scenarios.reduce((sum, s) => sum + s.originalData.salesPrices.icmsEthanol, 0) / n;
+  consolidated.salesPrices.pisCofinsEthanol = scenarios.reduce((sum, s) => sum + s.originalData.salesPrices.pisCofinsEthanol, 0) / n;
+  consolidated.salesPrices.icmsDdg = scenarios.reduce((sum, s) => sum + s.originalData.salesPrices.icmsDdg, 0) / n;
+  consolidated.salesPrices.pisccofinsDdg = scenarios.reduce((sum, s) => sum + s.originalData.salesPrices.pisccofinsDdg, 0) / n;
+
+  // Despesas com vendas
+  consolidated.productionCosts.salesExpenseEthanol = scenarios.reduce((sum, s) => sum + s.originalData.productionCosts.salesExpenseEthanol, 0) / n;
+  consolidated.productionCosts.salesExpenseSugar = scenarios.reduce((sum, s) => sum + s.originalData.productionCosts.salesExpenseSugar, 0) / n;
+
+  return consolidated;
+}
+
+import { initialSimulatorData } from '@/types/simulator';

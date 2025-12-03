@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSimulator } from '@/contexts/SimulatorContext';
 import { Badge } from '@/components/ui/badge';
@@ -10,11 +10,23 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { calcularDREPorProduto, ProductData } from '@/utils/simulatorCalculations';
+import { calcularDREPorProduto, ProductData, calculateConsolidatedData } from '@/utils/simulatorCalculations';
+import { ScenarioSelector } from '@/components/simulador-cenarios/ScenarioSelector';
 
 const DREByProduct: React.FC = () => {
+  const { data, saveScenario, savedScenarios } = useSimulator();
+  const [selectedScenario, setSelectedScenario] = useState<string>('current');
 
-  const { data, saveScenario } = useSimulator();
+  // Determina os dados efetivos baseado na seleção
+  const effectiveData = useMemo(() => {
+    if (selectedScenario === 'current') return data;
+    if (selectedScenario === 'consolidated') return calculateConsolidatedData(savedScenarios);
+    const scenario = savedScenarios.find(s => s.id === selectedScenario);
+    return scenario?.originalData || data;
+  }, [selectedScenario, data, savedScenarios]);
+
+  // Verifica se está visualizando cenário salvo (não permite edição)
+  const isViewingOnly = selectedScenario !== 'current';
 
 
   const {
@@ -54,8 +66,15 @@ const DREByProduct: React.FC = () => {
     resulMilho,
     rolEHC, 
     rolEAC,
-  } = calcularDREPorProduto(data);
+  } = calcularDREPorProduto(effectiveData);
 
+  // Label do cenário selecionado
+  const scenarioLabel = useMemo(() => {
+    if (selectedScenario === 'current') return 'Cenário Atual';
+    if (selectedScenario === 'consolidated') return 'Visão Consolidada';
+    const scenario = savedScenarios.find(s => s.id === selectedScenario);
+    return scenario?.name || 'Cenário';
+  }, [selectedScenario, savedScenarios]);
 
   const [scenarioName, setScenarioName] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -155,7 +174,7 @@ const DREByProduct: React.FC = () => {
 
   return (
     <div className="space-y-6" >
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
             DSP por Produto (R$/tonelada)
@@ -164,40 +183,47 @@ const DREByProduct: React.FC = () => {
             Demonstrativo de resultado separado entre Cana e Milho em valores por tonelada
           </p>
         </div>
-        <div className="flex gap-2">
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
-                <Save className="h-4 w-4" />
-                Salvar Cenário
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Salvar Cenário</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="scenarioName">Nome do Cenário</Label>
-                  <Input
-                    id="scenarioName"
-                    value={scenarioName}
-                    onChange={(e) => setScenarioName(e.target.value)}
-                    placeholder="Ex: Cenário Q1 2024"
-                  />
+        <div className="flex gap-2 items-center flex-wrap">
+          <ScenarioSelector
+            selectedScenario={selectedScenario}
+            onScenarioChange={setSelectedScenario}
+            savedScenarios={savedScenarios}
+          />
+          {!isViewingOnly && (
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <Save className="h-4 w-4" />
+                  Salvar Cenário
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-background">
+                <DialogHeader>
+                  <DialogTitle>Salvar Cenário</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="scenarioName">Nome do Cenário</Label>
+                    <Input
+                      id="scenarioName"
+                      value={scenarioName}
+                      onChange={(e) => setScenarioName(e.target.value)}
+                      placeholder="Ex: Cenário Q1 2024"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleSaveScenario}>
+                      <Save className="h-4 w-4 mr-2" />
+                      Salvar
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button onClick={handleSaveScenario}>
-                    <Save className="h-4 w-4 mr-2" />
-                    Salvar
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          )}
 
           <Button onClick={generatePDF} variant="outline" size="sm">
             <Download className="w-4 h-4 mr-2" />
@@ -267,23 +293,23 @@ const DREByProduct: React.FC = () => {
                 </h3>
                 <div className="grid grid-cols-3 gap-2 items-center">
                   <span>Matéria-prima:</span>
-                  <span className="text-center font-medium">{formatNumber(data.productionCosts.caneRawMaterial)}</span>
-                  <span className="text-center font-medium">{formatNumber((data.productionCosts.caneRawMaterial * caneProcessed) / 1000)}</span>
+                  <span className="text-center font-medium">{formatNumber(effectiveData.productionCosts.caneRawMaterial)}</span>
+                  <span className="text-center font-medium">{formatNumber((effectiveData.productionCosts.caneRawMaterial * caneProcessed) / 1000)}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 items-center">
                   <span>CCT:</span>
-                  <span className="text-center font-medium">{formatNumber(data.productionCosts.caneCct)}</span>
-                  <span className="text-center font-medium">{formatNumber((data.productionCosts.caneCct * caneProcessed) / 1000)}</span>
+                  <span className="text-center font-medium">{formatNumber(effectiveData.productionCosts.caneCct)}</span>
+                  <span className="text-center font-medium">{formatNumber((effectiveData.productionCosts.caneCct * caneProcessed) / 1000)}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 items-center">
                   <span>Indústria:</span>
-                  <span className="text-center font-medium">{formatNumber(data.productionCosts.caneIndustry)}</span>
-                  <span className="text-center font-medium">{formatNumber((data.productionCosts.caneIndustry * caneProcessed) / 1000)}</span>
+                  <span className="text-center font-medium">{formatNumber(effectiveData.productionCosts.caneIndustry)}</span>
+                  <span className="text-center font-medium">{formatNumber((effectiveData.productionCosts.caneIndustry * caneProcessed) / 1000)}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 items-center">
                   <span>Dispêndios:</span>
-                  <span className="text-center font-medium">{formatNumber(data.productionCosts.caneExpenses)}</span>
-                  <span className="text-center font-medium">{formatNumber((data.productionCosts.caneExpenses * caneProcessed) / 1000)}</span>
+                  <span className="text-center font-medium">{formatNumber(effectiveData.productionCosts.caneExpenses)}</span>
+                  <span className="text-center font-medium">{formatNumber((effectiveData.productionCosts.caneExpenses * caneProcessed) / 1000)}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 items-center font-bold text-red-700">
                   <span>Total:</span>
@@ -384,18 +410,18 @@ const DREByProduct: React.FC = () => {
                 </h3>
                 <div className="grid grid-cols-3 gap-2 items-center">
                   <span>Matéria-prima:</span>
-                  <span className="text-center font-medium">{formatNumber(data.productionCosts.cornRawMaterial)}</span>
-                  <span className="text-center font-medium">{formatNumber((data.productionCosts.cornRawMaterial * cornProcessed) / 1000)}</span>
+                  <span className="text-center font-medium">{formatNumber(effectiveData.productionCosts.cornRawMaterial)}</span>
+                  <span className="text-center font-medium">{formatNumber((effectiveData.productionCosts.cornRawMaterial * cornProcessed) / 1000)}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 items-center">
                   <span>Indústria:</span>
-                  <span className="text-center font-medium">{formatNumber(data.productionCosts.cornIndustry)}</span>
-                  <span className="text-center font-medium">{formatNumber((data.productionCosts.cornIndustry * cornProcessed) / 1000)}</span>
+                  <span className="text-center font-medium">{formatNumber(effectiveData.productionCosts.cornIndustry)}</span>
+                  <span className="text-center font-medium">{formatNumber((effectiveData.productionCosts.cornIndustry * cornProcessed) / 1000)}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 items-center">
                   <span>Biomassa:</span>
-                  <span className="text-center font-medium">{formatNumber(data.productionCosts.cornBiomass)}</span>
-                  <span className="text-center font-medium">{formatNumber((data.productionCosts.cornBiomass * cornProcessed) / 1000)}</span>
+                  <span className="text-center font-medium">{formatNumber(effectiveData.productionCosts.cornBiomass)}</span>
+                  <span className="text-center font-medium">{formatNumber((effectiveData.productionCosts.cornBiomass * cornProcessed) / 1000)}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 items-center font-bold text-red-700">
                   <span>Total:</span>

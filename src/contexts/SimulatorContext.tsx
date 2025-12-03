@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { SimulatorData, initialSimulatorData } from '@/types/simulator';
-import {  calcularPrecosLiquidos, calcularDRE, calcularDREPorProduto } from '@/utils/simulatorCalculations';
+import { calcularPrecosLiquidos, calcularDRE, calcularDREPorProduto, calcularCpvPorProduto } from '@/utils/simulatorCalculations';
 
 interface SavedScenario {
   id: string;
@@ -39,6 +39,15 @@ interface SavedScenario {
     custoMilhoUnitarioIndustria: number;
     custoMilhoUnitarioBiomassa: number;
     custoMilhoUnitarioTotal: number;
+
+    // Custos de Produtos Vendidos (CPV por unidade)
+    cpvAcucarVHP: number;          // R$/ton açúcar
+    cpvEHC: number;                 // R$/m³ - Hidratado Cana
+    cpvEAC: number;                 // R$/m³ - Anidro Cana
+    cpvEHM: number;                 // R$/m³ - Hidratado Milho
+    cpvEAM: number;                 // R$/m³ - Anidro Milho
+    cpvDDG: number;                 // R$/ton DDG
+    cpvWDG: number;                 // R$/ton WDG
 
     // Resultados Financeiros
     totalRevenue: number;
@@ -197,6 +206,7 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
     try {
       // Usar as funções de cálculo atualizadas
       const dreCalculations = calcularDRE(data);
+      const cpvCalculado = calcularCpvPorProduto(data);
       
       const newScenario: SavedScenario = {
         id: Date.now().toString(),
@@ -240,6 +250,15 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
           custoMilhoUnitarioTotal: (data.productionCosts.cornRawMaterial || 0) + 
                                    (data.productionCosts.cornIndustry || 0) + 
                                    (data.productionCosts.cornBiomass || 0),
+
+          // Custos de Produtos Vendidos (CPV)
+          cpvAcucarVHP: cpvCalculado.vhpSugarCpv || 0,
+          cpvEHC: cpvCalculado.hydratedEthanolCaneCpv || 0,
+          cpvEAC: cpvCalculado.anhydrousEthanolCaneCpv || 0,
+          cpvEHM: cpvCalculado.hydratedEthanolCornCpv || 0,
+          cpvEAM: cpvCalculado.anhydrousEthanolCornCpv || 0,
+          cpvDDG: cpvCalculado.ddgCpv || 0,
+          cpvWDG: cpvCalculado.wdgCpv || 0,
 
           // Resultados Financeiros (usando os cálculos atualizados)
           totalRevenue: dreCalculations.totalReceitaBruta || 0,
@@ -294,6 +313,7 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
   const updateAllScenarios = () => {
     try {
       const dreCalculations = calcularDRE(data);
+      const cpvCalculado = calcularCpvPorProduto(data);
       
       setSavedScenarios(prev => prev.map(scenario => ({
         ...scenario,
@@ -335,6 +355,15 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
           custoMilhoUnitarioTotal: (data.productionCosts.cornRawMaterial || 0) + 
                                    (data.productionCosts.cornIndustry || 0) + 
                                    (data.productionCosts.cornBiomass || 0),
+
+          // Custos de Produtos Vendidos (CPV)
+          cpvAcucarVHP: cpvCalculado.vhpSugarCpv || 0,
+          cpvEHC: cpvCalculado.hydratedEthanolCaneCpv || 0,
+          cpvEAC: cpvCalculado.anhydrousEthanolCaneCpv || 0,
+          cpvEHM: cpvCalculado.hydratedEthanolCornCpv || 0,
+          cpvEAM: cpvCalculado.anhydrousEthanolCornCpv || 0,
+          cpvDDG: cpvCalculado.ddgCpv || 0,
+          cpvWDG: cpvCalculado.wdgCpv || 0,
 
           // Resultados Financeiros
           totalRevenue: dreCalculations.totalReceitaBruta || 0,
@@ -381,6 +410,7 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
   const refreshScenario = (id: string) => {
     try {
       const dreCalculations = calcularDRE(data);
+      const cpvCalculado = calcularCpvPorProduto(data);
       
       setSavedScenarios(prev => prev.map(scenario => {
         if (scenario.id === id) {
@@ -424,6 +454,15 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
               custoMilhoUnitarioTotal: (data.productionCosts.cornRawMaterial || 0) + 
                                        (data.productionCosts.cornIndustry || 0) + 
                                        (data.productionCosts.cornBiomass || 0),
+
+              // Custos de Produtos Vendidos (CPV)
+              cpvAcucarVHP: cpvCalculado.vhpSugarCpv || 0,
+              cpvEHC: cpvCalculado.hydratedEthanolCaneCpv || 0,
+              cpvEAC: cpvCalculado.anhydrousEthanolCaneCpv || 0,
+              cpvEHM: cpvCalculado.hydratedEthanolCornCpv || 0,
+              cpvEAM: cpvCalculado.anhydrousEthanolCornCpv || 0,
+              cpvDDG: cpvCalculado.ddgCpv || 0,
+              cpvWDG: cpvCalculado.wdgCpv || 0,
 
               // Resultados Financeiros
               totalRevenue: dreCalculations.totalReceitaBruta || 0,

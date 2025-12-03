@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react';
 import { useSimulator } from '@/contexts/SimulatorContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -23,10 +24,23 @@ import { toast } from 'sonner';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 // import marcaDagua from '@/assets/logo-1.png'
-import { calcularDRE, calcularResumoFinanceiro } from '@/utils/simulatorCalculations';
+import { calcularDRE, calcularResumoFinanceiro, calculateConsolidatedData } from '@/utils/simulatorCalculations';
+import { ScenarioSelector } from '@/components/simulador-cenarios/ScenarioSelector';
 
 const DRE = () => {
-  const { data, updateDRE } = useSimulator();
+  const { data, updateDRE, savedScenarios } = useSimulator();
+  const [selectedScenario, setSelectedScenario] = useState<string>('current');
+
+  // Determina os dados efetivos baseado na seleção
+  const effectiveData = useMemo(() => {
+    if (selectedScenario === 'current') return data;
+    if (selectedScenario === 'consolidated') return calculateConsolidatedData(savedScenarios);
+    const scenario = savedScenarios.find(s => s.id === selectedScenario);
+    return scenario?.originalData || data;
+  }, [selectedScenario, data, savedScenarios]);
+
+  // Verifica se está visualizando cenário salvo (não permite edição)
+  const isViewingOnly = selectedScenario !== 'current';
 
   const {
     prodVHP,
@@ -55,13 +69,21 @@ const DRE = () => {
     icmsTotal,
     pisCofinsTotal,
     despesasAdm,
-  } = calcularDRE(data);
+  } = calcularDRE(effectiveData);
 
   const {
     totalProduction,
     prodEAC,
     prodEHC,
-  } = calcularResumoFinanceiro(data);
+  } = calcularResumoFinanceiro(effectiveData);
+
+  // Label do cenário selecionado
+  const scenarioLabel = useMemo(() => {
+    if (selectedScenario === 'current') return 'Cenário Atual';
+    if (selectedScenario === 'consolidated') return 'Visão Consolidada';
+    const scenario = savedScenarios.find(s => s.id === selectedScenario);
+    return scenario?.name || 'Cenário';
+  }, [selectedScenario, savedScenarios]);
 
 
 
@@ -149,7 +171,7 @@ const DRE = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold text-primary flex items-center gap-2">
 
@@ -159,10 +181,17 @@ const DRE = () => {
             Resultado da operação baseados nas produções, receitas, impostos e custos
           </p>
         </div>
-        <Button onClick={handleExport} variant="outline" size="sm">
-          <Download className="w-4 h-4 mr-2" />
-          Exportar PDF
-        </Button>
+        <div className="flex gap-2 items-center flex-wrap">
+          <ScenarioSelector
+            selectedScenario={selectedScenario}
+            onScenarioChange={setSelectedScenario}
+            savedScenarios={savedScenarios}
+          />
+          <Button onClick={handleExport} variant="outline" size="sm">
+            <Download className="w-4 h-4 mr-2" />
+            Exportar PDF
+          </Button>
+        </div>
       </div>
 
       <div id="dre-content">

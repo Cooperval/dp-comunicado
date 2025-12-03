@@ -79,18 +79,18 @@ const Productions: React.FC = () => {
               />
 
               <NumericInput
-                label="Cana Moída Açúcar"
-                unit="ton"
-                value={data.sugarCane.sugarGroundCane}
-                onChange={(value) => handleInputChange('sugarGroundCane', value)}
+                label="Mix Açúcar"
+                unit="%"
+                value={data.sugarCane.sugarMix}
+                onChange={(value) => handleInputChange('sugarMix', value)}
                 placeholder="0.00"
               />
 
               <NumericInput
-                label="Cana Moída Etanol"
-                unit="ton"
-                value={data.sugarCane.ethanolGroundCane}
-                onChange={(value) => handleInputChange('ethanolGroundCane', value)}
+                label="Mix Etanol"
+                unit="%"
+                value={data.sugarCane.ethanolMix}
+                onChange={(value) => handleInputChange('ethanolMix', value)}
                 placeholder="0.00"
               />
             </div>

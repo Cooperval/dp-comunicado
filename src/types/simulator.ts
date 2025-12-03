@@ -18,8 +18,10 @@ export interface OperationPremises {
 export interface SugarCaneProduction {
   // Moagem de Cana
   totalGroundCane: number;       // Total de cana moída (toneladas)
-  sugarGroundCane: number;       // Parte da cana destinada à produção de açúcar
-  ethanolGroundCane: number;     // Parte da cana destinada à produção de etanol
+  sugarMix: number;              // Mix açúcar (%) - percentual destinado a açúcar
+  ethanolMix: number;            // Mix etanol (%) - percentual destinado a etanol
+  sugarGroundCane: number;       // Calculado: totalGroundCane * sugarMix / 100
+  ethanolGroundCane: number;     // Calculado: totalGroundCane * ethanolMix / 100
   sugarPerTonCane: number;       // Quantidade de açúcar produzida por tonelada de cana (kg/t)
   hydratedEthanolPerTonCane: number; // Etanol hidratado produzido por tonelada de cana (L/t)
   anhydrousEthanolPerTonCane: number; // Etanol anidro produzido por tonelada de cana (L/t)
@@ -137,6 +139,8 @@ export const initialSimulatorData: SimulatorData = {
   // Sugar Cane Production
   sugarCane: {
     totalGroundCane: 176148,
+    sugarMix: 56.2,              // 99003 / 176148 * 100
+    ethanolMix: 43.8,            // 77145 / 176148 * 100
     sugarGroundCane: 99003,
     ethanolGroundCane: 77145,
     sugarPerTonCane: 70,

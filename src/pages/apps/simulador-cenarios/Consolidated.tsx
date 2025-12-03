@@ -177,14 +177,14 @@ export default function Consolidated() {
       ['Receita Líquida (R$)', ...savedScenarios.map(s => s.data.receitaLiquida.toLocaleString('pt-BR')), calculateTotal(s => s.data.receitaLiquida)],
       ['CPV Total (R$)', ...savedScenarios.map(s => s.data.cpvTotal.toLocaleString('pt-BR')), calculateTotal(s => s.data.cpvTotal)],
       ['  Custo Cana Total (R$)', ...savedScenarios.map(s => s.data.custoCanaTotal.toLocaleString('pt-BR')), calculateTotal(s => s.data.custoCanaTotal)],
-      ['    Matéria-prima (R$)', ...savedScenarios.map(s => s.data.custoCanaMateriaPrima.toLocaleString('pt-BR')), calculateTotal(s => s.data.custoCanaMateriaPrima)],
-      ['    CCT (R$)', ...savedScenarios.map(s => s.data.custoCanaCCT.toLocaleString('pt-BR')), calculateTotal(s => s.data.custoCanaCCT)],
-      ['    Indústria (R$)', ...savedScenarios.map(s => s.data.custoCanaIndustria.toLocaleString('pt-BR')), calculateTotal(s => s.data.custoCanaIndustria)],
-      ['    Dispêndios (R$)', ...savedScenarios.map(s => s.data.custoCanaDispendios.toLocaleString('pt-BR')), calculateTotal(s => s.data.custoCanaDispendios)],
+      ['    Açúcar VHP (R$)', ...savedScenarios.map(s => (s.data.cpvTotalAcucarVHP || 0).toLocaleString('pt-BR')), calculateTotal(s => s.data.cpvTotalAcucarVHP || 0)],
+      ['    Etanol Hidratado (R$)', ...savedScenarios.map(s => (s.data.cpvTotalEHC || 0).toLocaleString('pt-BR')), calculateTotal(s => s.data.cpvTotalEHC || 0)],
+      ['    Etanol Anidro (R$)', ...savedScenarios.map(s => (s.data.cpvTotalEAC || 0).toLocaleString('pt-BR')), calculateTotal(s => s.data.cpvTotalEAC || 0)],
       ['  Custos Milho Total (R$)', ...savedScenarios.map(s => s.data.custoMilhoTotal.toLocaleString('pt-BR')), calculateTotal(s => s.data.custoMilhoTotal)],
-      ['    Matéria-prima (R$)', ...savedScenarios.map(s => s.data.custoMilhoMateriaPrima.toLocaleString('pt-BR')), calculateTotal(s => s.data.custoMilhoMateriaPrima)],
-      ['    Indústria (R$)', ...savedScenarios.map(s => s.data.custoMilhoIndustria.toLocaleString('pt-BR')), calculateTotal(s => s.data.custoMilhoIndustria)],
-      ['    Biomassa (R$)', ...savedScenarios.map(s => s.data.custoMilhoBiomassa.toLocaleString('pt-BR')), calculateTotal(s => s.data.custoMilhoBiomassa)],
+      ['    Etanol Hidratado (R$)', ...savedScenarios.map(s => (s.data.cpvTotalEHM || 0).toLocaleString('pt-BR')), calculateTotal(s => s.data.cpvTotalEHM || 0)],
+      ['    Etanol Anidro (R$)', ...savedScenarios.map(s => (s.data.cpvTotalEAM || 0).toLocaleString('pt-BR')), calculateTotal(s => s.data.cpvTotalEAM || 0)],
+      ['    DDG (R$)', ...savedScenarios.map(s => (s.data.cpvTotalDDG || 0).toLocaleString('pt-BR')), calculateTotal(s => s.data.cpvTotalDDG || 0)],
+      ['    WDG (R$)', ...savedScenarios.map(s => (s.data.cpvTotalWDG || 0).toLocaleString('pt-BR')), calculateTotal(s => s.data.cpvTotalWDG || 0)],
       ['Margem de Contribuição (R$)', ...savedScenarios.map(s => s.data.margemContribuicao.toLocaleString('pt-BR')), calculateTotal(s => s.data.margemContribuicao)],
       ['Despesas com Vendas (R$)', ...savedScenarios.map(s => s.data.despesasVendas.toLocaleString('pt-BR')), calculateTotal(s => s.data.despesasVendas)],
       ['Administração (R$)', ...savedScenarios.map(s => s.data.administracao.toLocaleString('pt-BR')), calculateTotal(s => s.data.administracao)],
@@ -1085,47 +1085,36 @@ export default function Consolidated() {
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">Matéria-prima</TableCell>
+                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">Açúcar VHP</TableCell>
                     {savedScenarios.map((scenario) => (
                       <TableCell key={scenario.id} className="text-center text-xs text-muted-foreground">
-                        R$ {scenario.data.custoCanaMateriaPrima.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        R$ {(scenario.data.cpvTotalAcucarVHP || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </TableCell>
                     ))}
                     <TableCell className="text-center text-xs bg-muted/30 text-muted-foreground">
-                      R$ {calculateTotal(s => s.data.custoCanaMateriaPrima)}
+                      R$ {calculateTotal(s => s.data.cpvTotalAcucarVHP || 0)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">CCT</TableCell>
+                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">Etanol Hidratado</TableCell>
                     {savedScenarios.map((scenario) => (
                       <TableCell key={scenario.id} className="text-center text-xs text-muted-foreground">
-                        R$ {scenario.data.custoCanaCCT.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        R$ {(scenario.data.cpvTotalEHC || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </TableCell>
                     ))}
                     <TableCell className="text-center text-xs bg-muted/30 text-muted-foreground">
-                      R$ {calculateTotal(s => s.data.custoCanaCCT)}
+                      R$ {calculateTotal(s => s.data.cpvTotalEHC || 0)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">Indústria</TableCell>
+                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">Etanol Anidro</TableCell>
                     {savedScenarios.map((scenario) => (
                       <TableCell key={scenario.id} className="text-center text-xs text-muted-foreground">
-                        R$ {scenario.data.custoCanaIndustria.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        R$ {(scenario.data.cpvTotalEAC || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </TableCell>
                     ))}
                     <TableCell className="text-center text-xs bg-muted/30 text-muted-foreground">
-                      R$ {calculateTotal(s => s.data.custoCanaIndustria)}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">Dispêndios</TableCell>
-                    {savedScenarios.map((scenario) => (
-                      <TableCell key={scenario.id} className="text-center text-xs text-muted-foreground">
-                        R$ {scenario.data.custoCanaDispendios.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                      </TableCell>
-                    ))}
-                    <TableCell className="text-center text-xs bg-muted/30 text-muted-foreground">
-                      R$ {calculateTotal(s => s.data.custoCanaDispendios)}
+                      R$ {calculateTotal(s => s.data.cpvTotalEAC || 0)}
                     </TableCell>
                   </TableRow>
 
@@ -1142,36 +1131,47 @@ export default function Consolidated() {
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">Matéria-prima</TableCell>
+                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">Etanol Hidratado</TableCell>
                     {savedScenarios.map((scenario) => (
                       <TableCell key={scenario.id} className="text-center text-xs text-muted-foreground">
-                        R$ {scenario.data.custoMilhoMateriaPrima.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        R$ {(scenario.data.cpvTotalEHM || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </TableCell>
                     ))}
                     <TableCell className="text-center text-xs bg-muted/30 text-muted-foreground">
-                      R$ {calculateTotal(s => s.data.custoMilhoMateriaPrima)}
+                      R$ {calculateTotal(s => s.data.cpvTotalEHM || 0)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">Indústria</TableCell>
+                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">Etanol Anidro</TableCell>
                     {savedScenarios.map((scenario) => (
                       <TableCell key={scenario.id} className="text-center text-xs text-muted-foreground">
-                        R$ {scenario.data.custoMilhoIndustria.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        R$ {(scenario.data.cpvTotalEAM || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </TableCell>
                     ))}
                     <TableCell className="text-center text-xs bg-muted/30 text-muted-foreground">
-                      R$ {calculateTotal(s => s.data.custoMilhoIndustria)}
+                      R$ {calculateTotal(s => s.data.cpvTotalEAM || 0)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">Biomassa</TableCell>
+                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">DDG</TableCell>
                     {savedScenarios.map((scenario) => (
                       <TableCell key={scenario.id} className="text-center text-xs text-muted-foreground">
-                        R$ {scenario.data.custoMilhoBiomassa.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        R$ {(scenario.data.cpvTotalDDG || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </TableCell>
                     ))}
                     <TableCell className="text-center text-xs bg-muted/30 text-muted-foreground">
-                      R$ {calculateTotal(s => s.data.custoMilhoBiomassa)}
+                      R$ {calculateTotal(s => s.data.cpvTotalDDG || 0)}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium pl-10 text-xs text-muted-foreground">WDG</TableCell>
+                    {savedScenarios.map((scenario) => (
+                      <TableCell key={scenario.id} className="text-center text-xs text-muted-foreground">
+                        R$ {(scenario.data.cpvTotalWDG || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center text-xs bg-muted/30 text-muted-foreground">
+                      R$ {calculateTotal(s => s.data.cpvTotalWDG || 0)}
                     </TableCell>
                   </TableRow>
 

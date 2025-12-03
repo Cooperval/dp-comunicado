@@ -45,6 +45,20 @@ interface SavedScenario {
     impostos: number;
     receitaLiquida: number;
     cpvTotal: number;
+    
+    // Custos Cana detalhados
+    custoCanaTotal: number;
+    custoCanaMateriaPrima: number;
+    custoCanaCCT: number;
+    custoCanaIndustria: number;
+    custoCanaDispendios: number;
+    
+    // Custos Milho detalhados
+    custoMilhoTotal: number;
+    custoMilhoMateriaPrima: number;
+    custoMilhoIndustria: number;
+    custoMilhoBiomassa: number;
+    
     margemContribuicao: number;
     despesasVendas: number;
     resultadoOperacional: number;
@@ -216,6 +230,20 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
           impostos: dreCalculations.totalImpostos || 0,
           receitaLiquida: dreCalculations.receitaLiquida || 0,
           cpvTotal: dreCalculations.cpvTotal || 0,
+          
+          // Custos Cana detalhados
+          custoCanaTotal: data.sugarCane.totalGroundCane * (data.productionCosts.caneRawMaterial + data.productionCosts.caneCct + data.productionCosts.caneIndustry + data.productionCosts.caneExpenses),
+          custoCanaMateriaPrima: data.sugarCane.totalGroundCane * data.productionCosts.caneRawMaterial,
+          custoCanaCCT: data.sugarCane.totalGroundCane * data.productionCosts.caneCct,
+          custoCanaIndustria: data.sugarCane.totalGroundCane * data.productionCosts.caneIndustry,
+          custoCanaDispendios: data.sugarCane.totalGroundCane * data.productionCosts.caneExpenses,
+          
+          // Custos Milho detalhados
+          custoMilhoTotal: data.corn.groundCorn * (data.productionCosts.cornRawMaterial + data.productionCosts.cornIndustry + data.productionCosts.cornBiomass),
+          custoMilhoMateriaPrima: data.corn.groundCorn * data.productionCosts.cornRawMaterial,
+          custoMilhoIndustria: data.corn.groundCorn * data.productionCosts.cornIndustry,
+          custoMilhoBiomassa: data.corn.groundCorn * data.productionCosts.cornBiomass,
+          
           margemContribuicao: dreCalculations.lucroBruto || 0,
           despesasVendas: dreCalculations.totalDespesasVendas || 0,
           resultadoOperacional: dreCalculations.resultadoOp || 0,
@@ -281,6 +309,20 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
           impostos: dreCalculations.totalImpostos || 0,
           receitaLiquida: dreCalculations.receitaLiquida || 0,
           cpvTotal: dreCalculations.cpvTotal || 0,
+          
+          // Custos Cana detalhados
+          custoCanaTotal: data.sugarCane.totalGroundCane * (data.productionCosts.caneRawMaterial + data.productionCosts.caneCct + data.productionCosts.caneIndustry + data.productionCosts.caneExpenses),
+          custoCanaMateriaPrima: data.sugarCane.totalGroundCane * data.productionCosts.caneRawMaterial,
+          custoCanaCCT: data.sugarCane.totalGroundCane * data.productionCosts.caneCct,
+          custoCanaIndustria: data.sugarCane.totalGroundCane * data.productionCosts.caneIndustry,
+          custoCanaDispendios: data.sugarCane.totalGroundCane * data.productionCosts.caneExpenses,
+          
+          // Custos Milho detalhados
+          custoMilhoTotal: data.corn.groundCorn * (data.productionCosts.cornRawMaterial + data.productionCosts.cornIndustry + data.productionCosts.cornBiomass),
+          custoMilhoMateriaPrima: data.corn.groundCorn * data.productionCosts.cornRawMaterial,
+          custoMilhoIndustria: data.corn.groundCorn * data.productionCosts.cornIndustry,
+          custoMilhoBiomassa: data.corn.groundCorn * data.productionCosts.cornBiomass,
+          
           margemContribuicao: dreCalculations.lucroBruto || 0,
           despesasVendas: dreCalculations.totalDespesasVendas || 0,
           resultadoOperacional: dreCalculations.resultadoOp || 0,
@@ -340,6 +382,20 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
               impostos: dreCalculations.totalImpostos || 0,
               receitaLiquida: dreCalculations.receitaLiquida || 0,
               cpvTotal: dreCalculations.cpvTotal || 0,
+              
+              // Custos Cana detalhados
+              custoCanaTotal: data.sugarCane.totalGroundCane * (data.productionCosts.caneRawMaterial + data.productionCosts.caneCct + data.productionCosts.caneIndustry + data.productionCosts.caneExpenses),
+              custoCanaMateriaPrima: data.sugarCane.totalGroundCane * data.productionCosts.caneRawMaterial,
+              custoCanaCCT: data.sugarCane.totalGroundCane * data.productionCosts.caneCct,
+              custoCanaIndustria: data.sugarCane.totalGroundCane * data.productionCosts.caneIndustry,
+              custoCanaDispendios: data.sugarCane.totalGroundCane * data.productionCosts.caneExpenses,
+              
+              // Custos Milho detalhados
+              custoMilhoTotal: data.corn.groundCorn * (data.productionCosts.cornRawMaterial + data.productionCosts.cornIndustry + data.productionCosts.cornBiomass),
+              custoMilhoMateriaPrima: data.corn.groundCorn * data.productionCosts.cornRawMaterial,
+              custoMilhoIndustria: data.corn.groundCorn * data.productionCosts.cornIndustry,
+              custoMilhoBiomassa: data.corn.groundCorn * data.productionCosts.cornBiomass,
+              
               margemContribuicao: dreCalculations.lucroBruto || 0,
               despesasVendas: dreCalculations.totalDespesasVendas || 0,
               resultadoOperacional: dreCalculations.resultadoOp || 0,

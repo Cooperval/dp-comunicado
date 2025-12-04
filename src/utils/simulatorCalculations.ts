@@ -873,6 +873,241 @@ export function calcularResumoFinanceiro(data: SimulatorData): IndicadoresFinanc
 
 /*=============================================================================================================================*/
 
+// TIPO para cenário salvo (usado para consolidado)
+interface SavedScenarioData {
+  sugarProduction: number;
+  hydratedEthanolCane: number;
+  hydratedEthanolCorn: number;
+  anhydrousEthanolCane: number;
+  anhydrousEthanolCorn: number;
+  ddgProduction: number;
+  wdgProduction: number;
+  co2Production: number;
+  cbioProduction: number;
+  premissaCanaMoidaTotal: number;
+  premissaMilhoMoidoTotal?: number;
+  totalRevenue: number;
+  receitaAcucarVHP: number;
+  receitaEtanolHidratadoCana: number;
+  receitaEtanolAnidroCana: number;
+  receitaEtanolHidratadoMilho: number;
+  receitaEtanolAnidroMilho: number;
+  receitaDDG: number;
+  receitaWDG: number;
+  receitaCO2: number;
+  receitaCBIO: number;
+  receitaOther: number;
+  derivativosCambio: number;
+  impostos: number;
+  receitaLiquida: number;
+  cpvTotal: number;
+  custoCanaTotal: number;
+  custoMilhoTotal: number;
+  margemContribuicao: number;
+  despesasVendas: number;
+  administracao: number;
+  resultadoOperacional: number;
+  receitaCanaTotal?: number;
+  receitaMilhoTotal?: number;
+  impostosCana?: number;
+  impostosMilho?: number;
+  receitaLiquidaCana?: number;
+  receitaLiquidaMilho?: number;
+  receitaLiquidaOutras?: number;
+  margemCana?: number;
+  margemMilho?: number;
+  margemOutras?: number;
+  cpvTotalAcucarVHP?: number;
+  cpvTotalEHC?: number;
+  cpvTotalEAC?: number;
+  cpvTotalEHM?: number;
+  cpvTotalEAM?: number;
+  cpvTotalDDG?: number;
+  cpvTotalWDG?: number;
+}
+
+export interface ConsolidatedDREData {
+  // Produções
+  sugarProduction: number;
+  hydratedEthanolCane: number;
+  hydratedEthanolCorn: number;
+  anhydrousEthanolCane: number;
+  anhydrousEthanolCorn: number;
+  ddgProduction: number;
+  wdgProduction: number;
+  co2Production: number;
+  cbioProduction: number;
+  caneProcessed: number;
+  cornProcessed: number;
+  
+  // Receitas
+  totalRevenue: number;
+  receitaAcucarVHP: number;
+  receitaEtanolHidratadoCana: number;
+  receitaEtanolAnidroCana: number;
+  receitaEtanolHidratadoMilho: number;
+  receitaEtanolAnidroMilho: number;
+  receitaDDG: number;
+  receitaWDG: number;
+  receitaCO2: number;
+  receitaCBIO: number;
+  receitaOther: number;
+  derivativosCambio: number;
+  receitaCanaTotal: number;
+  receitaMilhoTotal: number;
+  
+  // Impostos
+  impostos: number;
+  impostosCana: number;
+  impostosMilho: number;
+  
+  // Receita Líquida
+  receitaLiquida: number;
+  receitaLiquidaCana: number;
+  receitaLiquidaMilho: number;
+  receitaLiquidaOutras: number;
+  
+  // Custos
+  cpvTotal: number;
+  custoCanaTotal: number;
+  custoMilhoTotal: number;
+  cpvTotalAcucarVHP: number;
+  cpvTotalEHC: number;
+  cpvTotalEAC: number;
+  cpvTotalEHM: number;
+  cpvTotalEAM: number;
+  cpvTotalDDG: number;
+  cpvTotalWDG: number;
+  
+  // Margens
+  margemContribuicao: number;
+  margemCana: number;
+  margemMilho: number;
+  margemOutras: number;
+  
+  // Despesas e Resultado
+  despesasVendas: number;
+  administracao: number;
+  resultadoOperacional: number;
+}
+
+// RETORNA OS DADOS CONSOLIDADOS DIRETAMENTE DE scenario.data (SEM RECALCULAR)
+export function getConsolidatedDREData(scenarios: Array<{ data: SavedScenarioData }>): ConsolidatedDREData {
+  const zeroData: ConsolidatedDREData = {
+    sugarProduction: 0,
+    hydratedEthanolCane: 0,
+    hydratedEthanolCorn: 0,
+    anhydrousEthanolCane: 0,
+    anhydrousEthanolCorn: 0,
+    ddgProduction: 0,
+    wdgProduction: 0,
+    co2Production: 0,
+    cbioProduction: 0,
+    caneProcessed: 0,
+    cornProcessed: 0,
+    totalRevenue: 0,
+    receitaAcucarVHP: 0,
+    receitaEtanolHidratadoCana: 0,
+    receitaEtanolAnidroCana: 0,
+    receitaEtanolHidratadoMilho: 0,
+    receitaEtanolAnidroMilho: 0,
+    receitaDDG: 0,
+    receitaWDG: 0,
+    receitaCO2: 0,
+    receitaCBIO: 0,
+    receitaOther: 0,
+    derivativosCambio: 0,
+    receitaCanaTotal: 0,
+    receitaMilhoTotal: 0,
+    impostos: 0,
+    impostosCana: 0,
+    impostosMilho: 0,
+    receitaLiquida: 0,
+    receitaLiquidaCana: 0,
+    receitaLiquidaMilho: 0,
+    receitaLiquidaOutras: 0,
+    cpvTotal: 0,
+    custoCanaTotal: 0,
+    custoMilhoTotal: 0,
+    cpvTotalAcucarVHP: 0,
+    cpvTotalEHC: 0,
+    cpvTotalEAC: 0,
+    cpvTotalEHM: 0,
+    cpvTotalEAM: 0,
+    cpvTotalDDG: 0,
+    cpvTotalWDG: 0,
+    margemContribuicao: 0,
+    margemCana: 0,
+    margemMilho: 0,
+    margemOutras: 0,
+    despesasVendas: 0,
+    administracao: 0,
+    resultadoOperacional: 0,
+  };
+
+  if (scenarios.length === 0) {
+    return zeroData;
+  }
+
+  // Soma os valores de scenario.data de todos os cenários
+  return scenarios.reduce((acc, scenario) => {
+    const d = scenario.data;
+    return {
+      sugarProduction: acc.sugarProduction + (d.sugarProduction || 0),
+      hydratedEthanolCane: acc.hydratedEthanolCane + (d.hydratedEthanolCane || 0),
+      hydratedEthanolCorn: acc.hydratedEthanolCorn + (d.hydratedEthanolCorn || 0),
+      anhydrousEthanolCane: acc.anhydrousEthanolCane + (d.anhydrousEthanolCane || 0),
+      anhydrousEthanolCorn: acc.anhydrousEthanolCorn + (d.anhydrousEthanolCorn || 0),
+      ddgProduction: acc.ddgProduction + (d.ddgProduction || 0),
+      wdgProduction: acc.wdgProduction + (d.wdgProduction || 0),
+      co2Production: acc.co2Production + (d.co2Production || 0),
+      cbioProduction: acc.cbioProduction + (d.cbioProduction || 0),
+      caneProcessed: acc.caneProcessed + (d.premissaCanaMoidaTotal || 0),
+      cornProcessed: acc.cornProcessed + (d.premissaMilhoMoidoTotal || 0),
+      totalRevenue: acc.totalRevenue + (d.totalRevenue || 0),
+      receitaAcucarVHP: acc.receitaAcucarVHP + (d.receitaAcucarVHP || 0),
+      receitaEtanolHidratadoCana: acc.receitaEtanolHidratadoCana + (d.receitaEtanolHidratadoCana || 0),
+      receitaEtanolAnidroCana: acc.receitaEtanolAnidroCana + (d.receitaEtanolAnidroCana || 0),
+      receitaEtanolHidratadoMilho: acc.receitaEtanolHidratadoMilho + (d.receitaEtanolHidratadoMilho || 0),
+      receitaEtanolAnidroMilho: acc.receitaEtanolAnidroMilho + (d.receitaEtanolAnidroMilho || 0),
+      receitaDDG: acc.receitaDDG + (d.receitaDDG || 0),
+      receitaWDG: acc.receitaWDG + (d.receitaWDG || 0),
+      receitaCO2: acc.receitaCO2 + (d.receitaCO2 || 0),
+      receitaCBIO: acc.receitaCBIO + (d.receitaCBIO || 0),
+      receitaOther: acc.receitaOther + (d.receitaOther || 0),
+      derivativosCambio: acc.derivativosCambio + (d.derivativosCambio || 0),
+      receitaCanaTotal: acc.receitaCanaTotal + (d.receitaCanaTotal || 0),
+      receitaMilhoTotal: acc.receitaMilhoTotal + (d.receitaMilhoTotal || 0),
+      impostos: acc.impostos + (d.impostos || 0),
+      impostosCana: acc.impostosCana + (d.impostosCana || 0),
+      impostosMilho: acc.impostosMilho + (d.impostosMilho || 0),
+      receitaLiquida: acc.receitaLiquida + (d.receitaLiquida || 0),
+      receitaLiquidaCana: acc.receitaLiquidaCana + (d.receitaLiquidaCana || 0),
+      receitaLiquidaMilho: acc.receitaLiquidaMilho + (d.receitaLiquidaMilho || 0),
+      receitaLiquidaOutras: acc.receitaLiquidaOutras + (d.receitaLiquidaOutras || 0),
+      cpvTotal: acc.cpvTotal + (d.cpvTotal || 0),
+      custoCanaTotal: acc.custoCanaTotal + (d.custoCanaTotal || 0),
+      custoMilhoTotal: acc.custoMilhoTotal + (d.custoMilhoTotal || 0),
+      cpvTotalAcucarVHP: acc.cpvTotalAcucarVHP + (d.cpvTotalAcucarVHP || 0),
+      cpvTotalEHC: acc.cpvTotalEHC + (d.cpvTotalEHC || 0),
+      cpvTotalEAC: acc.cpvTotalEAC + (d.cpvTotalEAC || 0),
+      cpvTotalEHM: acc.cpvTotalEHM + (d.cpvTotalEHM || 0),
+      cpvTotalEAM: acc.cpvTotalEAM + (d.cpvTotalEAM || 0),
+      cpvTotalDDG: acc.cpvTotalDDG + (d.cpvTotalDDG || 0),
+      cpvTotalWDG: acc.cpvTotalWDG + (d.cpvTotalWDG || 0),
+      margemContribuicao: acc.margemContribuicao + (d.margemContribuicao || 0),
+      margemCana: acc.margemCana + (d.margemCana || 0),
+      margemMilho: acc.margemMilho + (d.margemMilho || 0),
+      margemOutras: acc.margemOutras + (d.margemOutras || 0),
+      despesasVendas: acc.despesasVendas + (d.despesasVendas || 0),
+      administracao: acc.administracao + (d.administracao || 0),
+      resultadoOperacional: acc.resultadoOperacional + (d.resultadoOperacional || 0),
+    };
+  }, zeroData);
+}
+
+/*=============================================================================================================================*/
+
 // CALCULA DADOS CONSOLIDADOS DE MÚLTIPLOS CENÁRIOS
 export function calculateConsolidatedData(scenarios: Array<{ originalData: SimulatorData }>): SimulatorData {
   // Quando não há cenários salvos, retorna objeto com todos os valores zerados

@@ -875,8 +875,89 @@ export function calcularResumoFinanceiro(data: SimulatorData): IndicadoresFinanc
 
 // CALCULA DADOS CONSOLIDADOS DE MÚLTIPLOS CENÁRIOS
 export function calculateConsolidatedData(scenarios: Array<{ originalData: SimulatorData }>): SimulatorData {
+  // Quando não há cenários salvos, retorna objeto com todos os valores zerados
   if (scenarios.length === 0) {
-    return initialSimulatorData;
+    return {
+      atr: 0,
+      extractionArt: 0,
+      effectiveHours: 0,
+      generalTimeEfficiency: 0,
+      totalConvertedYield: 0,
+      cornTotalConvertedYield: 0,
+      industrialTimeEfficiency: 0,
+      cornProcessedPerDay: 0,
+      ddgYieldPerTon: 0,
+      wdgYieldPerTon: 0,
+      sugarCane: {
+        totalGroundCane: 0,
+        sugarMix: 0,
+        ethanolMix: 0,
+        sugarGroundCane: 0,
+        ethanolGroundCane: 0,
+        sugarPerTonCane: 0,
+        hydratedEthanolPerTonCane: 0,
+        anhydrousEthanolPerTonCane: 0,
+        vhpSugar: 0,
+        hydratedEthanol: 0,
+        anhydrousEthanol: 0,
+      },
+      corn: {
+        groundCorn: 0,
+        hydratedEthanol: 0,
+        anhydrousEthanol: 0,
+        ddg: 0,
+        wdg: 0,
+      },
+      otherProductions: {
+        co2Cane: 0,
+        co2Corn: 0,
+        cbio: 0,
+      },
+      commercialization: {
+        vhpSugar: 0,
+        hydratedEthanolCane: 0,
+        anhydrousEthanolCane: 0,
+        cornEthanol: 0,
+        ddg: 0,
+        wdg: 0,
+      },
+      salesPrices: {
+        vhpSugarGross: 0,
+        hydratedEthanolGross: 0,
+        anhydrousEthanolGross: 0,
+        ddgGross: 0,
+        wdgGross: 0,
+        co2Gross: 0,
+        cbioGross: 0,
+        icmsEthanol: 0,
+        pisCofinsEthanol: 0,
+        icmsDdg: 0,
+        pisccofinsDdg: 0,
+      },
+      productionCosts: {
+        caneRawMaterial: 0,
+        caneCct: 0,
+        caneIndustry: 0,
+        caneExpenses: 0,
+        cornRawMaterial: 0,
+        cornIndustry: 0,
+        cornBiomass: 0,
+        administration: 0,
+        salesExpenseEthanol: 0,
+        salesExpenseSugar: 0,
+      },
+      dre: {
+        derivativesResult: 0,
+        exchangeResult: 0,
+        otherRevenues: 0,
+        icmsTotal: 0,
+        pisCofinsTotal: 0,
+        ipiTotal: 0,
+        inssTotal: 0,
+        otherTaxes: 0,
+        otherCosts: 0,
+      },
+    };
   }
 
   // Se houver apenas um cenário, retorna diretamente

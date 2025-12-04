@@ -15,17 +15,18 @@ import { ScenarioSelector } from '@/components/simulador-cenarios/ScenarioSelect
 
 const DREByProduct: React.FC = () => {
   const { data, saveScenario, savedScenarios } = useSimulator();
-  const [selectedScenario, setSelectedScenario] = useState<string>('consolidated');
+  const [selectedScenario, setSelectedScenario] = useState<string>('current');
 
-  // Determina os dados efetivos baseado na seleção (apenas cenários carregados, sem cenário atual)
+  // Determina os dados efetivos baseado na seleção
   const effectiveData = useMemo(() => {
+    if (selectedScenario === 'current') return data;
     if (selectedScenario === 'consolidated') return calculateConsolidatedData(savedScenarios);
     const scenario = savedScenarios.find(s => s.id === selectedScenario);
-    return scenario?.originalData || calculateConsolidatedData(savedScenarios);
-  }, [selectedScenario, savedScenarios]);
+    return scenario?.originalData || data;
+  }, [selectedScenario, data, savedScenarios]);
 
-  // Sempre visualização (sem opção de cenário atual editável)
-  const isViewingOnly = true;
+  // Verifica se está visualizando cenário salvo (não permite edição)
+  const isViewingOnly = selectedScenario !== 'current';
 
 
   const {
@@ -69,9 +70,10 @@ const DREByProduct: React.FC = () => {
 
   // Label do cenário selecionado
   const scenarioLabel = useMemo(() => {
+    if (selectedScenario === 'current') return 'Cenário Atual';
     if (selectedScenario === 'consolidated') return 'Visão Consolidada';
     const scenario = savedScenarios.find(s => s.id === selectedScenario);
-    return scenario?.name || 'Visão Consolidada';
+    return scenario?.name || 'Cenário';
   }, [selectedScenario, savedScenarios]);
 
   const [scenarioName, setScenarioName] = useState('');
@@ -186,7 +188,6 @@ const DREByProduct: React.FC = () => {
             selectedScenario={selectedScenario}
             onScenarioChange={setSelectedScenario}
             savedScenarios={savedScenarios}
-            showCurrentOption={false}
           />
           {!isViewingOnly && (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

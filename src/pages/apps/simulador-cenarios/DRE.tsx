@@ -24,17 +24,25 @@ import { toast } from 'sonner';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 // import marcaDagua from '@/assets/logo-1.png'
-import { calcularDRE, calcularResumoFinanceiro, calculateConsolidatedData } from '@/utils/simulatorCalculations';
+import { calcularDRE, calcularResumoFinanceiro, calculateConsolidatedData, getConsolidatedDREData, ConsolidatedDREData } from '@/utils/simulatorCalculations';
 import { ScenarioSelector } from '@/components/simulador-cenarios/ScenarioSelector';
 
 const DRE = () => {
   const { data, updateDRE, savedScenarios } = useSimulator();
   const [selectedScenario, setSelectedScenario] = useState<string>('current');
 
-  // Determina os dados efetivos baseado na seleção
+  // Para visão consolidada, usar dados pré-calculados de scenario.data
+  const consolidatedData = useMemo((): ConsolidatedDREData | null => {
+    if (selectedScenario === 'consolidated') {
+      return getConsolidatedDREData(savedScenarios);
+    }
+    return null;
+  }, [selectedScenario, savedScenarios]);
+
+  // Para cenário atual ou cenário específico, usa o cálculo normal
   const effectiveData = useMemo(() => {
     if (selectedScenario === 'current') return data;
-    if (selectedScenario === 'consolidated') return calculateConsolidatedData(savedScenarios);
+    if (selectedScenario === 'consolidated') return data; // Será ignorado quando consolidatedData existe
     const scenario = savedScenarios.find(s => s.id === selectedScenario);
     return scenario?.originalData || data;
   }, [selectedScenario, data, savedScenarios]);
@@ -42,6 +50,11 @@ const DRE = () => {
   // Verifica se está visualizando cenário salvo (não permite edição)
   const isViewingOnly = selectedScenario !== 'current';
 
+  // Calcula valores do DRE (será usado quando não é consolidado)
+  const dreCalculated = useMemo(() => calcularDRE(effectiveData), [effectiveData]);
+  const resumoCalculated = useMemo(() => calcularResumoFinanceiro(effectiveData), [effectiveData]);
+
+  // Usa dados consolidados diretamente OU calcula a partir de effectiveData
   const {
     prodVHP,
     receitaAcucarCana,
@@ -69,13 +82,68 @@ const DRE = () => {
     icmsTotal,
     pisCofinsTotal,
     despesasAdm,
-  } = calcularDRE(effectiveData);
+  } = useMemo(() => {
+    if (consolidatedData) {
+      // Usa os valores consolidados diretamente de scenario.data
+      return {
+        prodVHP: consolidatedData.sugarProduction,
+        receitaAcucarCana: consolidatedData.receitaAcucarVHP,
+        receitaEtanolHidratadoCana: consolidatedData.receitaEtanolHidratadoCana,
+        receitaEtanolAnidrocana: consolidatedData.receitaEtanolAnidroCana,
+        receitaCO2Cana: consolidatedData.receitaCO2,
+        receitaEtanolMilho: consolidatedData.receitaEtanolHidratadoMilho + consolidatedData.receitaEtanolAnidroMilho,
+        receitaDDG: consolidatedData.receitaDDG,
+        receitaWDG: consolidatedData.receitaWDG,
+        receitaCO2Milho: 0, // CO2 Milho separado não está no consolidado
+        receitaCBIO: consolidatedData.receitaCBIO,
+        totalReceitaBruta: consolidatedData.totalRevenue,
+        totalDerivativosCambio: consolidatedData.derivativosCambio,
+        totalImpostos: consolidatedData.impostos,
+        receitaLiquida: consolidatedData.receitaLiquida,
+        cpvCana: consolidatedData.custoCanaTotal,
+        cpvMilho: consolidatedData.custoMilhoTotal,
+        cpvTotal: consolidatedData.cpvTotal,
+        despesasComercializacaoEtanol: consolidatedData.despesasVendas,
+        totalEthanol: consolidatedData.hydratedEthanolCane + consolidatedData.anhydrousEthanolCane + consolidatedData.hydratedEthanolCorn + consolidatedData.anhydrousEthanolCorn,
+        despesasComercializacaoAcucar: 0,
+        totalDespesasVendas: consolidatedData.despesasVendas,
+        lucroBruto: consolidatedData.margemContribuicao,
+        resultadoOp: consolidatedData.resultadoOperacional,
+        icmsTotal: 0,
+        pisCofinsTotal: 0,
+        despesasAdm: consolidatedData.administracao,
+      };
+    }
+    return dreCalculated;
+  }, [consolidatedData, dreCalculated]);
 
   const {
     totalProduction,
     prodEAC,
     prodEHC,
-  } = calcularResumoFinanceiro(effectiveData);
+  } = useMemo(() => {
+    if (consolidatedData) {
+      return {
+        totalProduction: {
+          sugarCane: consolidatedData.caneProcessed,
+          corn: consolidatedData.cornProcessed,
+          sugar: consolidatedData.sugarProduction,
+          totalEthanol: consolidatedData.hydratedEthanolCane + consolidatedData.anhydrousEthanolCane + consolidatedData.hydratedEthanolCorn + consolidatedData.anhydrousEthanolCorn,
+          hydratedEthanol: consolidatedData.hydratedEthanolCane + consolidatedData.hydratedEthanolCorn,
+          anhydrousEthanol: consolidatedData.anhydrousEthanolCane + consolidatedData.anhydrousEthanolCorn,
+          ethanolCane: consolidatedData.hydratedEthanolCane + consolidatedData.anhydrousEthanolCane,
+          ethanolCorn: consolidatedData.hydratedEthanolCorn + consolidatedData.anhydrousEthanolCorn,
+          ddg: consolidatedData.ddgProduction,
+          wdg: consolidatedData.wdgProduction,
+          co2: consolidatedData.co2Production,
+          cbio: consolidatedData.cbioProduction,
+        },
+        prodEAC: consolidatedData.anhydrousEthanolCane,
+        prodEHC: consolidatedData.hydratedEthanolCane,
+      };
+    }
+    return resumoCalculated;
+  }, [consolidatedData, resumoCalculated]);
 
   // Label do cenário selecionado
   const scenarioLabel = useMemo(() => {

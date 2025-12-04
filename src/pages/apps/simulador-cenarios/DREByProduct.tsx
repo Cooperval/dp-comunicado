@@ -10,17 +10,25 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { calcularDREPorProduto, ProductData, calculateConsolidatedData } from '@/utils/simulatorCalculations';
+import { calcularDREPorProduto, ProductData, calculateConsolidatedData, getConsolidatedDREData, ConsolidatedDREData } from '@/utils/simulatorCalculations';
 import { ScenarioSelector } from '@/components/simulador-cenarios/ScenarioSelector';
 
 const DREByProduct: React.FC = () => {
   const { data, saveScenario, savedScenarios } = useSimulator();
   const [selectedScenario, setSelectedScenario] = useState<string>('current');
 
-  // Determina os dados efetivos baseado na seleção
+  // Para visão consolidada, usar dados pré-calculados de scenario.data
+  const consolidatedData = useMemo((): ConsolidatedDREData | null => {
+    if (selectedScenario === 'consolidated') {
+      return getConsolidatedDREData(savedScenarios);
+    }
+    return null;
+  }, [selectedScenario, savedScenarios]);
+
+  // Para cenário atual ou cenário específico, usa o cálculo normal
   const effectiveData = useMemo(() => {
     if (selectedScenario === 'current') return data;
-    if (selectedScenario === 'consolidated') return calculateConsolidatedData(savedScenarios);
+    if (selectedScenario === 'consolidated') return data; // Será ignorado quando consolidatedData existe
     const scenario = savedScenarios.find(s => s.id === selectedScenario);
     return scenario?.originalData || data;
   }, [selectedScenario, data, savedScenarios]);
@@ -28,7 +36,10 @@ const DREByProduct: React.FC = () => {
   // Verifica se está visualizando cenário salvo (não permite edição)
   const isViewingOnly = selectedScenario !== 'current';
 
+  // Valores calculados (será usado quando não é consolidado)
+  const dreCalculated = useMemo(() => calcularDREPorProduto(effectiveData), [effectiveData]);
 
+  // Usa dados consolidados diretamente OU calcula a partir de effectiveData
   const {
     productMatrixData,
     caneProcessed,
@@ -66,7 +77,85 @@ const DREByProduct: React.FC = () => {
     resulMilho,
     rolEHC, 
     rolEAC,
-  } = calcularDREPorProduto(effectiveData);
+  } = useMemo(() => {
+    if (consolidatedData) {
+      // Para visão consolidada, usar os valores totais de scenario.data
+      const cane = consolidatedData.caneProcessed || 1; // Evita divisão por zero
+      const corn = consolidatedData.cornProcessed || 1;
+      
+      // Receitas totais
+      const receitaCanaTotal = consolidatedData.receitaCanaTotal || 0;
+      const receitaMilhoTotal = consolidatedData.receitaMilhoTotal || 0;
+      
+      // Custos totais
+      const custoCanaTotal = consolidatedData.custoCanaTotal || 0;
+      const custoMilhoTotal = consolidatedData.custoMilhoTotal || 0;
+      
+      // Margens totais
+      const margemCana = consolidatedData.margemCana || 0;
+      const margemMilho = consolidatedData.margemMilho || 0;
+      
+      // Resultado operacional por tonelada
+      const resulCanaPerTon = consolidatedData.caneProcessed > 0 
+        ? (margemCana - (consolidatedData.despesasVendas * (consolidatedData.caneProcessed / (consolidatedData.caneProcessed + consolidatedData.cornProcessed))) - (consolidatedData.administracao * (consolidatedData.caneProcessed / (consolidatedData.caneProcessed + consolidatedData.cornProcessed)))) / consolidatedData.caneProcessed
+        : 0;
+      const resulMilhoPerTon = consolidatedData.cornProcessed > 0 
+        ? (margemMilho - (consolidatedData.despesasVendas * (consolidatedData.cornProcessed / (consolidatedData.caneProcessed + consolidatedData.cornProcessed))) - (consolidatedData.administracao * (consolidatedData.cornProcessed / (consolidatedData.caneProcessed + consolidatedData.cornProcessed)))) / consolidatedData.cornProcessed
+        : 0;
+
+      return {
+        productMatrixData: dreCalculated.productMatrixData,
+        caneProcessed: consolidatedData.caneProcessed,
+        cornProcessed: consolidatedData.cornProcessed,
+        caneMarginPerTon: consolidatedData.caneProcessed > 0 ? margemCana / consolidatedData.caneProcessed : 0,
+        cornMarginPerTon: consolidatedData.cornProcessed > 0 ? margemMilho / consolidatedData.cornProcessed : 0,
+        receitasCana: {
+          sugarRevenue: consolidatedData.receitaAcucarVHP,
+          hydratedEthanolRevenue: consolidatedData.receitaEtanolHidratadoCana,
+          anhydrousEthanolRevenue: consolidatedData.receitaEtanolAnidroCana,
+        },
+        receitasMilho: {
+          hydratedEthanolCornRevenue: consolidatedData.receitaEtanolHidratadoMilho,
+          anhydrousEthanolCornRevenue: consolidatedData.receitaEtanolAnidroMilho,
+          ddgRevenue: consolidatedData.receitaDDG,
+          wdgRevenue: consolidatedData.receitaWDG,
+        },
+        totalCornRevenuePerTon: consolidatedData.cornProcessed > 0 ? receitaMilhoTotal / consolidatedData.cornProcessed : 0,
+        caneTotalCost: consolidatedData.caneProcessed > 0 ? custoCanaTotal / consolidatedData.caneProcessed : 0,
+        sugarRevenuePerTon: consolidatedData.caneProcessed > 0 ? consolidatedData.receitaAcucarVHP / consolidatedData.caneProcessed : 0,
+        hydratedEthanolCaneRevenuePerTon: consolidatedData.caneProcessed > 0 ? consolidatedData.receitaEtanolHidratadoCana / consolidatedData.caneProcessed : 0,
+        anhydrousEthanolCaneRevenuePerTon: consolidatedData.caneProcessed > 0 ? consolidatedData.receitaEtanolAnidroCana / consolidatedData.caneProcessed : 0,
+        totalCaneRevenuePerTon: consolidatedData.caneProcessed > 0 ? receitaCanaTotal / consolidatedData.caneProcessed : 0,
+        cornTotalCost: consolidatedData.cornProcessed > 0 ? custoMilhoTotal / consolidatedData.cornProcessed : 0,
+        hydratedEthanolCornRevenuePerTon: consolidatedData.cornProcessed > 0 ? consolidatedData.receitaEtanolHidratadoMilho / consolidatedData.cornProcessed : 0,
+        anhydrousEthanolCornRevenuePerTon: consolidatedData.cornProcessed > 0 ? consolidatedData.receitaEtanolAnidroMilho / consolidatedData.cornProcessed : 0,
+        ddgRevenuePerTon: consolidatedData.cornProcessed > 0 ? consolidatedData.receitaDDG / consolidatedData.cornProcessed : 0,
+        wdgRevenuePerTon: consolidatedData.cornProcessed > 0 ? consolidatedData.receitaWDG / consolidatedData.cornProcessed : 0,
+        unitCO2Cana: consolidatedData.caneProcessed > 0 ? consolidatedData.receitaCO2 / consolidatedData.caneProcessed : 0,
+        unitCBIOCana: consolidatedData.caneProcessed > 0 ? consolidatedData.receitaCBIO / consolidatedData.caneProcessed : 0,
+        receitaCO2Cana: consolidatedData.receitaCO2,
+        receitaCBIOCana: consolidatedData.receitaCBIO,
+        unitCO2Milho: 0,
+        receitaCO2Milho: 0,
+        receitaCBIOMilho: 0, 
+        unitCBIOMilho: 0,
+        unitAdm: (consolidatedData.caneProcessed + consolidatedData.cornProcessed) > 0 
+          ? consolidatedData.administracao / (consolidatedData.caneProcessed + consolidatedData.cornProcessed) : 0,
+        custoAdm: consolidatedData.administracao,
+        despesasVCana: consolidatedData.despesasVendas * (consolidatedData.caneProcessed / (consolidatedData.caneProcessed + consolidatedData.cornProcessed || 1)),
+        unitVCana: consolidatedData.caneProcessed > 0 
+          ? (consolidatedData.despesasVendas * (consolidatedData.caneProcessed / (consolidatedData.caneProcessed + consolidatedData.cornProcessed || 1))) / consolidatedData.caneProcessed : 0,
+        unitVMilho: consolidatedData.cornProcessed > 0 
+          ? (consolidatedData.despesasVendas * (consolidatedData.cornProcessed / (consolidatedData.caneProcessed + consolidatedData.cornProcessed || 1))) / consolidatedData.cornProcessed : 0,
+        despesasVEtanolMilho: consolidatedData.despesasVendas * (consolidatedData.cornProcessed / (consolidatedData.caneProcessed + consolidatedData.cornProcessed || 1)),
+        resulCana: resulCanaPerTon,
+        resulMilho: resulMilhoPerTon,
+        rolEHC: consolidatedData.receitaEtanolHidratadoCana - (consolidatedData.impostosCana * (consolidatedData.receitaEtanolHidratadoCana / (consolidatedData.receitaCanaTotal || 1))),
+        rolEAC: consolidatedData.receitaEtanolAnidroCana - (consolidatedData.impostosCana * (consolidatedData.receitaEtanolAnidroCana / (consolidatedData.receitaCanaTotal || 1))),
+      };
+    }
+    return dreCalculated;
+  }, [consolidatedData, dreCalculated]);
 
   // Label do cenário selecionado
   const scenarioLabel = useMemo(() => {

@@ -375,31 +375,18 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
                    (impostoUnitAnidro * (dreCalculations.prodEAC || 0));
           })(),
           impostosMilho: (() => {
-            // Calcula preços líquidos etanol
+            // Calcula preços líquidos etanol (impostos apenas para etanóis)
             const icmsEthanolValue = (data.salesPrices.hydratedEthanolGross || 0) * ((data.salesPrices.icmsEthanol || 0) / 100);
             const hydratedEthanolNet = (data.salesPrices.hydratedEthanolGross || 0) - (data.salesPrices.pisCofinsEthanol || 0) - icmsEthanolValue;
             const anhydrousEthanolNet = (data.salesPrices.anhydrousEthanolGross || 0) - (data.salesPrices.pisCofinsEthanol || 0);
             
-            // Calcula preços líquidos DDG/WDG
-            const icmsDdgValue = (data.salesPrices.ddgGross || 0) * ((data.salesPrices.icmsDdg || 0) / 100);
-            const pisCofinsDdgValue = (data.salesPrices.ddgGross || 0) * ((data.salesPrices.pisccofinsDdg || 0) / 100);
-            const ddgNet = (data.salesPrices.ddgGross || 0) - pisCofinsDdgValue - icmsDdgValue;
-            
-            const icmsWdgValue = (data.salesPrices.wdgGross || 0) * ((data.salesPrices.icmsDdg || 0) / 100);
-            const pisCofinsWdgValue = (data.salesPrices.wdgGross || 0) * ((data.salesPrices.pisccofinsDdg || 0) / 100);
-            const wdgNet = (data.salesPrices.wdgGross || 0) - pisCofinsWdgValue - icmsWdgValue;
-            
             // Diferença entre preço bruto e líquido (imposto unitário)
             const impostoUnitHidratado = (data.salesPrices.hydratedEthanolGross || 0) - hydratedEthanolNet;
             const impostoUnitAnidro = (data.salesPrices.anhydrousEthanolGross || 0) - anhydrousEthanolNet;
-            const impostoUnitDDG = (data.salesPrices.ddgGross || 0) - ddgNet;
-            const impostoUnitWDG = (data.salesPrices.wdgGross || 0) - wdgNet;
             
-            // Imposto Milho = soma dos impostos de cada produto do milho
+            // Imposto Milho = (Imposto Unit. Hidratado × Prod. EHM) + (Imposto Unit. Anidro × Prod. EAM)
             return (impostoUnitHidratado * (data.corn.hydratedEthanol || 0)) + 
-                   (impostoUnitAnidro * (dreCalculations.prodEAM || 0)) +
-                   (impostoUnitDDG * (dreCalculations.prodDDG || 0)) +
-                   (impostoUnitWDG * (dreCalculations.prodWDG || 0));
+                   (impostoUnitAnidro * (dreCalculations.prodEAM || 0));
           })(),
           
           // Receita Líquida por fonte (usando impostos calculados corretamente)
@@ -419,21 +406,13 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
           receitaLiquidaMilho: (() => {
             const receitaMilho = (dreCalculations.receitaEtanolHidratadoMilho || 0) + (dreCalculations.receitaEtanolMilho || 0) + (dreCalculations.receitaDDG || 0) + (dreCalculations.receitaWDG || 0);
             
-            // Calcula impostos do milho
+            // Calcula impostos do milho (apenas etanóis)
             const icmsEthanolValue = (data.salesPrices.hydratedEthanolGross || 0) * ((data.salesPrices.icmsEthanol || 0) / 100);
             const hydratedEthanolNet = (data.salesPrices.hydratedEthanolGross || 0) - (data.salesPrices.pisCofinsEthanol || 0) - icmsEthanolValue;
             const anhydrousEthanolNet = (data.salesPrices.anhydrousEthanolGross || 0) - (data.salesPrices.pisCofinsEthanol || 0);
-            const icmsDdgValue = (data.salesPrices.ddgGross || 0) * ((data.salesPrices.icmsDdg || 0) / 100);
-            const pisCofinsDdgValue = (data.salesPrices.ddgGross || 0) * ((data.salesPrices.pisccofinsDdg || 0) / 100);
-            const ddgNet = (data.salesPrices.ddgGross || 0) - pisCofinsDdgValue - icmsDdgValue;
-            const icmsWdgValue = (data.salesPrices.wdgGross || 0) * ((data.salesPrices.icmsDdg || 0) / 100);
-            const pisCofinsWdgValue = (data.salesPrices.wdgGross || 0) * ((data.salesPrices.pisccofinsDdg || 0) / 100);
-            const wdgNet = (data.salesPrices.wdgGross || 0) - pisCofinsWdgValue - icmsWdgValue;
             const impostoUnitHidratado = (data.salesPrices.hydratedEthanolGross || 0) - hydratedEthanolNet;
             const impostoUnitAnidro = (data.salesPrices.anhydrousEthanolGross || 0) - anhydrousEthanolNet;
-            const impostoUnitDDG = (data.salesPrices.ddgGross || 0) - ddgNet;
-            const impostoUnitWDG = (data.salesPrices.wdgGross || 0) - wdgNet;
-            const impostosMilho = (impostoUnitHidratado * (data.corn.hydratedEthanol || 0)) + (impostoUnitAnidro * (dreCalculations.prodEAM || 0)) + (impostoUnitDDG * (dreCalculations.prodDDG || 0)) + (impostoUnitWDG * (dreCalculations.prodWDG || 0));
+            const impostosMilho = (impostoUnitHidratado * (data.corn.hydratedEthanol || 0)) + (impostoUnitAnidro * (dreCalculations.prodEAM || 0));
             
             return receitaMilho - impostosMilho;
           })(),
@@ -463,21 +442,13 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
           margemMilho: (() => {
             const receitaMilho = (dreCalculations.receitaEtanolHidratadoMilho || 0) + (dreCalculations.receitaEtanolMilho || 0) + (dreCalculations.receitaDDG || 0) + (dreCalculations.receitaWDG || 0);
             
-            // Calcula impostos do milho
+            // Calcula impostos do milho (apenas etanóis)
             const icmsEthanolValue = (data.salesPrices.hydratedEthanolGross || 0) * ((data.salesPrices.icmsEthanol || 0) / 100);
             const hydratedEthanolNet = (data.salesPrices.hydratedEthanolGross || 0) - (data.salesPrices.pisCofinsEthanol || 0) - icmsEthanolValue;
             const anhydrousEthanolNet = (data.salesPrices.anhydrousEthanolGross || 0) - (data.salesPrices.pisCofinsEthanol || 0);
-            const icmsDdgValue = (data.salesPrices.ddgGross || 0) * ((data.salesPrices.icmsDdg || 0) / 100);
-            const pisCofinsDdgValue = (data.salesPrices.ddgGross || 0) * ((data.salesPrices.pisccofinsDdg || 0) / 100);
-            const ddgNet = (data.salesPrices.ddgGross || 0) - pisCofinsDdgValue - icmsDdgValue;
-            const icmsWdgValue = (data.salesPrices.wdgGross || 0) * ((data.salesPrices.icmsDdg || 0) / 100);
-            const pisCofinsWdgValue = (data.salesPrices.wdgGross || 0) * ((data.salesPrices.pisccofinsDdg || 0) / 100);
-            const wdgNet = (data.salesPrices.wdgGross || 0) - pisCofinsWdgValue - icmsWdgValue;
             const impostoUnitHidratado = (data.salesPrices.hydratedEthanolGross || 0) - hydratedEthanolNet;
             const impostoUnitAnidro = (data.salesPrices.anhydrousEthanolGross || 0) - anhydrousEthanolNet;
-            const impostoUnitDDG = (data.salesPrices.ddgGross || 0) - ddgNet;
-            const impostoUnitWDG = (data.salesPrices.wdgGross || 0) - wdgNet;
-            const impostosMilho = (impostoUnitHidratado * (data.corn.hydratedEthanol || 0)) + (impostoUnitAnidro * (dreCalculations.prodEAM || 0)) + (impostoUnitDDG * (dreCalculations.prodDDG || 0)) + (impostoUnitWDG * (dreCalculations.prodWDG || 0));
+            const impostosMilho = (impostoUnitHidratado * (data.corn.hydratedEthanol || 0)) + (impostoUnitAnidro * (dreCalculations.prodEAM || 0));
             
             const receitaLiquidaMilho = receitaMilho - impostosMilho;
             const cpvMilho = ((cpvCalculado.hydratedEthanolCornCpv || 0) * (data.corn.hydratedEthanol || 0)) + 
@@ -642,31 +613,18 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
           })(),
           impostosMilho: (() => {
             const scenarioData = scenario.originalData;
-            // Calcula preços líquidos etanol
+            // Calcula preços líquidos etanol (impostos apenas para etanóis)
             const icmsEthanolValue = (scenarioData.salesPrices.hydratedEthanolGross || 0) * ((scenarioData.salesPrices.icmsEthanol || 0) / 100);
             const hydratedEthanolNet = (scenarioData.salesPrices.hydratedEthanolGross || 0) - (scenarioData.salesPrices.pisCofinsEthanol || 0) - icmsEthanolValue;
             const anhydrousEthanolNet = (scenarioData.salesPrices.anhydrousEthanolGross || 0) - (scenarioData.salesPrices.pisCofinsEthanol || 0);
             
-            // Calcula preços líquidos DDG/WDG
-            const icmsDdgValue = (scenarioData.salesPrices.ddgGross || 0) * ((scenarioData.salesPrices.icmsDdg || 0) / 100);
-            const pisCofinsDdgValue = (scenarioData.salesPrices.ddgGross || 0) * ((scenarioData.salesPrices.pisccofinsDdg || 0) / 100);
-            const ddgNet = (scenarioData.salesPrices.ddgGross || 0) - pisCofinsDdgValue - icmsDdgValue;
-            
-            const icmsWdgValue = (scenarioData.salesPrices.wdgGross || 0) * ((scenarioData.salesPrices.icmsDdg || 0) / 100);
-            const pisCofinsWdgValue = (scenarioData.salesPrices.wdgGross || 0) * ((scenarioData.salesPrices.pisccofinsDdg || 0) / 100);
-            const wdgNet = (scenarioData.salesPrices.wdgGross || 0) - pisCofinsWdgValue - icmsWdgValue;
-            
             // Diferença entre preço bruto e líquido (imposto unitário)
             const impostoUnitHidratado = (scenarioData.salesPrices.hydratedEthanolGross || 0) - hydratedEthanolNet;
             const impostoUnitAnidro = (scenarioData.salesPrices.anhydrousEthanolGross || 0) - anhydrousEthanolNet;
-            const impostoUnitDDG = (scenarioData.salesPrices.ddgGross || 0) - ddgNet;
-            const impostoUnitWDG = (scenarioData.salesPrices.wdgGross || 0) - wdgNet;
             
-            // Imposto Milho = soma dos impostos de cada produto do milho
+            // Imposto Milho = (Imposto Unit. Hidratado × Prod. EHM) + (Imposto Unit. Anidro × Prod. EAM)
             return (impostoUnitHidratado * (scenarioData.corn.hydratedEthanol || 0)) + 
-                   (impostoUnitAnidro * (dreCalculations.prodEAM || 0)) +
-                   (impostoUnitDDG * (dreCalculations.prodDDG || 0)) +
-                   (impostoUnitWDG * (dreCalculations.prodWDG || 0));
+                   (impostoUnitAnidro * (dreCalculations.prodEAM || 0));
           })(),
           
           // Receita Líquida por fonte (usando impostos calculados corretamente)
@@ -688,21 +646,13 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
             const scenarioData = scenario.originalData;
             const receitaMilho = (dreCalculations.receitaEtanolHidratadoMilho || 0) + (dreCalculations.receitaEtanolMilho || 0) + (dreCalculations.receitaDDG || 0) + (dreCalculations.receitaWDG || 0);
             
-            // Calcula impostos do milho
+            // Calcula impostos do milho (apenas etanóis)
             const icmsEthanolValue = (scenarioData.salesPrices.hydratedEthanolGross || 0) * ((scenarioData.salesPrices.icmsEthanol || 0) / 100);
             const hydratedEthanolNet = (scenarioData.salesPrices.hydratedEthanolGross || 0) - (scenarioData.salesPrices.pisCofinsEthanol || 0) - icmsEthanolValue;
             const anhydrousEthanolNet = (scenarioData.salesPrices.anhydrousEthanolGross || 0) - (scenarioData.salesPrices.pisCofinsEthanol || 0);
-            const icmsDdgValue = (scenarioData.salesPrices.ddgGross || 0) * ((scenarioData.salesPrices.icmsDdg || 0) / 100);
-            const pisCofinsDdgValue = (scenarioData.salesPrices.ddgGross || 0) * ((scenarioData.salesPrices.pisccofinsDdg || 0) / 100);
-            const ddgNet = (scenarioData.salesPrices.ddgGross || 0) - pisCofinsDdgValue - icmsDdgValue;
-            const icmsWdgValue = (scenarioData.salesPrices.wdgGross || 0) * ((scenarioData.salesPrices.icmsDdg || 0) / 100);
-            const pisCofinsWdgValue = (scenarioData.salesPrices.wdgGross || 0) * ((scenarioData.salesPrices.pisccofinsDdg || 0) / 100);
-            const wdgNet = (scenarioData.salesPrices.wdgGross || 0) - pisCofinsWdgValue - icmsWdgValue;
             const impostoUnitHidratado = (scenarioData.salesPrices.hydratedEthanolGross || 0) - hydratedEthanolNet;
             const impostoUnitAnidro = (scenarioData.salesPrices.anhydrousEthanolGross || 0) - anhydrousEthanolNet;
-            const impostoUnitDDG = (scenarioData.salesPrices.ddgGross || 0) - ddgNet;
-            const impostoUnitWDG = (scenarioData.salesPrices.wdgGross || 0) - wdgNet;
-            const impostosMilho = (impostoUnitHidratado * (scenarioData.corn.hydratedEthanol || 0)) + (impostoUnitAnidro * (dreCalculations.prodEAM || 0)) + (impostoUnitDDG * (dreCalculations.prodDDG || 0)) + (impostoUnitWDG * (dreCalculations.prodWDG || 0));
+            const impostosMilho = (impostoUnitHidratado * (scenarioData.corn.hydratedEthanol || 0)) + (impostoUnitAnidro * (dreCalculations.prodEAM || 0));
             
             return receitaMilho - impostosMilho;
           })(),
@@ -734,21 +684,13 @@ export const SimulatorProvider: React.FC<SimulatorProviderProps> = ({ children }
             const scenarioData = scenario.originalData;
             const receitaMilho = (dreCalculations.receitaEtanolHidratadoMilho || 0) + (dreCalculations.receitaEtanolMilho || 0) + (dreCalculations.receitaDDG || 0) + (dreCalculations.receitaWDG || 0);
             
-            // Calcula impostos do milho
+            // Calcula impostos do milho (apenas etanóis)
             const icmsEthanolValue = (scenarioData.salesPrices.hydratedEthanolGross || 0) * ((scenarioData.salesPrices.icmsEthanol || 0) / 100);
             const hydratedEthanolNet = (scenarioData.salesPrices.hydratedEthanolGross || 0) - (scenarioData.salesPrices.pisCofinsEthanol || 0) - icmsEthanolValue;
             const anhydrousEthanolNet = (scenarioData.salesPrices.anhydrousEthanolGross || 0) - (scenarioData.salesPrices.pisCofinsEthanol || 0);
-            const icmsDdgValue = (scenarioData.salesPrices.ddgGross || 0) * ((scenarioData.salesPrices.icmsDdg || 0) / 100);
-            const pisCofinsDdgValue = (scenarioData.salesPrices.ddgGross || 0) * ((scenarioData.salesPrices.pisccofinsDdg || 0) / 100);
-            const ddgNet = (scenarioData.salesPrices.ddgGross || 0) - pisCofinsDdgValue - icmsDdgValue;
-            const icmsWdgValue = (scenarioData.salesPrices.wdgGross || 0) * ((scenarioData.salesPrices.icmsDdg || 0) / 100);
-            const pisCofinsWdgValue = (scenarioData.salesPrices.wdgGross || 0) * ((scenarioData.salesPrices.pisccofinsDdg || 0) / 100);
-            const wdgNet = (scenarioData.salesPrices.wdgGross || 0) - pisCofinsWdgValue - icmsWdgValue;
             const impostoUnitHidratado = (scenarioData.salesPrices.hydratedEthanolGross || 0) - hydratedEthanolNet;
             const impostoUnitAnidro = (scenarioData.salesPrices.anhydrousEthanolGross || 0) - anhydrousEthanolNet;
-            const impostoUnitDDG = (scenarioData.salesPrices.ddgGross || 0) - ddgNet;
-            const impostoUnitWDG = (scenarioData.salesPrices.wdgGross || 0) - wdgNet;
-            const impostosMilho = (impostoUnitHidratado * (scenarioData.corn.hydratedEthanol || 0)) + (impostoUnitAnidro * (dreCalculations.prodEAM || 0)) + (impostoUnitDDG * (dreCalculations.prodDDG || 0)) + (impostoUnitWDG * (dreCalculations.prodWDG || 0));
+            const impostosMilho = (impostoUnitHidratado * (scenarioData.corn.hydratedEthanol || 0)) + (impostoUnitAnidro * (dreCalculations.prodEAM || 0));
             
             const receitaLiquidaMilho = receitaMilho - impostosMilho;
             const cpvMilho = ((cpvCalculado.hydratedEthanolCornCpv || 0) * (scenarioData.corn.hydratedEthanol || 0)) + 

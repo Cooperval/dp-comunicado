@@ -60,7 +60,7 @@ export const applications: Application[] = [
     icon: DollarSign,
     route: '/apps/fechamento',
     color: 'hsla(32, 70%, 50%, 1.00)',
-    status: 'coming-soon',
+    status: 'active',
     cod_modulo: 17,
   },
   {

@@ -94,7 +94,11 @@ import FinancialStatement from "./pages/apps/controle-financeiro/FinancialStatem
 import CashFlow from "./pages/apps/controle-financeiro/CashFlow";
 import HierarchyManagement from "./pages/apps/controle-financeiro/HierarchyManagement";
 
-
+import { FechamentoSidebar } from "./components/layout/FechamentoSidebar";
+import DashboardFechamento from "./pages/apps/fechamento/Dashboard";
+import QuadrosFechamento from "./pages/apps/fechamento/Quadros";
+import BoardViewFechamento from "./pages/apps/fechamento/BoardView";
+import ConfiguracoesFechamento from "./pages/apps/fechamento/Configuracoes";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -875,6 +879,40 @@ const App = () => (
               </Route>
             </Route>
 
+
+            {/* Fechamento app routes - public access */}
+            <Route
+              path="/apps/fechamento"
+              element={
+                <AppLayout sidebar={<FechamentoSidebar />} appName="Fechamento">
+                  <DashboardFechamento />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/apps/fechamento/quadros"
+              element={
+                <AppLayout sidebar={<FechamentoSidebar />} appName="Fechamento">
+                  <QuadrosFechamento />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/apps/fechamento/quadro/:id"
+              element={
+                <AppLayout sidebar={<FechamentoSidebar />} appName="Fechamento">
+                  <BoardViewFechamento />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/apps/fechamento/configuracoes"
+              element={
+                <AppLayout sidebar={<FechamentoSidebar />} appName="Fechamento">
+                  <ConfiguracoesFechamento />
+                </AppLayout>
+              }
+            />
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />

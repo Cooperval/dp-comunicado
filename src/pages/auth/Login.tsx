@@ -178,6 +178,16 @@ export default function Login(): JSX.Element {
               <Calculator className="mr-2 h-4 w-4" />
               Acessar Simulador de Cenários
             </Button>
+
+            <Button 
+              type="button" 
+              variant="outline" 
+              className="w-full"
+              onClick={() => navigate('/apps/fechamento')}
+            >
+              <Calculator className="mr-2 h-4 w-4" />
+              Acessar Fechamento
+            </Button>
           </form>
         </CardContent>
       </Card>

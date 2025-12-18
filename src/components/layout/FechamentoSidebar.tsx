@@ -9,7 +9,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, Kanban, Settings, ArrowLeft } from 'lucide-react';
+import { LayoutDashboard, Kanban, Settings, ArrowLeft, FileText } from 'lucide-react';
 import logoLight from '@/assets/logomarca-cooperval-01.png';
 import logoDark from '@/assets/logomarca-cooperval-02.png';
 import { useEffect, useState } from 'react';
@@ -17,6 +17,7 @@ import { useEffect, useState } from 'react';
 const menuItems = [
   { title: 'Dashboard', url: '/apps/fechamento', icon: LayoutDashboard },
   { title: 'Quadros', url: '/apps/fechamento/quadros', icon: Kanban },
+  { title: 'Gerenciar Tarefas', url: '/apps/fechamento/tarefas', icon: FileText },
   { title: 'Configurações', url: '/apps/fechamento/configuracoes', icon: Settings },
 ];
 

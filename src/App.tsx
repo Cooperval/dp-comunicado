@@ -99,6 +99,7 @@ import DashboardFechamento from "./pages/apps/fechamento/Dashboard";
 import QuadrosFechamento from "./pages/apps/fechamento/Quadros";
 import BoardViewFechamento from "./pages/apps/fechamento/BoardView";
 import ConfiguracoesFechamento from "./pages/apps/fechamento/Configuracoes";
+import GerenciarTarefasFechamento from "./pages/apps/fechamento/GerenciarTarefas";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -902,6 +903,14 @@ const App = () => (
               element={
                 <AppLayout sidebar={<FechamentoSidebar />} appName="Fechamento">
                   <BoardViewFechamento />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/apps/fechamento/tarefas"
+              element={
+                <AppLayout sidebar={<FechamentoSidebar />} appName="Fechamento">
+                  <GerenciarTarefasFechamento />
                 </AppLayout>
               }
             />

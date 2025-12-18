@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fechamentoService } from '@/services/fechamentoLocalStorage';
-import { Board } from '@/types/fechamento';
+import { Board, BoardType, BOARD_TYPE_CONFIG } from '@/types/fechamento';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -25,7 +27,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from '@/hooks/use-toast';
-import { Plus, Kanban, Trash2, Edit, ArrowRight } from 'lucide-react';
+import { Plus, Kanban, Trash2, Edit, ArrowRight, RefreshCw, FileText } from 'lucide-react';
 
 export default function Quadros() {
   const navigate = useNavigate();
@@ -36,6 +38,7 @@ export default function Quadros() {
   const [boardToDelete, setBoardToDelete] = useState<Board | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [boardType, setBoardType] = useState<BoardType>('recurring');
 
   useEffect(() => {
     loadBoards();
@@ -49,6 +52,7 @@ export default function Quadros() {
     setEditingBoard(null);
     setName('');
     setDescription('');
+    setBoardType('recurring');
     setDialogOpen(true);
   };
 
@@ -57,6 +61,7 @@ export default function Quadros() {
     setEditingBoard(board);
     setName(board.name);
     setDescription(board.description || '');
+    setBoardType(board.type);
     setDialogOpen(true);
   };
 
@@ -76,7 +81,7 @@ export default function Quadros() {
       fechamentoService.updateBoard(editingBoard.id, { name, description: description || undefined });
       toast({ title: 'Quadro atualizado' });
     } else {
-      const newBoard = fechamentoService.createBoard(name, description || undefined);
+      const newBoard = fechamentoService.createBoard(name, description || undefined, boardType);
       toast({ title: 'Quadro criado' });
       navigate(`/apps/fechamento/quadro/${newBoard.id}`);
     }
@@ -133,12 +138,21 @@ export default function Quadros() {
               onClick={() => navigate(`/apps/fechamento/quadro/${board.id}`)}
             >
               <CardHeader>
-                <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Kanban className="h-5 w-5 text-primary" />
-                      {board.name}
-                    </CardTitle>
+                    <div className="flex items-center gap-2 mb-1">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Kanban className="h-5 w-5 text-primary" />
+                        {board.name}
+                      </CardTitle>
+                      <Badge variant="outline" className="text-xs">
+                        {board.type === 'recurring' ? (
+                          <><RefreshCw className="h-3 w-3 mr-1" />Mensal</>
+                        ) : (
+                          <><FileText className="h-3 w-3 mr-1" />Contínuo</>
+                        )}
+                      </Badge>
+                    </div>
                     {board.description && (
                       <CardDescription className="mt-1">{board.description}</CardDescription>
                     )}
@@ -200,6 +214,24 @@ export default function Quadros() {
                 rows={3}
               />
             </div>
+            {!editingBoard && (
+              <div className="space-y-3">
+                <Label>Tipo do Quadro</Label>
+                <RadioGroup value={boardType} onValueChange={(v) => setBoardType(v as BoardType)}>
+                  {Object.entries(BOARD_TYPE_CONFIG).map(([key, config]) => (
+                    <div key={key} className="flex items-start space-x-3">
+                      <RadioGroupItem value={key} id={key} className="mt-1" />
+                      <div className="grid gap-0.5">
+                        <Label htmlFor={key} className="flex items-center gap-2 cursor-pointer">
+                          {config.icon} {config.label}
+                        </Label>
+                        <p className="text-xs text-muted-foreground">{config.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>

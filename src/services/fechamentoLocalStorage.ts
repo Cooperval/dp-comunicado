@@ -7,12 +7,12 @@ import {
   shouldCreateNewCycle, getCurrentYearMonth, topologicalSort
 } from '@/utils/fechamentoCalculations';
 
-const STORAGE_KEY = 'fechamento-data-v2';
+const STORAGE_KEY = 'fechamento-data-v3';
 
 const getInitialData = (): FechamentoData => {
   const now = new Date().toISOString();
   
-  // Definições de tarefas padrão
+  // Tarefas sem dependências (podem iniciar no dia 1)
   const def1: TaskDefinition = {
     id: generateId(),
     name: 'Conciliar extratos bancários',
@@ -39,6 +39,31 @@ const getInitialData = (): FechamentoData => {
   
   const def3: TaskDefinition = {
     id: generateId(),
+    name: 'Conferir provisões',
+    description: 'Verificar todas as provisões contábeis do período',
+    durationDays: 2,
+    dependencies: [],
+    priority: 'low',
+    isRecurring: true,
+    createdAt: now,
+    updatedAt: now,
+  };
+  
+  const def4: TaskDefinition = {
+    id: generateId(),
+    name: 'Validar inventário',
+    description: 'Conferir saldos de estoque e inventário',
+    durationDays: 2,
+    dependencies: [],
+    priority: 'medium',
+    isRecurring: true,
+    createdAt: now,
+    updatedAt: now,
+  };
+  
+  // Tarefa que depende de 2 tarefas iniciais
+  const def5: TaskDefinition = {
+    id: generateId(),
     name: 'Apurar impostos',
     description: 'Calcular e apurar todos os impostos do período',
     durationDays: 3,
@@ -49,31 +74,46 @@ const getInitialData = (): FechamentoData => {
     updatedAt: now,
   };
   
-  const def4: TaskDefinition = {
+  // Tarefa que depende de múltiplas tarefas
+  const def6: TaskDefinition = {
     id: generateId(),
     name: 'Gerar balancete',
     description: 'Emitir balancete de verificação',
     durationDays: 2,
-    dependencies: [def3.id],
+    dependencies: [def3.id, def4.id, def5.id],
     priority: 'high',
     isRecurring: true,
     createdAt: now,
     updatedAt: now,
   };
   
-  const def5: TaskDefinition = {
+  // Tarefa final com dependência única
+  const def7: TaskDefinition = {
     id: generateId(),
     name: 'Fechar contas de resultado',
     description: 'Encerrar contas de receitas e despesas',
     durationDays: 2,
-    dependencies: [def4.id],
+    dependencies: [def6.id],
     priority: 'high',
     isRecurring: true,
     createdAt: now,
     updatedAt: now,
   };
   
-  const taskDefinitions = [def1, def2, def3, def4, def5];
+  // Tarefa final
+  const def8: TaskDefinition = {
+    id: generateId(),
+    name: 'Enviar relatório à diretoria',
+    description: 'Preparar e enviar relatório consolidado à diretoria',
+    durationDays: 1,
+    dependencies: [def7.id],
+    priority: 'urgent',
+    isRecurring: true,
+    createdAt: now,
+    updatedAt: now,
+  };
+  
+  const taskDefinitions = [def1, def2, def3, def4, def5, def6, def7, def8];
   
   // Board padrão
   const boardId = generateId();

@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredModule?: string; // cod_modulo esperado (opcional)
+  requiredModule?: string | number; // cod_modulo esperado (opcional)
   allowedAccessTypes?: string[]; // opcional override
 }
 
@@ -36,7 +36,8 @@ export function ProtectedRoute({
   }
 
   // `acessos` deve ser um array com objetos { COD_MODULO, TIPO_ACESSO }
-  const access = (acessos || []).find((a: any) => a.COD_MODULO === requiredModule);
+  const moduleToCheck = typeof requiredModule === 'number' ? requiredModule.toString() : requiredModule;
+  const access = (acessos || []).find((a: any) => String(a.COD_MODULO) === moduleToCheck);
 
   if (!access || !allowedAccessTypes.includes(access.TIPO_ACESSO)) {
     // usuário não tem permissão para esse módulo -> volta pro portal

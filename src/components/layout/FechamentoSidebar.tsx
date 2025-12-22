@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, Users, Settings, BarChart3, Leaf } from "lucide-react";
+import { User, Users, Settings, BarChart3, Leaf, ShieldCheck } from "lucide-react";
 import { cn } from "@/pages/apps/fechamento/lib/utils";
 import { useNavigate } from "react-router-dom";
 
@@ -30,6 +30,7 @@ export const FechamentoSidebar = () => {
     { id: "dashboard", label: "Dashboard", icon: <BarChart3 className="w-5 h-5" />, url: "/apps/fechamento" },
     { id: "projects", label: "Projetos", icon: <Leaf className="w-5 h-5" />, url: "/apps/fechamento/projetos" },
     { id: "team", label: "Equipe", icon: <Users className="w-5 h-5" />, url: "/apps/fechamento/equipe" },
+    { id: "access", label: "Controle de Acesso", icon: <ShieldCheck className="w-5 h-5" />, url: "/apps/fechamento/acesso" },
     {
       id: "settings",
       label: "Configurações",

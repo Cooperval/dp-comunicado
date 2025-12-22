@@ -4,9 +4,9 @@ import { DashboardStats } from "@/pages/apps/fechamento/components/dashboard/Das
 import { ValueTypesSettings } from "@/pages/apps/fechamento/components/settings/ValueTypesSettings";
 import { KanbanBoard } from "@/pages/apps/fechamento/components/kanban/KanbanBoard";
 import { TeamManagement } from "@/pages/apps/fechamento/components/team/TeamManagement";
+import { AccessControl } from "@/pages/apps/fechamento/AccessControl";
 import { useProjects } from "@/pages/apps/fechamento/hooks/useProjects";
 import { UserRole } from "@/pages/apps/fechamento/types";
-
 const Fechamento = () => {
   const [activeSection, setActiveSection] = useState('projects');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -115,6 +115,8 @@ const Fechamento = () => {
           </div>
         );
 
+      case 'access':
+        return <AccessControl />;
       default:
         return (
           <Dashboard

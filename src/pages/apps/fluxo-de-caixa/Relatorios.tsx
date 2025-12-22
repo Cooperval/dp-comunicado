@@ -63,24 +63,24 @@ const Relatorios = () => {
   const fetchData = async () => {
     try {
       const { data: bancosData, error: bancosError } = await supabase
-        .from('bancos')
+        .from('banks')
         .select('*')
-        .order('nome');
+        .order('bank_name');
 
       if (bancosError) throw bancosError;
 
       const { data: movimentacoesData, error: movimentacoesError } = await supabase
-        .from('movimentacoes')
+        .from('transactions')
         .select(`
           *,
-          bancos (nome)
+          banks (bank_name)
         `)
-        .order('data_original', { ascending: false });
+        .order('transaction_date', { ascending: false });
 
       if (movimentacoesError) throw movimentacoesError;
 
-      setBancos(bancosData || []);
-      setMovimentacoes(movimentacoesData as Movimentacao[] || []);
+      setBancos(bancosData as any || []);
+      setMovimentacoes(movimentacoesData as any || []);
     } catch (error) {
       toast({
         title: "Erro ao carregar dados",

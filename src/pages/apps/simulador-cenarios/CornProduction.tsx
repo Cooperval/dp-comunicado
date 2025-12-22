@@ -2,13 +2,13 @@ import React, { useEffect } from 'react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { NumericInput } from '@/components/ui/numeric-input';
-import { useSimulator } from '@/pages/apps/simulador-cenarios/contexts/SimulatorContext';
+import { useSimulator } from '@/contexts/SimulatorContext';
 import { Badge } from '@/components/ui/badge';
-import { calcularProducoesMilho } from '@/pages/apps/simulador-cenarios//utils/simulatorCalculations';
+import { calcularProducoesMilho } from '@/utils/simulatorCalculations';
 const CornProduction: React.FC = () => {
   const { updateCorn } = useSimulator();
   const { updateData } = useSimulator();
-  const { data } = useSimulator();
+    const { data } = useSimulator();
 
   // Função utilitária que atualiza um campo específico de data (que vem do contexto)
   const handleInputChange2 = (field: keyof typeof data, value: number) => {
@@ -104,7 +104,10 @@ const CornProduction: React.FC = () => {
               placeholder="0.00"
             />
 
-
+            <div className="flex justify-between items-center pt-2 border-t">
+              <span className="text-sm text-muted-foreground">Rendimento WDG Total:</span>
+              <Badge variant="outline">{((data.ddgYieldPerTon / 0.4) + data.wdgYieldPerTon).toFixed(1)} kg/ton</Badge>
+            </div>
           </CardContent>
         </Card>
 
@@ -145,12 +148,15 @@ const CornProduction: React.FC = () => {
                 <Badge variant="outline">{anhydrousPerTonCorn.toFixed(2)} L/ton</Badge>
               </div>
 
-              <div className="flex justify-between items-center pt-2">
-                <span className="text-sm text-muted-foreground">Rendimento WDG Total:</span>
-                <Badge variant="outline">{((data.ddgYieldPerTon / 0.4) + data.wdgYieldPerTon).toFixed(1)} kg/ton</Badge>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Kg DDG / ton milho:</span>
+                <Badge variant="outline">{ddgPerTonCorn.toFixed(0)} kg/ton</Badge>
               </div>
 
-
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Kg WDG / ton milho:</span>
+                <Badge variant="outline">{wdgPerTonCorn.toFixed(1)} kg/ton</Badge>
+              </div>
             </div>
 
             <div className="border-t pt-4 space-y-3">

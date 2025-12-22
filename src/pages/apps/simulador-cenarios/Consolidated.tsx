@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useSimulator, SavedScenario } from '@/pages/apps/simulador-cenarios/contexts/SimulatorContext';
+import { useSimulator, SavedScenario } from '@/contexts/SimulatorContext';
 import { Download, Save, Trash2, Plus, RefreshCw, Pencil, Upload, FileDown } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';

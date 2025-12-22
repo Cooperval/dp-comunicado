@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useSimulator } from '@/pages/apps/simulador-cenarios/contexts/SimulatorContext';
+import { useSimulator } from '@/contexts/SimulatorContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -10,8 +10,8 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { calcularDREPorProduto, ProductData, calculateConsolidatedData, getConsolidatedDREData, ConsolidatedDREData } from '@/pages/apps/simulador-cenarios/utils/simulatorCalculations';
-import { ScenarioSelector } from '@/pages/apps/simulador-cenarios/components/ScenarioSelector';
+import { calcularDREPorProduto, ProductData, calculateConsolidatedData, getConsolidatedDREData, ConsolidatedDREData } from '@/utils/simulatorCalculations';
+import { ScenarioSelector } from '@/components/simulador-cenarios/ScenarioSelector';
 
 const DREByProduct: React.FC = () => {
   const { data, saveScenario, savedScenarios } = useSimulator();

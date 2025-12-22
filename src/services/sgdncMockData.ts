@@ -146,9 +146,9 @@ export interface Treinamento {
 
 // Mock de aprovadores
 export const mockAprovadores: Aprovador[] = [
-  { id: '1868', nome: 'Jose Luiz Bernardi Junior', cargo: '' },
-  { id: '9933', nome: 'Fernando Teuber', cargo: '' },
-  { id: '2063', nome: 'Fernando Fernandes Nardine', cargo: '' },
+  { id: '1868', nome: 'Jose Luiz Bernardi Junior', cargo: 'gerente' },
+  { id: '9933', nome: 'Fernando Teuber', cargo: 'supervisor' },
+  { id: '2063', nome: 'Fernando Fernandes Nardine', cargo: 'analista' },
 
 ];
 

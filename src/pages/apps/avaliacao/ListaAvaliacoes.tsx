@@ -35,7 +35,7 @@ export default function ListaAvaliacoes() {
   useEffect(() => {
     const loadAvaliacoes = async () => {
       setLoading(true);
-      const data = await mockAPI.getAvaliacoes(user?.id, isRH);
+      const data = await mockAPI.getAvaliacoes();
       setAvaliacoes(data);
       setLoading(false);
     };

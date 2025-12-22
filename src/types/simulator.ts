@@ -10,15 +10,18 @@ export interface OperationPremises {
   cornTotalConvertedYield: number; // Rendimento total convertido (L/ton) de etanol por milho
   industrialTimeEfficiency: number; // Eficiência industrial da planta de milho
   cornProcessedPerDay: number;      // Quantidade de milho processado por dia (toneladas)
-  totalWdgYield: number;            // Rendimento WDG (subproduto) por tonelada de milho (kg/ton)
+  ddgYieldPerTon: number;           // Rendimento DDG por tonelada de milho (kg/ton)
+  wdgYieldPerTon: number;           // Rendimento WDG por tonelada de milho (kg/ton)
 }
 
 
 export interface SugarCaneProduction {
   // Moagem de Cana
   totalGroundCane: number;       // Total de cana moída (toneladas)
-  sugarGroundCane: number;       // Parte da cana destinada à produção de açúcar
-  ethanolGroundCane: number;     // Parte da cana destinada à produção de etanol
+  sugarMix: number;              // Mix açúcar (%) - percentual destinado a açúcar
+  ethanolMix: number;            // Mix etanol (%) - percentual destinado a etanol
+  sugarGroundCane: number;       // Calculado: totalGroundCane * sugarMix / 100
+  ethanolGroundCane: number;     // Calculado: totalGroundCane * ethanolMix / 100
   sugarPerTonCane: number;       // Quantidade de açúcar produzida por tonelada de cana (kg/t)
   hydratedEthanolPerTonCane: number; // Etanol hidratado produzido por tonelada de cana (L/t)
   anhydrousEthanolPerTonCane: number; // Etanol anidro produzido por tonelada de cana (L/t)
@@ -88,6 +91,10 @@ export interface ProductionCosts {
 
   // Custo administrativo por tonelada de cana
   administration: number;
+
+  // Despesas de comercialização
+  salesExpenseEthanol: number;  // R$/m³ de etanol
+  salesExpenseSugar: number;    // R$/ton de açúcar
 }
 
 
@@ -126,11 +133,14 @@ export const initialSimulatorData: SimulatorData = {
   cornTotalConvertedYield: 433,
   industrialTimeEfficiency: 95.8,
   cornProcessedPerDay: 368,
-  totalWdgYield: 387.5,
+  ddgYieldPerTon: 80,
+  wdgYieldPerTon: 187.5,
 
   // Sugar Cane Production
   sugarCane: {
     totalGroundCane: 176148,
+    sugarMix: 56.2,              // 99003 / 176148 * 100
+    ethanolMix: 43.8,            // 77145 / 176148 * 100
     sugarGroundCane: 99003,
     ethanolGroundCane: 77145,
     sugarPerTonCane: 70,
@@ -192,6 +202,8 @@ export const initialSimulatorData: SimulatorData = {
     cornIndustry: 150,
     cornBiomass: 48,
     administration: 9.8,
+    salesExpenseEthanol: 5.04,
+    salesExpenseSugar: 165.09,
   },
 
   // DRE

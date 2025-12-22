@@ -79,4 +79,89 @@ export const mockAPI = {
       },
     ];
   },
+
+  // ===== User Management =====
+  getUsuarios: async () => {
+    await delay(400);
+    return [
+      { id: '1', matricula: '001', name: 'Admin', email: 'admin@example.com', role: 'admin' as const, department: 'TI', allowedApps: ['*'], active: true, createdAt: '2024-01-01' },
+      { id: '2', matricula: '002', name: 'User', email: 'user@example.com', role: 'gestor' as const, department: 'RH', allowedApps: ['avaliacao'], active: true, createdAt: '2024-01-01' },
+    ];
+  },
+
+  createUsuario: async (data: any) => {
+    await delay(600);
+    return { success: true, id: Date.now().toString() };
+  },
+
+  updateUsuario: async (id: string, data: any) => {
+    await delay(600);
+    return { success: true };
+  },
+
+  deleteUsuario: async (id: string) => {
+    await delay(600);
+    return { success: true };
+  },
+
+  // ===== Avaliação =====
+  getAvaliacoesStats: async () => {
+    await delay(300);
+    return { total: 10, pendentes: 3, concluidas: 7 };
+  },
+
+  getAvaliacoes: async () => {
+    await delay(400);
+    return [];
+  },
+
+  getModelosAvaliacao: async () => {
+    await delay(400);
+    return [];
+  },
+
+  getModeloAvaliacaoById: async (id: string) => {
+    await delay(400);
+    return null;
+  },
+
+  createModeloAvaliacao: async (data: any) => {
+    await delay(600);
+    return { success: true, id: Date.now().toString() };
+  },
+
+  updateModeloAvaliacao: async (id: string, data: any) => {
+    await delay(600);
+    return { success: true };
+  },
+
+  deleteModeloAvaliacao: async (id: string) => {
+    await delay(600);
+    return { success: true };
+  },
+
+  duplicateModeloAvaliacao: async (id: string) => {
+    await delay(600);
+    return { success: true, id: Date.now().toString() };
+  },
+
+  atribuirAvaliacao: async (data: any) => {
+    await delay(600);
+    return { success: true };
+  },
+
+  getAvaliacaoParaResponder: async (id: string) => {
+    await delay(400);
+    return null;
+  },
+
+  getAvaliacaoDetalhes: async (id: string) => {
+    await delay(400);
+    return null;
+  },
+
+  submitAvaliacaoResposta: async (id: string, data: any) => {
+    await delay(600);
+    return { success: true };
+  },
 };

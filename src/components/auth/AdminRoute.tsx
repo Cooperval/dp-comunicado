@@ -19,7 +19,7 @@ export function AdminRoute({ children }: AdminRouteProps) {
     );
   }
 
-  if (user?.role !== 'admin') {
+  if (!user?.roles?.includes('admin')) {
     return <Navigate to="/portal" replace />;
   }
 

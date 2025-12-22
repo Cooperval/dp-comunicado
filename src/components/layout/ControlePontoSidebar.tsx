@@ -6,7 +6,7 @@ import {
   ArrowLeft,
   LogOut, User
 } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Sidebar,
   SidebarContent,
@@ -49,6 +49,7 @@ const menuItems = [
 export function ControlePontoSidebar() {
   const { acessos, user, logout} = useAuth();
   const { state } = useSidebar();
+  const navigate = useNavigate();
   const isCollapsed = state === "collapsed";
 
   // --- lógica de permissões para o MÓDULO 13 ---

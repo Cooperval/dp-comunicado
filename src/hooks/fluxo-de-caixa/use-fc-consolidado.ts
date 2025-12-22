@@ -36,7 +36,7 @@ export function useFluxoCaixaConsolidado() {
   const activeReq = useRef(0);
 
   const fetchData = useCallback(
-    async (params: { dataInicio?: string; dataFim?: string; show?: ShowFlags } = {}) => {
+    async (params: FetchParams = {}) => {
       const { dataInicio, dataFim, show, codTipoConta } = params;
       const reqId = ++activeReq.current;
 

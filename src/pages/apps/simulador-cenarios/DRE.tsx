@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useSimulator } from '@/pages/apps/simulador-cenarios/contexts/SimulatorContext';
+import { useSimulator } from '@/contexts/SimulatorContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,8 +24,8 @@ import { toast } from 'sonner';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 // import marcaDagua from '@/assets/logo-1.png'
-import { calcularDRE, calcularResumoFinanceiro, calculateConsolidatedData, getConsolidatedDREData, ConsolidatedDREData } from '@/pages/apps/simulador-cenarios/utils/simulatorCalculations';
-import { ScenarioSelector } from '@/pages/apps/simulador-cenarios/components/ScenarioSelector';
+import { calcularDRE, calcularResumoFinanceiro, calculateConsolidatedData, getConsolidatedDREData, ConsolidatedDREData } from '@/utils/simulatorCalculations';
+import { ScenarioSelector } from '@/components/simulador-cenarios/ScenarioSelector';
 
 const DRE = () => {
   const { data, updateDRE, savedScenarios } = useSimulator();

@@ -1,15 +1,9 @@
+import { useState } from "react";
 import { User, Users, Settings, BarChart3, Leaf } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { UserRole } from "@/types";
+import { useNavigate } from "react-router-dom";
 
-interface SidebarProps {
-  currentUser: {
-    name: string;
-    role: UserRole;
-  };
-  activeSection: string;
-  onSectionChange: (section: string) => void;
-}
+type UserRole = "admin" | "manager" | "collaborator";
 
 const roleLabels: Record<UserRole, string> = {
   admin: "Administrador",
@@ -23,13 +17,26 @@ const roleIcons: Record<UserRole, React.ReactNode> = {
   collaborator: <User className="w-4 h-4" />,
 };
 
-export const Sidebar = ({ currentUser, activeSection, onSectionChange }: SidebarProps) => {
+export const FechamentoSidebar = () => {
+  const navigate = useNavigate();
+  const [activeSection, setActiveSection] = useState("dashboard");
+  
+  const currentUser = {
+    name: "Usuário",
+    role: "collaborator" as UserRole,
+  };
+
   const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: <BarChart3 className="w-5 h-5" /> },
-    { id: "projects", label: "Projetos", icon: <Leaf className="w-5 h-5" /> },
-    { id: "team", label: "Equipe", icon: <Users className="w-5 h-5" /> },
-    { id: "settings", label: "Configurações", icon: <Settings className="w-5 h-5" /> },
+    { id: "dashboard", label: "Dashboard", icon: <BarChart3 className="w-5 h-5" />, url: "/apps/fechamento" },
+    { id: "projects", label: "Projetos", icon: <Leaf className="w-5 h-5" />, url: "/apps/fechamento/projetos" },
+    { id: "team", label: "Equipe", icon: <Users className="w-5 h-5" />, url: "/apps/fechamento/equipe" },
+    { id: "settings", label: "Configurações", icon: <Settings className="w-5 h-5" />, url: "/apps/fechamento/configuracoes" },
   ];
+
+  const handleSectionChange = (item: typeof menuItems[0]) => {
+    setActiveSection(item.id);
+    navigate(item.url);
+  };
 
   return (
     <div className="w-64 gradient-earth border-r border-sidebar-border p-6 animate-slide-in-left">
@@ -76,7 +83,7 @@ export const Sidebar = ({ currentUser, activeSection, onSectionChange }: Sidebar
         {menuItems.map((item) => (
           <button
             key={item.id}
-            onClick={() => onSectionChange(item.id)}
+            onClick={() => handleSectionChange(item)}
             className={cn(
               "w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-organic text-left",
               activeSection === item.id

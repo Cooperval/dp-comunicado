@@ -1,156 +1,104 @@
-import { User, Users, Settings, BarChart3, Leaf, LogOut, ArrowLeft } from "lucide-react";
+import { User, Users, Settings, BarChart3, Leaf } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { UserRole } from "@/pages/apps/fechamento/types";
-import logo from '@/assets/logo-4.png';
-import { useAuth } from "@/contexts/AuthContext";
-import { Button } from '@/components/ui/button';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar,
-} from '@/components/ui/sidebar';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { UserRole } from "@/types";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
+interface SidebarProps {
+  currentUser: {
+    name: string;
+    role: UserRole;
+  };
+  activeSection: string;
+  onSectionChange: (section: string) => void;
+}
 
+const roleLabels: Record<UserRole, string> = {
+  admin: "Administrador",
+  manager: "Gestor",
+  collaborator: "Colaborador",
+};
 
-export const FechamentoSidebar = () => {
-  const { acessos, user, logout } = useAuth();
-  const { state } = useSidebar();
-  const isCollapsed = state === "collapsed";
-  const navigate = useNavigate();
+const roleIcons: Record<UserRole, React.ReactNode> = {
+  admin: <Settings className="w-4 h-4" />,
+  manager: <BarChart3 className="w-4 h-4" />,
+  collaborator: <User className="w-4 h-4" />,
+};
 
+export const Sidebar = ({ currentUser, activeSection, onSectionChange }: SidebarProps) => {
   const menuItems = [
-    { id: 'dashboard', title: 'Dashboard', icon: BarChart3, url: '/apps/fechamento' },
-    { id: 'projects', title: 'Projetos', icon: Leaf, url: '/apps/fechamento/projetos' },
-    { id: 'team', title: 'Equipe', icon: Users, url: '/apps/fechamento/equipe' },
-    { id: 'settings', title: 'Configurações', icon: Settings, url: '/apps/fechamento/configuracoes' },
+    { id: "dashboard", label: "Dashboard", icon: <BarChart3 className="w-5 h-5" /> },
+    { id: "projects", label: "Projetos", icon: <Leaf className="w-5 h-5" /> },
+    { id: "team", label: "Equipe", icon: <Users className="w-5 h-5" /> },
+    { id: "settings", label: "Configurações", icon: <Settings className="w-5 h-5" /> },
   ];
 
-  // --- lógica de permissões para o MÓDULO 13 ---
-  const modulo17 = Array.isArray(acessos)
-    ? acessos.find((a: any) => Number(a.COD_MODULO) === 17)
-    : null;
-
-  const tipo = modulo17?.TIPO_ACESSO?.toString()?.toUpperCase() || null;
-
-  const hasFullAccess = tipo === "A" || tipo === "G";
-  const hasLimitedAccess = tipo === "S" || tipo === "U";
-
-  const limitedIds = ['projects'];
-
-
-
-  // Filtra itens a partir da regra acima
-  const allowedMenuItems = hasFullAccess
-    ? menuItems
-    : hasLimitedAccess
-      ? menuItems.filter((it) => limitedIds.includes(it.id))
-      : [];
-
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
   return (
-    <Sidebar collapsible="icon">
-      <SidebarContent>
-        <div className="p-6 border-b border-border">
-          <h2 className="transition-smooth text-xl">
-            <img src={logo} alt="Cooperval" className="h-15 object-contain" />
-          </h2>
-        </div>
-
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <NavLink to="/portal">
-                    <ArrowLeft className="h-4 w-4" />
-                    <span>Voltar ao Portal</span>
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {allowedMenuItems.length === 0 ? (
-                // Se quiser esconder completamente, só remova este bloco e não renderize nada.
-                <SidebarMenuItem>
-                  <div className="px-4 py-3 text-sm text-muted-foreground">
-                    Acesso restrito.
-                  </div>
-                </SidebarMenuItem>
-              ) : (
-                allowedMenuItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
-                      <NavLink
-                        to={item.url}
-                        end={item.url === "/apps/fechamento"}
-                      >
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-
-      <SidebarFooter className="border-t border-sidebar-border">
-        {!isCollapsed && user && (
-          <div className="px-3 py-2">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                <User className="h-4 w-4 text-primary" />
-              </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm font-medium text-sidebar-foreground truncate">
-                  {user.name}
-                </span>
-
-              </div>
+    <div className="w-64 gradient-earth border-r border-sidebar-border p-6 animate-slide-in-left">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-glow">
+              <Leaf className="w-6 h-6 text-primary-foreground" />
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={handleLogout}
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sair
-            </Button>
+            <div>
+              <h1 className="text-xl font-bold text-sidebar-primary">SugarFlow</h1>
+              <p className="text-sm text-sidebar-foreground/70">Gestão Sucroenergética</p>
+            </div>
           </div>
-        )}
-        {isCollapsed && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-full"
-            onClick={handleLogout}
+          <ThemeToggle />
+        </div>
+      </div>
+
+      {/* User Info */}
+      <div className="mb-8 p-4 bg-card/40 backdrop-blur-sm rounded-xl border border-border/30">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center">
+            <User className="w-5 h-5 text-primary" />
+          </div>
+          <div className="flex-1">
+            <p className="font-medium text-card-foreground">{currentUser.name}</p>
+            <div
+              className={cn(
+                "inline-flex items-center space-x-1 text-xs px-2 py-1 rounded-full font-medium",
+                currentUser.role === "admin" && "hierarchy-admin",
+                currentUser.role === "manager" && "hierarchy-manager",
+                currentUser.role === "collaborator" && "hierarchy-collaborator",
+              )}
+            >
+              {roleIcons[currentUser.role]}
+              <span>{roleLabels[currentUser.role]}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <nav className="space-y-2">
+        {menuItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => onSectionChange(item.id)}
+            className={cn(
+              "w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-organic text-left",
+              activeSection === item.id
+                ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-soft"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            )}
           >
-            <LogOut className="h-4 w-4" />
-          </Button>
-        )}
-      </SidebarFooter>
-    </Sidebar>
+            {item.icon}
+            <span className="font-medium">{item.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      {/* Footer */}
+      <div className="absolute bottom-6 left-6 right-6">
+        <div className="text-xs text-sidebar-foreground/50 text-center">
+          <p>SugarFlow v1.0</p>
+          <p>Setor Sucroenergético</p>
+        </div>
+      </div>
+    </div>
   );
 };

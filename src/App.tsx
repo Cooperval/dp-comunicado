@@ -94,7 +94,7 @@ import HierarchyManagement from "./pages/apps/controle-financeiro/HierarchyManag
 import Organization from "./pages/apps/controle-financeiro/Organization";
 
 import { FechamentoSidebar } from "./components/layout/FechamentoSidebar";
-import FechamentoBoard from "./pages/apps/fechamento/FechamentoBoard";
+import Fechamento from "./pages/apps/fechamento/Fechamento";
 
 const queryClient = new QueryClient();
 
@@ -650,7 +650,7 @@ const App = () => (
               path="/apps/fechamento"
               element={
                 <AppLayout sidebar={<FechamentoSidebar />} appName="Fechamento">
-                  <FechamentoBoard />
+                  <Fechamento />
                 </AppLayout>
               }
             />

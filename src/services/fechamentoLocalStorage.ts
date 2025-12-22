@@ -652,39 +652,6 @@ export const fechamentoService = {
   },
 
   // ============ MONTHLY RESET ============
-  resetCurrentCycle(boardId: string): MonthlyCycle | null {
-    const data = this.getData();
-    const board = data.boards.find(b => b.id === boardId);
-    if (!board || !board.currentCycleId) return null;
-
-    const cycle = data.monthlyCycles.find(c => c.id === board.currentCycleId);
-    if (!cycle) return null;
-
-    // Reset all executions for this cycle
-    const cycleStart = new Date(cycle.startDate);
-    
-    data.taskExecutions = data.taskExecutions.map(exec => {
-      if (exec.boardId === boardId && exec.cycleId === cycle.id) {
-        return {
-          ...exec,
-          status: 'not-started' as const,
-          progress: 0,
-          actualStartDate: undefined,
-          actualEndDate: undefined,
-          updatedAt: new Date().toISOString(),
-        };
-      }
-      return exec;
-    });
-
-    this.saveData(data);
-    
-    // Recalculate schedule
-    this.recalculateBoardSchedule(boardId, cycle.id);
-
-    return cycle;
-  },
-
   checkMonthlyReset(): void {
     const data = this.getData();
     const { year, month } = getCurrentYearMonth();

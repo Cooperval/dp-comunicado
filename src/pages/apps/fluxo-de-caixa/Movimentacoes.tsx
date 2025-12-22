@@ -1,10 +1,22 @@
-import { useMemo, useState, useCallback, Fragment } from "react";
+import { useMemo, useState, useCallback, Fragment, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, ArrowUp, FileSpreadsheet, FileText, ChevronRight, ChevronDown } from "lucide-react";
-import { useMovimentacao } from "@/hooks/fluxo-de-caixa/use-movimentacoes";
+import { TrendingUp, TrendingDown, ChevronRight, ChevronDown, RotateCcw, Filter, ChevronsUpDown, Search } from "lucide-react";
+import { useMovimentacao } from "@/pages/apps/fluxo-de-caixa/hooks/use-movimentacoes";
+import { useGrupo } from "@/pages/apps/fluxo-de-caixa/hooks/use-grupo";
+import { Label } from "@/components/ui/label";
+import { useTipoContas } from "@/pages/apps/fluxo-de-caixa/hooks/use-contabacaria";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuSeparator
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 /** ==== Tipos e helpers mínimos ==== */
 type LancamentoBancario = {
@@ -61,15 +73,14 @@ const isDebito = (v: number) => v < 0;
 const norm = (s?: string) =>
   (s ?? "").normalize("NFD").replace(/\p{Diacritic}/gu, "").trim().toLowerCase();
 
-const isTipo = (l: LancamentoBancario, tipo: "credito" | "debito" | "deposito") => {
+const isTipo = (l: LancamentoBancario, tipo: "credito" | "debito") => {
   const t = norm(l.DESC_TIPOMOVIMENTO);
   if (tipo === "credito") return t.includes("credito");
   if (tipo === "debito") return t.includes("debito");
-  if (tipo === "deposito") return t.includes("deposito");
   return false;
 };
 
-const sumByTipoAbs = (data: LancamentoBancario[], tipo: "credito" | "debito" | "deposito") =>
+const sumByTipoAbs = (data: LancamentoBancario[], tipo: "credito" | "debito") =>
   data.reduce((acc, l) => acc + (isTipo(l, tipo) ? Math.abs(Number(l.VALOR_FINAL || 0)) : 0), 0);
 
 const sumComSinal = (data: LancamentoBancario[]) =>
@@ -79,28 +90,48 @@ const sumComSinal = (data: LancamentoBancario[]) =>
 const Movimentacoes = () => {
   const [dataInicio, setDataInicio] = useState<string>("");
   const [dataFim, setDataFim] = useState<string>("");
+  const [codTipo, setCodTipo] = useState<string[]>(["all"]);
+
+  const [filtroOperacao, setFiltroOperacao] = useState<string>("todos");
+  const [filtroTipoMovimento, setFiltroTipoMovimento] = useState<string>("todos");
 
   const { movimentacoes2, loading2, error, fetchData } = useMovimentacao();
+  const { tipos, errorTipos, fetchDataTipos } = useTipoContas();
+  useEffect(() => { fetchDataTipos(); }, [fetchDataTipos]);
 
 
+  const { grupo, fetchDataGrupo } = useGrupo();
+  const [grupoSelecionado, setGrupoSelecionado] = useState<any>(null);
+
+
+  useEffect(() => { fetchDataGrupo(); }, [fetchDataGrupo]);
 
   const onCarregar = useCallback(() => {
     if (dataInicio && dataFim && dataInicio > dataFim) {
       alert("Data início não pode ser maior que data fim.");
       return;
     }
-    fetchData({ dataInicio, dataFim });
-  }, [dataInicio, dataFim, fetchData]);
+
+    // Prepara os tipos de conta para enviar ao backend
+    const tiposContaParaEnviar = codTipo.includes("all") || codTipo.length === 0
+      ? [] // "all" ou nenhum = não filtrar no backend (ou enviar null, dependendo da API)
+      : codTipo.filter(t => t !== "all"); // remove "all" se estiver misturado
+
+    fetchData({
+      dataInicio,
+      dataFim,
+      tiposConta: tiposContaParaEnviar,
+      grupoEmpresa: grupoSelecionado.COD_GRUPOEMPRESA,
+    });
+
+  }, [dataInicio, dataFim, codTipo, fetchData, grupoSelecionado]);
+
 
   const lancamentosBancarios = useMemo(
     () => (Array.isArray(movimentacoes2) ? (movimentacoes2 as LancamentoBancario[]) : []),
     [movimentacoes2]
   );
 
-  const tiposMovimento = useMemo(
-    () => Array.from(new Set(lancamentosBancarios.map(l => l.DESC_TIPOMOVIMENTO))).filter(Boolean),
-    [lancamentosBancarios]
-  );
 
   // --- NOVO: tipos de conta (lista única com código + descrição)
   const tiposConta = useMemo(() => {
@@ -112,7 +143,7 @@ const Movimentacoes = () => {
     return Array.from(map.entries()).map(([cod, desc]) => ({ value: String(cod), label: `${desc}` }));
   }, [lancamentosBancarios]);
 
-  const [tipoMovimentoFilter, setTipoMovimentoFilter] = useState("todas");
+
   const [tipoContaFilter, setTipoContaFilter] = useState("todos");
   const [operacaoCaixaFilter, setOperacaoCaixaFilter] = useState("todas");
 
@@ -138,7 +169,6 @@ const Movimentacoes = () => {
 
   const lancamentosFiltrados = useMemo(() => {
     return lancamentosBancarios
-      .filter(l => (tipoMovimentoFilter === "todas" ? true : l.DESC_TIPOMOVIMENTO === tipoMovimentoFilter))
       .filter(l => (tipoContaFilter === "todos" ? true : String(l.COD_TIPOCONTA) === tipoContaFilter))
       // NOVO FILTRO
       .filter(l =>
@@ -148,7 +178,7 @@ const Movimentacoes = () => {
       );
   }, [
     lancamentosBancarios,
-    tipoMovimentoFilter,
+
     tipoContaFilter,
     operacaoCaixaFilter, // ← não esqueça de adicionar aqui!
   ]);
@@ -156,7 +186,6 @@ const Movimentacoes = () => {
   // Totais por tipo + total geral (saldo líquido)
   const totalCredito = useMemo(() => sumByTipoAbs(lancamentosFiltrados, "credito"), [lancamentosFiltrados]);
   const totalDebito = useMemo(() => sumByTipoAbs(lancamentosFiltrados, "debito"), [lancamentosFiltrados]);
-  const totalDeposito = useMemo(() => sumByTipoAbs(lancamentosFiltrados, "deposito"), [lancamentosFiltrados]);
   const totalGeral = useMemo(() => sumComSinal(lancamentosFiltrados), [lancamentosFiltrados]);
 
   const columns = useMemo(
@@ -185,70 +214,12 @@ const Movimentacoes = () => {
   );
 
   const filenameBase = useMemo(() => {
-    const selMov = tipoMovimentoFilter === "todas" ? "todas" : tipoMovimentoFilter;
     const selTipoConta = tipoContaFilter === "todos" ? "todos" : `tipoConta-${tipoContaFilter}`;
     const dt = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-    return `movimentacoes-${selMov}-${selTipoConta}-${dt}`;
-  }, [tipoMovimentoFilter, tipoContaFilter]);
+    return `movimentacoes-${selTipoConta}-${dt}`;
+  }, [tipoContaFilter]);
 
-  // ===== LAZY IMPORTS (reduz drasticamente o bundle inicial) =====
-  const exportToExcel = useCallback(async () => {
-    try {
-      const XLSX = await import("xlsx");
-      const wsData = [
-        columns.map(c => c.header),
-        ...dataForExport.map(l => columns.map(c => (l as any)[c.key])),
-      ];
-      const ws = XLSX.utils.aoa_to_sheet(wsData);
-      ws["!cols"] = columns.map(() => ({ wch: 18 }));
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Movimentações");
-      XLSX.writeFile(wb, `${filenameBase}.xlsx`);
-    } catch (e) {
-      console.error(e);
-      alert("Falha ao exportar Excel.");
-    }
-  }, [columns, dataForExport, filenameBase]);
 
-  const exportToPDF = useCallback(async () => {
-    try {
-      const { default: jsPDF } = await import("jspdf");
-      const autoTable = (await import("jspdf-autotable")).default;
-      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "A4" });
-      const title = "Movimentações Bancárias";
-      const filtro = `Filtro: ${tipoMovimentoFilter === "todas" ? "Todas" : tipoMovimentoFilter} | Tipo Conta: ${tipoContaFilter === "todos" ? "Todos" : tipoContaFilter}`;
-
-      doc.setFontSize(14);
-      doc.text(title, 40, 40);
-      doc.setFontSize(10);
-      doc.text(filtro, 40, 60);
-
-      autoTable(doc, {
-        startY: 80,
-        head: [columns.map(c => c.header)],
-        body: dataForExport.map(l =>
-          columns.map(c => {
-            const v = (l as any)[c.key];
-            if (c.key === "VALOR_FINAL") {
-              const num = Number(v ?? 0);
-              return (num < 0 ? "-" : "+") + " " + formatCurrencyBRL(Math.abs(num));
-            }
-            return String(v ?? "");
-          })
-        ),
-        styles: { fontSize: 9, cellPadding: 6 },
-        headStyles: { fillColor: [33, 150, 243] },
-        columnStyles: {
-          [columns.length - 1]: { halign: "right" },
-        },
-      });
-
-      doc.save(`${filenameBase}.pdf`);
-    } catch (e) {
-      console.error(e);
-      alert("Falha ao exportar PDF.");
-    }
-  }, [columns, dataForExport, filenameBase, tipoMovimentoFilter, tipoContaFilter]);
 
   // ===== Paginação simples para evitar render de milhares de linhas =====
   const [page, setPage] = useState(1);
@@ -330,6 +301,23 @@ const Movimentacoes = () => {
     return Array.from(map.values()).sort((a, b) => a.descTipoConta.localeCompare(b.descTipoConta, "pt-BR"));
   }
 
+  function toggleTipo2(tipo: string) {
+    if (tipo === "all") {
+      setCodTipo(["all"]);
+      return;
+    }
+
+    setCodTipo(prev => {
+      const current = prev.includes("all") ? [] : [...prev];
+      const has = current.includes(tipo);
+      const next = has ? current.filter(t => t !== tipo) : [...current, tipo];
+      return next.length === 0 ? ["all"] : next;
+    });
+  }
+
+  
+
+
   // Reative o loading para evitar interação durante fetch
   if (loading2) {
     return (
@@ -350,34 +338,149 @@ const Movimentacoes = () => {
   return (
     <div className="space-y-6">
 
+      <Card className="w-full border shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <Filter className="w-5 h-5 text-primary" />
+            Filtros
+          </CardTitle>
+        </CardHeader>
 
-      <div className="flex flex-col items-center md:flex-row md:items-end gap-4">
-        <div>
-          <span className="block text-sm font-medium mb-1">Data Início</span>
-          <input
-            type="date"
-            value={dataInicio}
-            onChange={(e) => setDataInicio(e.target.value)}
-            className="h-9 w-[180px] rounded-md border px-2 text-sm"
-          />
-        </div>
+        <CardContent className="space-y-4">
+          {/* Linha única com todos os filtros + botões alinhados na base */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 items-end">
 
-        <div>
-          <span className="block text-sm font-medium mb-1">Data Fim</span>
-          <input
-            type="date"
-            value={dataFim}
-            onChange={(e) => setDataFim(e.target.value)}
-            className="h-9 w-[180px] rounded-md border px-2 text-sm"
-          />
-        </div>
-        <button onClick={onCarregar} className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent">
-          Carregar
-        </button>
-      </div>
+
+            <div className="lg:col-span-1 space-y-1">
+              <Label className="text-sm font-medium">Grupo</Label>
+
+              <Select
+                value={grupoSelecionado ? String(grupoSelecionado.COD_GRUPOEMPRESA) : ""}
+                onValueChange={(value) => {
+                  const selecionado = grupo.find(
+                    (g) => String(g.COD_GRUPOEMPRESA) === value
+                  );
+                  setGrupoSelecionado(selecionado || null);
+                }}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Selecione um grupo" />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {grupo.map((g) => (
+                    <SelectItem
+                      key={g.COD_GRUPOEMPRESA}
+                      value={String(g.COD_GRUPOEMPRESA)}
+                    >
+                      {g.DESCRICAO}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+
+
+
+            {/* Tipo de Conta - 3 colunas (mais espaço) */}
+            <div className="lg:col-span-1 space-y-1">
+              <Label className="text-sm font-medium">Tipo de Conta</Label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between h-9 font-normal">
+                    <span className="truncate text-left">
+                      {codTipo.includes("all") || codTipo.length === 0
+                        ? "Todos os tipos"
+                        : codTipo.length === 1
+                          ? tipos?.find(t => String(t.COD_TIPOCONTABANCARIA) === codTipo[0])?.DESCRICAO || "1 selecionado"
+                          : `${codTipo.length} tipos selecionados`}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-full min-w-[280px]" align="start">
+                  <DropdownMenuCheckboxItem
+                    checked={codTipo.includes("all") || codTipo.length === 0}
+                    onCheckedChange={() => toggleTipo2("all")}
+                  >
+                    <span className="font-medium">Todos os tipos</span>
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuSeparator />
+                  <div className="max-h-64 overflow-y-auto">
+                    {(tipos ?? [])
+                      .sort((a, b) => a.DESCRICAO.localeCompare(b.DESCRICAO))
+                      .map((t) => (
+                        <DropdownMenuCheckboxItem
+                          key={t.COD_TIPOCONTABANCARIA}
+                          checked={codTipo.includes(String(t.COD_TIPOCONTABANCARIA))}
+                          onCheckedChange={() => toggleTipo2(String(t.COD_TIPOCONTABANCARIA))}
+                        >
+                          {t.DESCRICAO}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {errorTipos && <p className="text-xs text-destructive mt-1">Erro ao carregar tipos de conta</p>}
+            </div>
+            {/* Data Início - 2 colunas */}
+            <div className="lg:col-span-1 space-y-1">
+              <Label htmlFor="data-inicio" className="text-sm font-medium">
+                Data Início
+              </Label>
+              <Input
+                id="data-inicio"
+                type="date"
+                value={dataInicio}
+                onChange={(e) => setDataInicio(e.target.value)}
+                className="h-9"
+              />
+            </div>
+
+            {/* Data Fim - 2 colunas */}
+            <div className="lg:col-span-1 space-y-1">
+              <Label htmlFor="data-fim" className="text-sm font-medium">
+                Data Fim
+              </Label>
+              <Input
+                id="data-fim"
+                type="date"
+                value={dataFim}
+                onChange={(e) => setDataFim(e.target.value)}
+                className="h-9"
+              />
+            </div>
+
+
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button
+              onClick={onCarregar}
+              className="h-9 px-6 font-medium"
+            >
+              <Search className="w-4 h-4 mr-2" />
+              Carregar
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDataInicio("");
+                setDataFim("");
+                setCodTipo(["all"]);
+                setGrupoSelecionado(null);
+              }}
+              className="h-9 px-5"
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Limpar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Crédito</CardTitle>
@@ -400,16 +503,6 @@ const Movimentacoes = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Depósito</CardTitle>
-            <ArrowUp className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">{formatCurrencyBRL(totalDeposito)}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total</CardTitle>
             {totalGeral >= 0 ? (
               <TrendingUp className="h-4 w-4 text-success" />
@@ -427,240 +520,170 @@ const Movimentacoes = () => {
 
       {/* Filtro + Export */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-4 ">
-          <div className="w-64">
-            <span className="text-sm font-medium">Tipo de Movimento</span>
-            <Select value={tipoMovimentoFilter} onValueChange={(v) => { setTipoMovimentoFilter(v); setPage(1); }}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione um tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas</SelectItem>
-                {tiposMovimento.map((tipo) => (
-                  <SelectItem key={tipo} value={tipo}>
-                    {tipo}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="w-64">
-            <span className="text-sm font-medium">Tipo de Conta</span>
-            <Select value={tipoContaFilter} onValueChange={(v) => { setTipoContaFilter(v); setPage(1); }}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todos os tipos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                {tiposConta.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="w-64">
-            <span className="text-sm font-medium">Operação Caixa</span>
-            <Select value={operacaoCaixaFilter} onValueChange={(v) => { setOperacaoCaixaFilter(v); setPage(1); }}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todas as operações" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas as operações</SelectItem>
-                {operacoesCaixa.map((op) => (
-                  <SelectItem key={op.value} value={op.value}>
-                    {op.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={exportToPDF}
-              className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent"
-              title="Exportar PDF"
-            >
-              <FileText className="h-4 w-4" />
-              PDF
-            </button>
-
-            <button
-              onClick={exportToExcel}
-              className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent"
-              title="Exportar Excel"
-            >
-              <FileSpreadsheet className="h-4 w-4" />
-              Excel
-            </button>
-          </div>
-        </CardHeader>
-
         {/* Tabela */}
-        <CardContent>
-          <Table className="w-full border-separate border-spacing-0 ">
+        <CardContent className="p-0">
+          <div className="rounded-md border overflow-hidden">
+            <Table className="w-full">
+              <TableBody>
+                {/* Mensagem vazia */}
+                {grupos.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={10} className="h-32 text-center text-muted-foreground">
+                      Nenhum lançamento encontrado para o filtro selecionado.
+                    </TableCell>
+                  </TableRow>
+                )}
 
-            <TableBody>
-              {grupos.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={10} className="text-center text-muted-foreground py-10">
-                    Nenhum lançamento encontrado para o filtro selecionado.
-                  </TableCell>
-                </TableRow>
-              )}
+                {grupos.map((g) => {
+                  const isActiveBank = expanded.has(g.codBanco);
+                  const subGrupos = isActiveBank ? agruparPorTipoConta(g.itens) : [];
 
-              {grupos.map((g) => {
-                const isActiveBank = expanded.has(g.codBanco); // 👈 use isso pra estilizar
-                const subGrupos = isActiveBank ? agruparPorTipoConta(g.itens) : [];
-
-                return (
-                  <Fragment key={`grupo-${g.codBanco}`}>
-                    {/* Cabeçalho do BANCO */}
-                    <TableRow
-                      className={`cursor-pointer transition-colors ${isActiveBank ? "bg-[#f8f9fa]" : "hover:bg-muted"}`}
-                      onClick={() => toggleGroup(g.codBanco)}
-                      aria-expanded={isActiveBank}
-                    >
-                      <TableCell colSpan={10} className={`py-2 ${isActiveBank ? "border border-[#dee2e6] rounded-t-xl" : ""}`}>
-                        <div className="flex items-center justify-between h-10">
-                          <div className="flex items-center gap-1">
-                            <span className={`transition-transform ${isActiveBank ? "rotate-90" : ""}`}>
-                              {isActiveBank ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                            </span>
-
-                            {/* Nome do banco destacado quando aberto */}
-                            <span className={`font-medium ${isActiveBank ? "text-primary" : ""}`}>
-                              {g.descBanco} <span className="text-muted-foreground">({g.codBanco})</span>
-                            </span>
-
-                            <span className="ml-3 text-xs text-muted-foreground">
-                              {g.qtd} movimentação{g.qtd > 1 ? "es" : ""}
-                            </span>
-                          </div>
-
-                          <div
-                            className={`text-sm font-semibold tabular-nums ${g.total >= 0 ? "text-success" : "text-destructive"
-                              }`}
-                          >
-                            {formatCurrencyBRL(g.total)}
-                          </div>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-
-                    {/* SUBGRUPOS por TIPO DE CONTA */}
-                    {isActiveBank &&
-                      subGrupos.map((sg) => {
-                        const key = `${g.codBanco}-${sg.codTipoConta}`;
-                        const abertoTipo = expandedTipos.has(key);
-
-                        return (
-                          <Fragment key={`tipo-${key}`}>
-                            {/* Header do TIPO: herda destaque do banco aberto */}
-                            <TableRow
-                              className={`cursor-pointer transition-colors ${isActiveBank ? "bg-[#f8f9fa] hover:bg-[#fafafa]" : "hover:bg-muted"}`}
-                              onClick={() => toggleTipo(g.codBanco, sg.codTipoConta)}
-                              aria-expanded={abertoTipo}
-                            >
-                              <TableCell
-                                colSpan={9}
-                                className={`py-2 ${isActiveBank ? "border-x border-b border-[#dee2e6]" : ""}`}
-                              >
-                                <div className="flex items-center justify-between pl-2 h-10">
-                                  <div className={`flex items-center gap-2 ${isActiveBank ? "text-primary" : ""}`}>
-                                    <span className={`transition-transform ${abertoTipo ? "rotate-90" : ""}`}>
-                                      {abertoTipo ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                    </span>
-                                    <span className="font-medium">
-                                      {sg.descTipoConta}{" "}
-                                      <span className="text-muted-foreground">({sg.codTipoConta})</span>
-                                    </span>
-                                    <span className="ml-3 text-xs text-muted-foreground">{sg.qtd} mov.</span>
-                                  </div>
-
-                                  <div
-                                    className={`text-sm font-semibold tabular-nums ${sg.total >= 0 ? "text-success" : "text-destructive"
-                                      }`}
-                                  >
-                                    {formatCurrencyBRL(sg.total)}
-                                  </div>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-
-                            {/* Cabeçalho das colunas dentro do tipo */}
-                            {abertoTipo && (
-                              <TableRow className="bg-[#f8f9fa] text-[#6c757d] ">
-                                <TableHead className="border-y border-l border-[#dee2e6] font-medium">Agência</TableHead>
-                                <TableHead className="border-y border-[#dee2e6] font-medium">Conta</TableHead>
-                                <TableHead className="border-y border-[#dee2e6] font-medium">Tipo Conta</TableHead>
-                                <TableHead className="border-y border-[#dee2e6] font-medium">Tipo Mov.</TableHead>
-                                <TableHead className="border-y border-[#dee2e6] font-medium">Documento</TableHead>
-                                <TableHead className="border-y border-[#dee2e6] font-medium">Nº Lançamento</TableHead>
-                                <TableHead className="border-y border-[#dee2e6] font-medium">Data</TableHead>
-                                <TableHead className="border-y border-[#dee2e6] font-medium">Descrição</TableHead>
-                                <TableHead className="text-right border-y border-r border-[#dee2e6] font-medium">Valor</TableHead>
-                              </TableRow>
+                  return (
+                    <Fragment key={`grupo-${g.codBanco}`}>
+                      {/* === CABEÇALHO DO BANCO === */}
+                      <TableRow
+                        className={`
+                  bg-muted/50 hover:bg-muted/80 transition-colors cursor-pointer
+                  ${isActiveBank ? "bg-primary/5 hover:bg-primary/10" : ""}
+                `}
+                        onClick={() => toggleGroup(g.codBanco)}
+                      >
+                        <TableCell colSpan={10} className="py-3 px-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className={`transition-transform duration-200 ${isActiveBank ? "rotate-90" : ""}`}>
+                                {isActiveBank ? (
+                                  <ChevronDown className="h-5 w-5 text-primary" />
+                                ) : (
+                                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                                )}
+                              </span>
+                              <div>
+                                <span className={`font-semibold text-base ${isActiveBank ? "text-primary" : "text-foreground"}`}>
+                                  {g.descBanco}
+                                </span>
+                              </div>
+                            </div>
+                            {/* Total do banco (opcional) */}
+                            {g.total !== 0 && (
+                              <span className={`font-semibold ${g.total >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                                {formatCurrencyBRL(g.total)}
+                              </span>
                             )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
 
+                      {/* === SUBGRUPOS POR TIPO DE CONTA === */}
+                      {isActiveBank &&
+                        subGrupos.map((sg) => {
+                          const key = `${g.codBanco}-${sg.codTipoConta}`;
+                          const abertoTipo = expandedTipos.has(key);
 
-                            {/* Linhas detalhadas */}
-                            {abertoTipo && sg.itens.map((l, i) => {
-                              const valor = Number(l.VALOR_FINAL ?? 0);
-                              const debito = isDebito(valor);
-                              const isLastRow = i === sg.itens.length - 1;
+                          return (
+                            <Fragment key={`tipo-${key}`}>
+                              {/* Header do Tipo de Conta */}
+                              <TableRow
+                                className="bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors"
+                                onClick={() => toggleTipo(g.codBanco, sg.codTipoConta)}
+                              >
+                                <TableCell colSpan={10} className="py-2.5 px-8">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <span className={`transition-transform duration-200 ${abertoTipo ? "rotate-90" : ""}`}>
+                                        {abertoTipo ? (
+                                          <ChevronDown className="h-4 w-4 text-primary" />
+                                        ) : (
+                                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                        )}
+                                      </span>
+                                      <span className="font-medium text-foreground">
+                                        {sg.descTipoConta}
 
-                              return (
-                                <TableRow key={`${l.NUM_LANCAMENTOBANCARIO}-${l.DOCUMENTO}-${l.DATAMOVIMENTO}-${i}`} className="bg-white">
-                                  {/* parede ESQ */}
-                                  <TableCell className={`border-l border-[#dee2e6] border-b border-[#eef1f4] ${isLastRow ? "rounded-bl-xl" : ""}`}>
-                                    {l.COD_AGENCIA}
-                                  </TableCell>
+                                      </span>
+                                    </div>
+                                    <span className={`font-semibold ${sg.total >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                                      {formatCurrencyBRL(sg.total)}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
 
-                                  <TableCell className="border-b border-[#eef1f4] whitespace-nowrap font-medium">{l.COD_CONTABANCARIA}</TableCell>
-                                  <TableCell className="border-b border-[#eef1f4] text-[#495057]">{l.DESC_TIPOCONTA}</TableCell>
-                                  <TableCell className="border-b border-[#eef1f4]">
-                                    <Badge
-                                      className={`${debito ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"} border-0`}
-                                      variant="outline"
-                                    >
-                                      {l.DESC_TIPOMOVIMENTO}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="border-b border-[#eef1f4] tabular-nums">{l.DOCUMENTO}</TableCell>
-                                  <TableCell className="border-b border-[#eef1f4] tabular-nums">{l.NUM_LANCAMENTOBANCARIO}</TableCell>
-                                  <TableCell className="border-b border-[#eef1f4] whitespace-nowrap">{formatDateBR(l.DATAMOVIMENTO)}</TableCell>
-                                  <TableCell className="border-b border-[#eef1f4] max-w-[360px] truncate" title={l.DESCRICAO}>{l.DESCRICAO}</TableCell>
-
-                                  {/* parede DIR + base */}
-                                  <TableCell
-                                    className={`border-r border-[#dee2e6] border-b ${isLastRow ? "rounded-br-xl border-b-[#dee2e6]" : "border-b-[#eef1f4]"} text-right font-semibold tabular-nums ${debito ? "text-red-600" : "text-emerald-700"}`}
-                                    title={formatCurrencyBRL(valor)}
-                                  >
-                                    {formatCurrencyBRL(Math.abs(valor))}
-                                  </TableCell>
+                              {/* === CABEÇALHO DAS COLUNAS (só aparece quando aberto) === */}
+                              {abertoTipo && (
+                                <TableRow className="bg-muted/20 border-y">
+                                  <TableHead className="px-8 py-3 font-medium text-foreground">Agência</TableHead>
+                                  <TableHead className="py-3 font-medium text-foreground">Conta</TableHead>
+                                  <TableHead className="py-3 font-medium text-foreground">Tipo Mov.</TableHead>
+                                  <TableHead className="py-3 font-medium text-foreground">Data</TableHead>
+                                  <TableHead className="py-3 font-medium text-foreground">Operação Caixa</TableHead>
+                                  <TableHead className="py-3 font-medium text-foreground">Descrição</TableHead>
+                                  <TableHead className="py-3 text-right pr-8 font-medium text-foreground">Valor</TableHead>
                                 </TableRow>
-                              );
-                            })}
+                              )}
 
+                              {/* === LINHAS DETALHADAS === */}
+                              {abertoTipo &&
+                                sg.itens.map((l, i) => {
+                                  const valor = Number(l.VALOR_FINAL ?? 0);
+                                  const isDebito = valor < 0;
+                                  const isLast = i === sg.itens.length - 1;
 
-                          </Fragment>
-                        );
-                      })}
-                  </Fragment>
-                );
-              })}
-
-
-
-            </TableBody>
-
-
-          </Table>
-
-
+                                  return (
+                                    <TableRow
+                                      key={`${l.NUM_LANCAMENTOBANCARIO}-${i}`}
+                                      className={`
+                                hover:bg-muted/40 transition-colors
+                                ${isLast ? "" : "border-b"}
+                              `}
+                                    >
+                                      <TableCell className="px-8 py-3 font-medium text-muted-foreground">
+                                        {l.COD_AGENCIA}
+                                      </TableCell>
+                                      <TableCell className="py-3 font-semibold">{l.COD_CONTABANCARIA}</TableCell>
+                                      <TableCell className="py-3">
+                                        <Badge
+                                          variant="secondary"
+                                          className={`
+                                    border-0 text-xs font-medium
+                                    ${isDebito
+                                              ? "bg-red-100 text-red-700 hover:bg-red-200"
+                                              : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                                            }
+                                  `}
+                                        >
+                                          {l.DESC_TIPOMOVIMENTO}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell className="py-3 text-muted-foreground">
+                                        {formatDateBR(l.DATAMOVIMENTO)}
+                                      </TableCell>
+                                      <TableCell className="py-3 max-w-xs truncate" title={l.DESC_OPERACAOBAIXA}>
+                                        {l.DESC_OPERACAOBAIXA}
+                                      </TableCell>
+                                      <TableCell className="py-3 max-w-lg truncate" title={l.DESCRICAO}>
+                                        {l.DESCRICAO}
+                                      </TableCell>
+                                      <TableCell
+                                        className={`
+                                  py-3 text-right pr-8 font-bold tabular-nums
+                                  ${isDebito ? "text-red-600" : "text-emerald-600"}
+                                `}
+                                      >
+                                        {formatCurrencyBRL(Math.abs(valor))}
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                            </Fragment>
+                          );
+                        })}
+                    </Fragment>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,125 +12,43 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { FileText, TrendingUp, TrendingDown, ChevronRight, ChevronDown, TreePine, Settings } from "lucide-react";
+import { FileText, TrendingUp, TrendingDown, ChevronRight, ChevronDown, TreePine, Settings, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfYear, endOfYear, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useAuth } from "@/components/auth/controle-financeiro/AuthProvider";
+import { useAuth } from "@/pages/apps/controle-financeiro/auth/AuthProvider";
+import { BudgetToolbar } from "@/pages/apps/controle-financeiro/components/budget/BudgetToolbar";
+import { CompanyBranchFilter } from "@/pages/apps/controle-financeiro/components/filters/CompanyBranchFilter";
+import { useCompanyBranchFilter } from "@/pages/apps/controle-financeiro/hooks/useCompanyBranchFilter";
+import { ViewType, MONTH_NAMES, QUARTER_LABELS, SEMESTER_LABELS, YEAR_LABEL } from "@/pages/apps/controle-financeiro/constants/financialConstants";
+import { formatCurrency } from "@/pages/apps/controle-financeiro/utils/formatters";
+import { MONTHS_SHORT, MONTH_OPTIONS, CHUNK_SIZE } from "@/pages/apps/controle-financeiro/constants/budgetConstants";
+import type {
+  TransactionData,
+  DRELine,
+  DREConfiguration,
+  CommitmentGroup,
+  Commitment,
+  CommitmentType,
+  Configs,
+  BudgetForecast,
+  LineType
+} from "@/pages/apps/controle-financeiro/types/budget";
 
-interface TransactionData {
-  id: string;
-  amount: number;
-  transaction_date: string;
-  transaction_type: string;
-  description?: string;
-  classification?: {
-    commitment?: {
-      id?: string;
-      name: string;
-      commitment_group?: {
-        id?: string;
-        name: string;
-        commitment_type?: {
-          id?: string;
-          name: string;
-        };
-      };
-      commitment_type?: {
-        id?: string;
-        name: string;
-      };
-    };
-    commitment_group?: {
-      id?: string;
-      name: string;
-      commitment_type?: {
-        id?: string;
-        name: string;
-      };
-    };
-    commitment_type?: {
-      id?: string;
-      name: string;
-    };
-  };
-}
-
-interface MonthlyDREData {
-  month: string;
-  [key: string]: string | number; // Allow dynamic commitment type totals
-}
-
-interface DRELine {
-  id: string;
-  label: string;
-  type: "commitment_type" | "commitment_group" | "commitment" | "unclassified";
-  level: number;
-  values: number[];
-  budgetedValues: number[]; // Budgeted amounts for each month
-  expandable?: boolean;
-  expanded?: boolean;
-  parentId?: string;
-  children?: DRELine[];
-  itemId?: string; // Reference to the actual commitment_type/group/commitment ID
-}
-
-interface CommitmentGroupData {
-  id: string;
-  name: string;
-  type: "revenue" | "cost" | "expense";
-  values: number[];
-  commitments: CommitmentData[];
-}
-
-interface CommitmentData {
-  id: string;
-  name: string;
-  values: number[];
-}
-
-interface DREConfiguration {
-  id: string;
-  line_type: "revenue" | "cost" | "expense";
-  commitment_group_id: string;
-  commitment_id: string | null;
-}
-
-interface CommitmentGroup {
-  id: string;
-  name: string;
-  color: string;
-  company_id: string;
-}
-
-interface Commitment {
-  id: string;
-  name: string;
-  commitment_group_id: string;
-  commitment_type_id?: string;
-}
-
-interface CommitmentType {
-  id: string;
-  name: string;
-  company_id: string;
-}
-
-interface Configs {
-  groups: CommitmentGroup[];
-  commitments: Commitment[];
-  commitmentTypes: CommitmentType[];
-  dreConfigurations: DREConfiguration[];
-}
 
 const Budget: React.FC = () => {
   const { companyId } = useAuth();
+  
+  // Company and Branch filter
+  const companyBranchFilter = useCompanyBranchFilter();
+  
   const [transactions, setTransactions] = useState<TransactionData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [monthlyData, setMonthlyData] = useState<MonthlyDREData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedYears, setSelectedYears] = useState<number[]>([new Date().getFullYear()]);
+  const [viewType, setViewType] = useState<ViewType>('month');
   const [dreLines, setDreLines] = useState<DRELine[]>([]);
   const [expandedLines, setExpandedLines] = useState<Set<string>>(new Set());
+  const [hasLoadedData, setHasLoadedData] = useState(false);
 
   // Configuration state (kept for potential future use)
   const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
@@ -152,53 +70,115 @@ const Budget: React.FC = () => {
   const [ipcaIndex, setIpcaIndex] = useState<string>("");
   const [calculatingBudget, setCalculatingBudget] = useState(false);
   const [clearingBudget, setClearingBudget] = useState(false);
-  const [budgetForecasts, setBudgetForecasts] = useState<any[]>([]);
+  const [budgetForecasts, setBudgetForecasts] = useState<BudgetForecast[]>([]);
 
   const currentYear = new Date().getFullYear();
-  const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+  // Funções de agregação e labels por período
+  const aggregateValuesByViewType = (values: number[], viewType: ViewType, years: number[]): number[] => {
+    if (years.length === 1) {
+      // Single year
+      if (viewType === 'month') return values;
+      
+      if (viewType === 'quarter') {
+        return [
+          values[0] + values[1] + values[2],
+          values[3] + values[4] + values[5],
+          values[6] + values[7] + values[8],
+          values[9] + values[10] + values[11],
+        ];
+      }
+      
+      if (viewType === 'semester') {
+        return [
+          values.slice(0, 6).reduce((sum, v) => sum + v, 0),
+          values.slice(6, 12).reduce((sum, v) => sum + v, 0),
+        ];
+      }
+      
+      if (viewType === 'year') {
+        return [values.reduce((sum, v) => sum + v, 0)];
+      }
+    } else {
+      // Multi-year: agregar cada ano separadamente
+      const result: number[] = [];
+      
+      for (let yearIndex = 0; yearIndex < years.length; yearIndex++) {
+        const yearValues = values.slice(yearIndex * 12, (yearIndex + 1) * 12);
+        const aggregated = aggregateValuesByViewType(yearValues, viewType, [years[yearIndex]]);
+        result.push(...aggregated);
+      }
+      
+      return result;
+    }
+    
+    return values;
+  };
+
+  const getColumnLabels = (viewType: ViewType, years: number[]): string[] => {
+    const baseLabels = (() => {
+      switch (viewType) {
+        case 'month':
+          return MONTH_NAMES;
+        case 'quarter':
+          return QUARTER_LABELS;
+        case 'semester':
+          return SEMESTER_LABELS;
+        case 'year':
+          return YEAR_LABEL;
+      }
+    })();
+
+    if (years.length === 1) {
+      return baseLabels;
+    }
+
+    // Multi-year: adiciona o ano a cada label
+    return years.flatMap(year => baseLabels.map(label => `${label} ${year}`));
+  };
 
   // Fetch available years from transactions
-  const fetchAvailableYears = async () => {
-    if (!companyId) return;
+  const fetchAvailableYears = useCallback(async () => {
+    const filterCompanyId = companyBranchFilter.selectedCompanyId || companyId;
+    if (!filterCompanyId) return;
 
     try {
-      // Buscar anos de transações classificadas (que aparecem no DRE)
-      const { data: transactionsData, error: transactionsError } = await supabase
+      // Build query for transactions
+      let transactionsQuery = supabase
         .from("transaction_classifications")
         .select(`
           transaction_id,
           transactions!inner(
             transaction_date,
-            company_id
+            company_id,
+            branch_id
           )
         `)
-        .eq("transactions.company_id", companyId)
+        .eq("transactions.company_id", filterCompanyId)
         .not("transactions.transaction_date", "is", null)
         .gte("transactions.transaction_date", "2020-01-01");
 
+      // Add branch filter if selected
+      if (companyBranchFilter.selectedBranchId) {
+        transactionsQuery = transactionsQuery.eq("transactions.branch_id", companyBranchFilter.selectedBranchId);
+      }
+
+      const { data: transactionsData, error: transactionsError } = await transactionsQuery;
+
       if (transactionsError) {
-        console.error("Error fetching transaction years:", transactionsError);
+        throw transactionsError;
       }
 
       // Buscar anos de orçamento calculado
-      // @ts-ignore - Tipagem complexa do Supabase causando erro
       const { data: forecastsData, error: forecastsError } = await supabase
-        // @ts-ignore
         .from("budget_forecasts")
         .select("month_year")
-        .eq("company_id", companyId)
+        .eq("company_id", filterCompanyId)
         .not("month_year", "is", null)
         .order("month_year", { ascending: false });
 
-      console.log("🔍 Query budget_forecasts:", {
-        companyId,
-        dataLength: forecastsData?.length || 0,
-        error: forecastsError,
-        sampleData: forecastsData?.slice(0, 3)
-      });
-
       if (forecastsError) {
-        console.error("Error fetching budget forecast years:", forecastsError);
+        throw forecastsError;
       }
 
       // Usar Set para extrair anos únicos de forma eficiente
@@ -208,16 +188,12 @@ const Budget: React.FC = () => {
 
       // Extrair anos únicos de transações classificadas
       if (transactionsData) {
-        transactionsData.forEach((t: any) => {
-          // @ts-ignore - Estrutura join do Supabase
+        transactionsData.forEach((t) => {
           if (t.transactions?.transaction_date) {
-            try {
-              // Extrair ano diretamente da string para evitar problemas de timezone
-              const year = parseInt(t.transactions.transaction_date.substring(0, 4), 10);
+            const year = parseInt(t.transactions.transaction_date.substring(0, 4), 10);
+            if (!isNaN(year)) {
               transactionYears.add(year);
               yearsSet.add(year);
-            } catch (e) {
-              console.warn("Invalid transaction date:", t.transactions?.transaction_date);
             }
           }
         });
@@ -225,16 +201,12 @@ const Budget: React.FC = () => {
 
       // Extrair anos únicos de budget_forecasts
       if (forecastsData) {
-        // @ts-ignore - Tipo inferido incorretamente pelo Supabase
-        forecastsData.forEach((f: any) => {
+        forecastsData.forEach((f) => {
           if (f.month_year) {
-            try {
-              // Extrair ano diretamente da string para evitar problemas de timezone
-              const year = parseInt(f.month_year.substring(0, 4), 10);
+            const year = parseInt(f.month_year.substring(0, 4), 10);
+            if (!isNaN(year)) {
               forecastYears.add(year);
               yearsSet.add(year);
-            } catch (e) {
-              console.warn("Invalid forecast date:", f.month_year);
             }
           }
         });
@@ -243,24 +215,16 @@ const Budget: React.FC = () => {
       // Converter Set para Array e ordenar decrescente (mais recente primeiro)
       const yearsArray = Array.from(yearsSet).sort((a, b) => b - a);
 
-      // Logs informativos
-      console.log("📊 Anos encontrados em transações classificadas:", Array.from(transactionYears).sort((a, b) => b - a));
-      console.log("📈 Anos encontrados em budget_forecasts:", Array.from(forecastYears).sort((a, b) => b - a));
-      console.log("📦 Raw forecastsData length:", forecastsData?.length || 0);
-      console.log("📦 Raw forecastsData sample:", forecastsData?.slice(0, 2));
-      console.log("🎯 Company ID usado na query:", companyId);
-      console.log("✅ Anos disponíveis no filtro (combinados):", yearsArray);
-
       setAvailableYears(yearsArray);
 
-      // Se o ano selecionado não está na lista, selecionar o mais recente
-      if (yearsArray.length > 0 && !yearsArray.includes(selectedYear)) {
-        setSelectedYear(yearsArray[0]);
+      // Se os anos selecionados não estão na lista, selecionar o mais recente
+      if (yearsArray.length > 0 && !selectedYears.some(year => yearsArray.includes(year))) {
+        setSelectedYears([yearsArray[0]]);
       }
     } catch (error) {
-      console.error("Error fetching available years:", error);
+      throw error;
     }
-  };
+  }, [companyId, companyBranchFilter.selectedCompanyId, companyBranchFilter.selectedBranchId, selectedYears]);
 
   // Helper functions - defined early to avoid hoisting issues
   const getUnclassifiedCommitments = () => {
@@ -315,18 +279,54 @@ const Budget: React.FC = () => {
     setIsAddCommitmentDialogOpen(false);
   };
 
-  useEffect(() => {
-    const loadData = async () => {
+  // Função para carregar dados manualmente
+  const handleLoadData = async () => {
+    if (!companyId) return;
+    if (selectedYears.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Selecione pelo menos um ano",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setLoading(true);
+    try {
       const configs = await fetchConfigurations();
-      await fetchTransactionData(configs);
-    };
+      
+      if (selectedYears.length === 1) {
+        // Single year mode
+        await fetchTransactionData(configs);
+      } else {
+        // Multi-year mode
+        await fetchMultiYearData(configs);
+      }
+      
+      setHasLoadedData(true);
+      
+      toast({
+        title: "Dados carregados",
+        description: `Dados carregados para ${selectedYears.join(', ')}`,
+      });
+    } catch (error) {
+      console.error("Error loading data:", error);
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Não foi possível carregar os dados do orçamento.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     if (companyId) {
       fetchAvailableYears();
-      loadData();
     }
 
-    // Setup real-time listeners
+    // Setup real-time listeners (apenas para atualizar anos disponíveis)
     const transactionChannel = supabase
       .channel("schema-db-changes")
       .on(
@@ -337,41 +337,7 @@ const Budget: React.FC = () => {
           table: "transactions",
         },
         () => {
-          fetchAvailableYears(); // Update available years when transactions change
-          loadData();
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "transaction_classifications",
-        },
-        () => {
-          loadData();
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "ofx_uploads",
-        },
-        () => {
-          loadData();
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "dre_line_configurations",
-        },
-        () => {
-          loadData();
+          fetchAvailableYears();
         },
       )
       .on(
@@ -382,8 +348,7 @@ const Budget: React.FC = () => {
           table: "budget_forecasts",
         },
         () => {
-          fetchAvailableYears(); // Update available years when budget forecasts change
-          loadData();
+          fetchAvailableYears();
         },
       )
       .subscribe();
@@ -391,54 +356,56 @@ const Budget: React.FC = () => {
     return () => {
       supabase.removeChannel(transactionChannel);
     };
-  }, [selectedYear]);
+  }, [companyId, fetchAvailableYears]);
 
   const fetchTransactionData = async (configs: Configs) => {
-    if (!companyId) return;
+    const filterCompanyId = companyBranchFilter.selectedCompanyId || companyId;
+    if (!filterCompanyId) return;
 
-    setLoading(true);
     try {
-      const startDate = startOfYear(new Date(selectedYear, 0, 1));
-      const endDate = endOfYear(new Date(selectedYear, 11, 31));
+      // Usar o primeiro ano selecionado (pode ser adaptado para múltiplos anos no futuro)
+      const year = selectedYears[0] || new Date().getFullYear();
+      const startDate = startOfYear(new Date(year, 0, 1));
+      const endDate = endOfYear(new Date(year, 11, 31));
 
-      // First, get all transactions for the year
-      const { data: transactionsData, error: transactionsError } = await supabase
+      // Build query with company and optional branch filter
+      let transactionsQuery = supabase
         .from("transactions")
         .select("id, amount, transaction_date, transaction_type, description")
-        .eq("company_id", companyId)
+        .eq("company_id", filterCompanyId)
         .gte("transaction_date", format(startDate, "yyyy-MM-dd"))
         .lte("transaction_date", format(endDate, "yyyy-MM-dd"))
         .order("transaction_date", { ascending: true });
 
+      // Add branch filter if selected
+      if (companyBranchFilter.selectedBranchId) {
+        transactionsQuery = transactionsQuery.eq("branch_id", companyBranchFilter.selectedBranchId);
+      }
+
+      const { data: transactionsData, error: transactionsError } = await transactionsQuery;
+
       if (transactionsError) {
-        console.error("Error fetching transactions:", transactionsError);
         throw transactionsError;
       }
 
       // Buscar valores orçados (independente de haver transações)
-      const forecasts = await fetchBudgetForecasts(selectedYear);
+      const forecasts = await fetchBudgetForecasts(year);
       setBudgetForecasts(forecasts);
 
       if (!transactionsData || transactionsData.length === 0) {
         setTransactions([]);
-        processDataForDRE([], forecasts, configs);
+        processDataForDRE([], forecasts, configs, viewType);
         return;
       }
 
       // Get transaction IDs
       const transactionIds = transactionsData.map((t) => t.id);
 
-      // Helper para dividir array em chunks
-      const chunkArray = <T,>(array: T[], size: number): T[][] => {
-        const chunks: T[][] = [];
-        for (let i = 0; i < array.length; i += size) {
-          chunks.push(array.slice(i, i + size));
-        }
-        return chunks;
-      };
-
-      // Dividir transaction IDs em chunks de 100 para evitar erro "Bad Request"
-      const transactionIdChunks = chunkArray(transactionIds, 100);
+      // Dividir transaction IDs em chunks para evitar erro "Bad Request"
+      const transactionIdChunks: string[][] = [];
+      for (let i = 0; i < transactionIds.length; i += CHUNK_SIZE) {
+        transactionIdChunks.push(transactionIds.slice(i, i + CHUNK_SIZE));
+      }
 
       // Buscar classificações em paralelo
       const classificationsPromises = transactionIdChunks.map((chunk) =>
@@ -451,21 +418,18 @@ const Budget: React.FC = () => {
       const classificationsResults = await Promise.all(classificationsPromises);
 
       // Combinar todos os resultados
-      let classificationsData: any[] = [];
-      let classificationsError = null;
+      const classificationsData: Array<{
+        transaction_id: string;
+        commitment_id: string | null;
+        commitment_group_id: string | null;
+        commitment_type_id: string | null;
+      }> = [];
 
       for (const result of classificationsResults) {
-        if (result.error) {
-          classificationsError = result.error;
-          break;
-        }
+        if (result.error) throw result.error;
         if (result.data) {
           classificationsData.push(...result.data);
         }
-      }
-
-      if (classificationsError) {
-        console.error("Error fetching classifications:", classificationsError);
       }
 
       // Create a map of classifications by transaction_id
@@ -521,9 +485,9 @@ const Budget: React.FC = () => {
 
       setTransactions(processedData);
       
-      processDataForDRE(processedData, forecasts, configs);
+      processDataForDRE(processedData, forecasts, configs, viewType);
     } catch (error) {
-      console.error("Error fetching transaction data:", error);
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -594,31 +558,345 @@ const Budget: React.FC = () => {
     }
   };
 
-  const fetchBudgetForecasts = async (year: number) => {
-    if (!companyId) return [];
+  const fetchBudgetForecasts = async (year: number): Promise<BudgetForecast[]> => {
+    const filterCompanyId = companyBranchFilter.selectedCompanyId || companyId;
+    if (!filterCompanyId) return [];
 
     try {
       const startDate = new Date(year, 0, 1);
       const endDate = new Date(year, 11, 31);
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("budget_forecasts")
         .select("*")
-        .eq("company_id", companyId)
+        .eq("company_id", filterCompanyId)
         .gte("month_year", format(startDate, "yyyy-MM-dd"))
         .lte("month_year", format(endDate, "yyyy-MM-dd"));
 
       if (error) throw error;
 
-      console.log(`📊 Loaded ${data?.length || 0} budget forecasts for ${year}`);
-      return data || [];
+      return (data as BudgetForecast[]) || [];
     } catch (error) {
-      console.error("Error fetching budget forecasts:", error);
-      return [];
+      throw error;
     }
   };
 
-  const processDataForDRE = (transactions: TransactionData[], budgetForecasts: any[] = [], configs: Configs) => {
+  const fetchMultiYearData = async (configs: Configs) => {
+    const filterCompanyId = companyBranchFilter.selectedCompanyId || companyId;
+    if (!filterCompanyId) return;
+
+    try {
+      // Buscar transações e forecasts de todos os anos em paralelo
+      const dataPromises = selectedYears.map(async (year) => {
+        const startDate = startOfYear(new Date(year, 0, 1));
+        const endDate = endOfYear(new Date(year, 11, 31));
+
+        // Build query with company and optional branch filter
+        let transactionsQuery = supabase
+          .from("transactions")
+          .select("id, amount, transaction_date, transaction_type, description")
+          .eq("company_id", filterCompanyId)
+          .gte("transaction_date", format(startDate, "yyyy-MM-dd"))
+          .lte("transaction_date", format(endDate, "yyyy-MM-dd"))
+          .order("transaction_date", { ascending: true });
+
+        // Add branch filter if selected
+        if (companyBranchFilter.selectedBranchId) {
+          transactionsQuery = transactionsQuery.eq("branch_id", companyBranchFilter.selectedBranchId);
+        }
+
+        const { data: transactionsData } = await transactionsQuery;
+
+        // Buscar forecasts
+        const forecasts = await fetchBudgetForecasts(year);
+
+        return {
+          year,
+          transactions: transactionsData || [],
+          forecasts,
+        };
+      });
+
+      const allYearsData = await Promise.all(dataPromises);
+
+      // Buscar classificações para todas as transações
+      const allTransactionIds = allYearsData.flatMap(d => d.transactions.map(t => t.id));
+      
+      const transactionIdChunks: string[][] = [];
+      for (let i = 0; i < allTransactionIds.length; i += CHUNK_SIZE) {
+        transactionIdChunks.push(allTransactionIds.slice(i, i + CHUNK_SIZE));
+      }
+      const classificationsPromises = transactionIdChunks.map((chunk) =>
+        supabase
+          .from("transaction_classifications")
+          .select("transaction_id, commitment_id, commitment_group_id, commitment_type_id")
+          .in("transaction_id", chunk)
+      );
+
+      const classificationsResults = await Promise.all(classificationsPromises);
+      const classificationsData: Array<{
+        transaction_id: string;
+        commitment_id: string | null;
+        commitment_group_id: string | null;
+        commitment_type_id: string | null;
+      }> = [];
+      classificationsResults.forEach(result => {
+        if (result.error) throw result.error;
+        if (result.data) {
+          classificationsData.push(...result.data);
+        }
+      });
+
+      // Criar mapa de classificações
+      const classificationsMap = new Map();
+      classificationsData.forEach((classification) => {
+        if (classification.commitment_id) {
+          const commitment = configs.commitments.find((c) => c.id === classification.commitment_id);
+          const commitmentGroup = configs.groups.find((g) => g.id === classification.commitment_group_id);
+          const commitmentType = configs.commitmentTypes.find((ct) => ct.id === classification.commitment_type_id);
+
+          classificationsMap.set(classification.transaction_id, {
+            commitment: commitment ? {
+              id: commitment.id,
+              name: commitment.name,
+              commitment_group: commitmentGroup ? { id: commitmentGroup.id, name: commitmentGroup.name } : null,
+              commitment_type: commitmentType ? { id: commitmentType.id, name: commitmentType.name } : null,
+            } : null,
+            commitment_group: commitmentGroup,
+            commitment_type: commitmentType,
+          });
+        }
+      });
+
+      // Processar dados de cada ano
+      const processedYears = allYearsData.map(yearData => ({
+        year: yearData.year,
+        transactions: yearData.transactions.map(t => ({
+          ...t,
+          classification: classificationsMap.get(t.id) || null,
+        })),
+        forecasts: yearData.forecasts,
+      }));
+
+      processMultiYearBudgetData(processedYears, configs);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const processMultiYearBudgetData = (
+    yearsData: Array<{ year: number; transactions: TransactionData[]; forecasts: BudgetForecast[] }>,
+    configs: Configs
+  ) => {
+    const numPeriods = viewType === 'month' ? 12 : viewType === 'quarter' ? 4 : viewType === 'semester' ? 2 : 1;
+    const totalPeriods = numPeriods * yearsData.length;
+
+    // Criar hierarquia combinada
+    const hierarchyMap = new Map<
+      string,
+      {
+        type: CommitmentType;
+        groups: Map<string, {
+          group: CommitmentGroup;
+          commitments: Map<string, {
+            commitment: Commitment;
+            values: number[];
+            budgetedValues: number[];
+          }>;
+          values: number[];
+          budgetedValues: number[];
+        }>;
+        values: number[];
+        budgetedValues: number[];
+      }
+    >();
+
+    // Processar cada ano
+    yearsData.forEach((yearData, yearIndex) => {
+      const yearOffset = yearIndex * 12; // Sempre 12 meses por ano antes de agregar
+
+      // Processar transações do ano
+      yearData.transactions.forEach((transaction) => {
+        const classification = transaction.classification;
+        if (!classification || !classification.commitment) return;
+
+        const monthIndex = parseISO(transaction.transaction_date).getMonth();
+        const amount = transaction.transaction_type === "credit" ? Math.abs(transaction.amount) : -Math.abs(transaction.amount);
+
+        const commitmentId = classification.commitment.id;
+        const commitmentName = classification.commitment.name;
+        const commitmentGroupId = classification.commitment_group?.id || "unknown";
+        const commitmentGroupName = classification.commitment_group?.name || "Grupo Desconhecido";
+        const commitmentTypeId = classification.commitment_type?.id || "unknown";
+        const commitmentTypeName = classification.commitment_type?.name || "Tipo Desconhecido";
+
+        // Inicializar hierarquia
+        if (!hierarchyMap.has(commitmentTypeId)) {
+          hierarchyMap.set(commitmentTypeId, {
+            type: { id: commitmentTypeId, name: commitmentTypeName, company_id: "" },
+            groups: new Map(),
+            values: new Array(12 * yearsData.length).fill(0),
+            budgetedValues: new Array(12 * yearsData.length).fill(0),
+          });
+        }
+        const typeData = hierarchyMap.get(commitmentTypeId)!;
+        typeData.values[yearOffset + monthIndex] += amount;
+
+        if (!typeData.groups.has(commitmentGroupId)) {
+          typeData.groups.set(commitmentGroupId, {
+            group: { id: commitmentGroupId, name: commitmentGroupName, color: "#6B7280", company_id: "" },
+            commitments: new Map(),
+            values: new Array(12 * yearsData.length).fill(0),
+            budgetedValues: new Array(12 * yearsData.length).fill(0),
+          });
+        }
+        const groupData = typeData.groups.get(commitmentGroupId)!;
+        groupData.values[yearOffset + monthIndex] += amount;
+
+        if (!groupData.commitments.has(commitmentId)) {
+          groupData.commitments.set(commitmentId, {
+            commitment: { id: commitmentId, name: commitmentName, commitment_group_id: commitmentGroupId },
+            values: new Array(12 * yearsData.length).fill(0),
+            budgetedValues: new Array(12 * yearsData.length).fill(0),
+          });
+        }
+        const commitmentData = groupData.commitments.get(commitmentId)!;
+        commitmentData.values[yearOffset + monthIndex] += amount;
+      });
+
+      // Processar forecasts do ano
+      yearData.forecasts.forEach((forecast) => {
+        if (!forecast.commitment_type_id) return;
+
+        const monthIndex = parseInt(forecast.month_year.split('-')[1], 10) - 1;
+        const budgetedAmount = forecast.budgeted_amount || 0;
+
+        const commitmentTypeId = forecast.commitment_type_id;
+        const commitmentGroupId = forecast.commitment_group_id;
+        const commitmentId = forecast.commitment_id;
+
+        if (!hierarchyMap.has(commitmentTypeId)) {
+          const typeInfo = configs.commitmentTypes.find(t => t.id === commitmentTypeId);
+          if (typeInfo) {
+            hierarchyMap.set(commitmentTypeId, {
+              type: typeInfo,
+              groups: new Map(),
+              values: new Array(12 * yearsData.length).fill(0),
+              budgetedValues: new Array(12 * yearsData.length).fill(0),
+            });
+          }
+        }
+
+        const typeData = hierarchyMap.get(commitmentTypeId);
+        if (!typeData) return;
+
+        if (commitmentId && commitmentGroupId) {
+          if (!typeData.groups.has(commitmentGroupId)) {
+            const groupInfo = configs.groups.find(g => g.id === commitmentGroupId);
+            if (groupInfo) {
+              typeData.groups.set(commitmentGroupId, {
+                group: groupInfo,
+                commitments: new Map(),
+                values: new Array(12 * yearsData.length).fill(0),
+                budgetedValues: new Array(12 * yearsData.length).fill(0),
+              });
+            }
+          }
+
+          const groupData = typeData.groups.get(commitmentGroupId);
+          if (groupData) {
+            if (!groupData.commitments.has(commitmentId)) {
+              const commitmentInfo = configs.commitments.find(c => c.id === commitmentId);
+              if (commitmentInfo) {
+                groupData.commitments.set(commitmentId, {
+                  commitment: commitmentInfo,
+                  values: new Array(12 * yearsData.length).fill(0),
+                  budgetedValues: new Array(12 * yearsData.length).fill(0),
+                });
+              }
+            }
+
+            const commitmentData = groupData.commitments.get(commitmentId);
+            if (commitmentData) {
+              commitmentData.budgetedValues[yearOffset + monthIndex] += budgetedAmount;
+              groupData.budgetedValues[yearOffset + monthIndex] += budgetedAmount;
+              typeData.budgetedValues[yearOffset + monthIndex] += budgetedAmount;
+            }
+          }
+        } else if (commitmentGroupId) {
+          if (!typeData.groups.has(commitmentGroupId)) {
+            const groupInfo = configs.groups.find(g => g.id === commitmentGroupId);
+            if (groupInfo) {
+              typeData.groups.set(commitmentGroupId, {
+                group: groupInfo,
+                commitments: new Map(),
+                values: new Array(12 * yearsData.length).fill(0),
+                budgetedValues: new Array(12 * yearsData.length).fill(0),
+              });
+            }
+          }
+
+          const groupData = typeData.groups.get(commitmentGroupId);
+          if (groupData) {
+            groupData.budgetedValues[yearOffset + monthIndex] += budgetedAmount;
+            typeData.budgetedValues[yearOffset + monthIndex] += budgetedAmount;
+          }
+        } else {
+          typeData.budgetedValues[yearOffset + monthIndex] += budgetedAmount;
+        }
+      });
+    });
+
+    // Criar linhas DRE
+    const lines: DRELine[] = [];
+
+    hierarchyMap.forEach((typeData, typeId) => {
+      lines.push({
+        id: `type-${typeId}`,
+        label: typeData.type.name,
+        type: "commitment_type",
+        level: 0,
+        values: aggregateValuesByViewType(typeData.values, viewType, selectedYears),
+        budgetedValues: aggregateValuesByViewType(typeData.budgetedValues, viewType, selectedYears),
+        expandable: typeData.groups.size > 0,
+        expanded: false,
+        itemId: typeId,
+      });
+
+      typeData.groups.forEach((groupData, groupId) => {
+        lines.push({
+          id: `group-${groupId}`,
+          label: `  ${groupData.group.name}`,
+          type: "commitment_group",
+          level: 1,
+          values: aggregateValuesByViewType(groupData.values, viewType, selectedYears),
+          budgetedValues: aggregateValuesByViewType(groupData.budgetedValues, viewType, selectedYears),
+          expandable: groupData.commitments.size > 0,
+          expanded: false,
+          parentId: `type-${typeId}`,
+          itemId: groupId,
+        });
+
+        groupData.commitments.forEach((commitmentData, commitmentId) => {
+          lines.push({
+            id: `commitment-${commitmentId}`,
+            label: `    ${commitmentData.commitment.name}`,
+            type: "commitment",
+            level: 2,
+            values: aggregateValuesByViewType(commitmentData.values, viewType, selectedYears),
+            budgetedValues: aggregateValuesByViewType(commitmentData.budgetedValues, viewType, selectedYears),
+            expandable: false,
+            parentId: `group-${groupId}`,
+            itemId: commitmentId,
+          });
+        });
+      });
+    });
+
+    setDreLines(lines);
+  };
+
+  const processDataForDRE = (transactions: TransactionData[], budgetForecasts: any[] = [], configs: Configs, viewType: ViewType) => {
     // Create hierarchical data structure based on commitment types → groups → commitments
     const hierarchyMap = new Map<
       string,
@@ -644,12 +922,6 @@ const Budget: React.FC = () => {
         budgetedValues: number[];
       }
     >();
-
-    // Initialize months data
-    const monthlyResults: MonthlyDREData[] = [];
-    for (let i = 0; i < 12; i++) {
-      monthlyResults.push({ month: months[i] });
-    }
 
     // Flag para log único
     let hasLoggedSample = false;
@@ -865,10 +1137,6 @@ const Budget: React.FC = () => {
         typeData.budgetedValues[monthIndex] += budgetedAmount;
       }
     });
-    
-    console.log(`✅ Budget forecasts processed successfully`);
-
-    setMonthlyData(monthlyResults);
 
     // Create hierarchical DRE structure
     const lines: DRELine[] = [];
@@ -881,8 +1149,8 @@ const Budget: React.FC = () => {
         label: typeData.type.name,
         type: "commitment_type",
         level: 0,
-        values: typeData.values,
-        budgetedValues: typeData.budgetedValues || new Array(12).fill(0),
+        values: aggregateValuesByViewType(typeData.values, viewType, selectedYears),
+        budgetedValues: aggregateValuesByViewType(typeData.budgetedValues || new Array(12).fill(0), viewType, selectedYears),
         expandable: typeData.groups.size > 0,
         expanded: false,
         itemId: typeId,
@@ -902,8 +1170,8 @@ const Budget: React.FC = () => {
           label: `  ${groupData.group.name}`,
           type: "commitment_group",
           level: 1,
-          values: groupData.values,
-          budgetedValues: groupData.budgetedValues || new Array(12).fill(0),
+          values: aggregateValuesByViewType(groupData.values, viewType, selectedYears),
+          budgetedValues: aggregateValuesByViewType(groupData.budgetedValues || new Array(12).fill(0), viewType, selectedYears),
           expandable: groupData.commitments.size > 0,
           expanded: false,
           parentId: `type-${typeId}`,
@@ -917,8 +1185,8 @@ const Budget: React.FC = () => {
             label: `    ${commitmentData.commitment.name}`,
             type: "commitment",
             level: 2,
-            values: commitmentData.values,
-            budgetedValues: commitmentData.budgetedValues || new Array(12).fill(0),
+            values: aggregateValuesByViewType(commitmentData.values, viewType, selectedYears),
+            budgetedValues: aggregateValuesByViewType(commitmentData.budgetedValues || new Array(12).fill(0), viewType, selectedYears),
             expandable: false,
             parentId: `group-${groupId}`,
             itemId: commitmentId,
@@ -965,22 +1233,6 @@ const Budget: React.FC = () => {
     setDreLines(lines);
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  };
-
-  const getValueIcon = (value: number, type: string) => {
-    if (type === "commitment_type" && value > 0) {
-      return;
-    }
-    if (type === "commitment_type" && value < 0) {
-      return;
-    }
-    return null;
-  };
 
   const toggleLineExpansion = (lineId: string) => {
     setExpandedLines((prev) => {
@@ -1092,7 +1344,8 @@ const Budget: React.FC = () => {
   };
 
   const handleCalculateBudget = async () => {
-    if (!companyId) {
+    const filterCompanyId = companyBranchFilter.selectedCompanyId || companyId;
+    if (!filterCompanyId) {
       toast({
         title: "Erro",
         description: "Empresa não identificada",
@@ -1127,8 +1380,8 @@ const Budget: React.FC = () => {
       console.log(`📊 Meses selecionados:`, selectedMonths.map(m => `${m.toString().padStart(2, '0')}`).join(', '));
       console.log(`📊 Multiplicador IPCA: ${multiplier}`);
 
-      // Buscar transações do ANO ANTERIOR para os meses selecionados
-      const { data: previousYearTransactions, error: transError } = await supabase
+      // Build query with company and optional branch filter
+      let transactionsQuery = supabase
         .from("transactions")
         .select(`
           id,
@@ -1142,32 +1395,18 @@ const Budget: React.FC = () => {
             commitment_id
           )
         `)
-        .eq("company_id", companyId)
+        .eq("company_id", filterCompanyId)
         .gte("transaction_date", `${previousYear}-01-01`)
         .lte("transaction_date", `${previousYear}-12-31`);
 
-      if (transError) throw transError;
-
-      console.log(`🔍 Transações encontradas em ${previousYear}:`, previousYearTransactions?.length || 0);
-
-      // DIAGNÓSTICO: Verificar transações com classificação
-      const transactionsWithClassification = previousYearTransactions?.filter(t => 
-        t.transaction_classifications && 
-        (t.transaction_classifications.commitment_type_id || 
-         t.transaction_classifications.commitment_group_id || 
-         t.transaction_classifications.commitment_id)
-      ) || [];
-
-      console.log(`📊 Transações com classificação: ${transactionsWithClassification.length}`);
-
-      if (transactionsWithClassification.length > 0) {
-        console.log(`📋 Exemplo de transação classificada:`, {
-          id: transactionsWithClassification[0].id,
-          date: transactionsWithClassification[0].transaction_date,
-          amount: transactionsWithClassification[0].amount,
-          classification: transactionsWithClassification[0].transaction_classifications
-        });
+      // Add branch filter if selected
+      if (companyBranchFilter.selectedBranchId) {
+        transactionsQuery = transactionsQuery.eq("branch_id", companyBranchFilter.selectedBranchId);
       }
+
+      const { data: previousYearTransactions, error: transError } = await transactionsQuery;
+
+      if (transError) throw transError;
 
       // Estrutura para armazenar valores realizados por mês - agrupando por commitment completo
       const realizedByMonth = new Map<string, Map<string, {
@@ -1237,12 +1476,18 @@ const Budget: React.FC = () => {
         }
       });
 
-      console.log(`📊 Análise de disponibilidade de dados:`);
-      console.log(`  ✅ Meses com transações classificadas (${previousYear}):`, monthsWithData.map(m => months[m-1]).join(', ') || 'Nenhum');
-      console.log(`  ❌ Meses sem transações classificadas (${previousYear}):`, monthsWithoutData.map(m => months[m-1]).join(', ') || 'Nenhum');
-
       // Gerar budget forecasts
-      const budgetForecasts: any[] = [];
+      const budgetForecastsToInsert: Array<{
+        company_id: string;
+        commitment_type_id: string;
+        commitment_group_id: string | null;
+        commitment_id: string | null;
+        month_year: string;
+        budgeted_amount: number;
+        historical_average_12m: number;
+        is_locked: boolean;
+        calculation_date: string;
+      }> = [];
 
       selectedMonths.forEach(monthNum => {
         const monthStr = monthNum.toString().padStart(2, '0');
@@ -1254,8 +1499,8 @@ const Budget: React.FC = () => {
         // Criar um registro por commitment completo com toda a hierarquia
         monthData.forEach((item) => {
           const orcado = item.value * multiplier;
-          budgetForecasts.push({
-            company_id: companyId,
+          budgetForecastsToInsert.push({
+            company_id: filterCompanyId,
             commitment_type_id: item.commitment_type_id,
             commitment_group_id: item.commitment_group_id,
             commitment_id: item.commitment_id,
@@ -1268,10 +1513,8 @@ const Budget: React.FC = () => {
         });
       });
 
-      console.log(`📋 Total de budget forecasts gerados: ${budgetForecasts.length}`);
-
-      if (budgetForecasts.length === 0) {
-        const monthsRequested = selectedMonths.map(m => months[m-1]).join(', ');
+      if (budgetForecastsToInsert.length === 0) {
+        const monthsRequested = selectedMonths.map(m => MONTHS_SHORT[m-1]).join(', ');
         
         toast({
           title: "Nenhum orçamento foi gerado",
@@ -1283,73 +1526,28 @@ const Budget: React.FC = () => {
         return;
       }
 
-      if (budgetForecasts.length > 0) {
-        console.log('📋 Sample budget record:', budgetForecasts[0]);
-        console.log('📋 Company ID being used:', companyId);
-        console.log(`📋 Total registros: ${budgetForecasts.length} (1 registro por commitment com hierarquia completa)`);
-      }
-
       // Deletar orçamentos antigos dos meses selecionados
       for (const monthNum of selectedMonths) {
         const monthStr = monthNum.toString().padStart(2, '0');
         const targetMonthDate = `${targetYear}-${monthStr}-01`;
         
-        const { error: deleteError } = await (supabase as any)
+        const { error: deleteError } = await supabase
           .from("budget_forecasts")
           .delete()
-          .eq("company_id", companyId)
+          .eq("company_id", filterCompanyId)
           .eq("month_year", targetMonthDate);
 
-        if (deleteError) {
-          console.error(`Erro ao deletar orçamento de ${targetMonthDate}:`, deleteError);
-        }
+        if (deleteError) throw deleteError;
       }
 
       // Inserir novos orçamentos
-      if (budgetForecasts.length > 0) {
-        console.log('💾 Iniciando inserção de', budgetForecasts.length, 'registros...');
-        
-        const { data: insertedData, error: insertError } = await supabase
+      if (budgetForecastsToInsert.length > 0) {
+        const { error: insertError } = await supabase
           .from("budget_forecasts")
-          .insert(budgetForecasts)
-          .select();
+          .insert(budgetForecastsToInsert);
 
         if (insertError) {
-          console.error("❌ Erro ao inserir forecasts:", insertError);
-          console.error("❌ Detalhes:", {
-            message: insertError.message,
-            details: insertError.details,
-            hint: insertError.hint,
-            code: insertError.code
-          });
           throw new Error(`Falha ao salvar orçamento: ${insertError.message}`);
-        }
-
-        console.log('✅ Inserção concluída com sucesso!');
-        console.log('✅ Registros inseridos:', insertedData?.length || 0);
-        
-        if (insertedData && insertedData.length > 0) {
-          console.log('✅ Primeiro registro inserido:', insertedData[0]);
-        }
-
-        // Verificar se os registros foram realmente salvos
-        console.log('🔍 Verificando registros salvos...');
-
-        for (const monthNum of selectedMonths) {
-          const monthStr = monthNum.toString().padStart(2, '0');
-          const targetMonthDate = `${targetYear}-${monthStr}-01`;
-          
-          const { data: verifyData, error: verifyError } = await supabase
-            .from("budget_forecasts")
-            .select("id")
-            .eq("company_id", companyId)
-            .eq("month_year", targetMonthDate);
-
-          if (verifyError) {
-            console.error(`❌ Erro ao verificar mês ${monthStr}:`, verifyError);
-          } else {
-            console.log(`✅ Mês ${monthStr}: ${verifyData?.length || 0} registros encontrados`);
-          }
         }
       }
 
@@ -1358,7 +1556,7 @@ const Budget: React.FC = () => {
 
       // Recalcular quais meses realmente tiveram orçamento gerado
       const monthsWithBudget = new Set<number>();
-      budgetForecasts.forEach(forecast => {
+      budgetForecastsToInsert.forEach(forecast => {
         const monthMatch = forecast.month_year.match(/-(\d{2})-/);
         if (monthMatch) {
           monthsWithBudget.add(parseInt(monthMatch[1], 10));
@@ -1366,10 +1564,10 @@ const Budget: React.FC = () => {
       });
 
       const generatedMonthsArray = Array.from(monthsWithBudget).sort((a, b) => a - b);
-      const generatedMonthsNames = generatedMonthsArray.map(m => months[m-1]).join(', ');
+      const generatedMonthsNames = generatedMonthsArray.map(m => MONTHS_SHORT[m-1]).join(', ');
       
       const missingMonths = selectedMonths.filter(m => !monthsWithBudget.has(m));
-      const missingMonthsNames = missingMonths.map(m => months[m-1]).join(', ');
+      const missingMonthsNames = missingMonths.map(m => MONTHS_SHORT[m-1]).join(', ');
 
       // Atualizar tabela
       const configs = await fetchConfigurations();
@@ -1379,24 +1577,22 @@ const Budget: React.FC = () => {
 
       // Mensagem de sucesso mais informativa
       if (missingMonths.length === 0) {
-        // Todos os meses solicitados foram gerados
         toast({
           title: "Orçamento calculado com sucesso!",
-          description: `${budgetForecasts.length} registros salvos para ${generatedMonthsNames} de ${targetYear}.`,
+          description: `${budgetForecastsToInsert.length} registros salvos para ${generatedMonthsNames} de ${targetYear}.`,
         });
       } else {
-        // Alguns meses não foram gerados
         toast({
           title: "Orçamento calculado parcialmente",
           description: `✅ Gerado: ${generatedMonthsNames}${missingMonthsNames ? `\n⚠️ Sem base de cálculo em ${previousYear}: ${missingMonthsNames}` : ''}`,
         });
       }
 
-    } catch (error: any) {
-      console.error("Erro ao calcular orçamento:", error);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Não foi possível calcular o orçamento";
       toast({
         title: "Erro ao calcular orçamento",
-        description: error.message || "Não foi possível calcular o orçamento",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -1405,7 +1601,8 @@ const Budget: React.FC = () => {
   };
 
   const handleClearBudget = async () => {
-    if (!companyId) {
+    const filterCompanyId = companyBranchFilter.selectedCompanyId || companyId;
+    if (!filterCompanyId) {
       toast({
         title: "Erro",
         description: "Empresa não identificada",
@@ -1431,16 +1628,13 @@ const Budget: React.FC = () => {
         const monthStr = monthNum.toString().padStart(2, '0');
         const targetMonthDate = `${budgetYear}-${monthStr}-01`;
         
-        const { error: deleteError } = await (supabase as any)
+        const { error: deleteError } = await supabase
           .from("budget_forecasts")
           .delete()
-          .eq("company_id", companyId)
+          .eq("company_id", filterCompanyId)
           .eq("month_year", targetMonthDate);
 
-        if (deleteError) {
-          console.error(`Erro ao deletar orçamento de ${targetMonthDate}:`, deleteError);
-          throw deleteError;
-        }
+        if (deleteError) throw deleteError;
       }
 
       const configs = await fetchConfigurations();
@@ -1452,11 +1646,11 @@ const Budget: React.FC = () => {
         description: `Orçamento limpo para ${selectedMonths.length} mês(es) de ${budgetYear}`,
       });
 
-    } catch (error: any) {
-      console.error("Erro ao limpar orçamento:", error);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Não foi possível limpar o orçamento";
       toast({
         title: "Erro ao limpar orçamento",
-        description: error.message || "Não foi possível limpar o orçamento",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -1484,7 +1678,6 @@ const Budget: React.FC = () => {
       const config = await fetchConfigurations();
       await fetchTransactionData(config); // Refresh data to apply changes
     } catch (error) {
-      console.error("Error removing configuration:", error);
       toast({
         title: "Erro ao remover",
         description: "Não foi possível remover a configuração",
@@ -1501,7 +1694,7 @@ const Budget: React.FC = () => {
     );
   };
 
-  const getLineTypeLabel = (type: "revenue" | "cost" | "expense") => {
+  const getLineTypeLabel = (type: LineType) => {
     switch (type) {
       case "revenue":
         return "Receita";
@@ -1512,7 +1705,7 @@ const Budget: React.FC = () => {
     }
   };
 
-  const getLineTypeColor = (type: "revenue" | "cost" | "expense") => {
+  const getLineTypeColor = (type: LineType) => {
     switch (type) {
       case "revenue":
         return "bg-green-100 text-green-800 border-green-200";
@@ -1524,16 +1717,33 @@ const Budget: React.FC = () => {
   };
 
   const monthlyTotals = useMemo(() => {
-    const totals = new Array(12).fill(0);
-    dreLines.forEach((l) => {
-      if (l.level === 0) {
-        l.values.forEach((v, i) => {
-          totals[i] += v;
-        });
-      }
-    });
-    return totals;
-  }, [dreLines]);
+    if (selectedYears.length === 1) {
+      const totals = new Array(12).fill(0);
+      dreLines.forEach((l) => {
+        if (l.level === 0) {
+          l.values.forEach((v, i) => {
+            totals[i] += v;
+          });
+        }
+      });
+      return aggregateValuesByViewType(totals, viewType, selectedYears);
+    } else {
+      // Multi-year: totals já vêm agregados
+      const numPeriods = viewType === 'month' ? 12 : viewType === 'quarter' ? 4 : viewType === 'semester' ? 2 : 1;
+      const totalPeriods = numPeriods * selectedYears.length;
+      const totals = new Array(totalPeriods).fill(0);
+      dreLines.forEach((l) => {
+        if (l.level === 0) {
+          l.values.forEach((v, i) => {
+            totals[i] += v;
+          });
+        }
+      });
+      return totals;
+    }
+  }, [dreLines, viewType, selectedYears]);
+
+  const columnLabels = useMemo(() => getColumnLabels(viewType, selectedYears), [viewType, selectedYears]);
 
   const grandTotal = useMemo(() => monthlyTotals.reduce((acc, v) => acc + v, 0), [monthlyTotals]);
 
@@ -1547,27 +1757,55 @@ const Budget: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {availableYears.length > 0 ? (
-                availableYears.map((year) => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}
-                  </SelectItem>
-                ))
-              ) : (
-                <SelectItem value={currentYear.toString()}>{currentYear}</SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-          
-          {/* Botão Parâmetros */}
-          <Dialog open={parametersDialogOpen} onOpenChange={setParametersDialogOpen}>
+      <div className="flex flex-col gap-4">
+        <CompanyBranchFilter
+          companies={companyBranchFilter.companies}
+          branches={companyBranchFilter.branches}
+          selectedCompanyId={companyBranchFilter.selectedCompanyId}
+          selectedBranchId={companyBranchFilter.selectedBranchId}
+          onCompanyChange={companyBranchFilter.handleCompanyChange}
+          onBranchChange={companyBranchFilter.handleBranchChange}
+          loading={companyBranchFilter.loading}
+        />
+      </div>
+
+      <BudgetToolbar
+        selectedYears={selectedYears}
+        onYearsChange={setSelectedYears}
+        availableYears={availableYears}
+        viewType={viewType}
+        onViewTypeChange={setViewType}
+        onLoadData={handleLoadData}
+        isLoading={loading}
+      />
+
+      {!hasLoadedData && !loading && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Nenhum dado carregado</h3>
+            <p className="text-muted-foreground text-center mb-4">
+              Selecione o(s) ano(s) e clique em "Carregar" para visualizar os dados do orçamento.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {loading && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
+            <p className="text-muted-foreground">Carregando dados do orçamento...</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {hasLoadedData && !loading && (
+        <>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {/* Botão Parâmetros */}
+              <Dialog open={parametersDialogOpen} onOpenChange={setParametersDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-2">
                 <Settings className="h-4 w-4" />
@@ -1624,23 +1862,12 @@ const Budget: React.FC = () => {
                 </div>
 
                 {/* Filtro de Meses */}
-                <div className="space-y-2">
+                  <div className="space-y-2">
                   <label className="text-sm font-medium">Meses</label>
                   <div className="grid grid-cols-4 gap-2">
-                    {[
-                      { num: 1, label: "Jan" },
-                      { num: 2, label: "Fev" },
-                      { num: 3, label: "Mar" },
-                      { num: 4, label: "Abr" },
-                      { num: 5, label: "Mai" },
-                      { num: 6, label: "Jun" },
-                      { num: 7, label: "Jul" },
-                      { num: 8, label: "Ago" },
-                      { num: 9, label: "Set" },
-                      { num: 10, label: "Out" },
-                      { num: 11, label: "Nov" },
-                      { num: 12, label: "Dez" },
-                    ].map((month) => (
+                    {MONTHS_SHORT.map((label, index) => {
+                      const month = { num: index + 1, label };
+                      return (
                       <Button
                         key={month.num}
                         type="button"
@@ -1657,7 +1884,8 @@ const Budget: React.FC = () => {
                       >
                         {month.label}
                       </Button>
-                    ))}
+                    );
+                    })}
                   </div>
                   <div className="flex gap-2 mt-2">
                     <Button
@@ -1705,10 +1933,7 @@ const Budget: React.FC = () => {
                   </p>
                   {selectedMonths.length > 0 && (
                     <p className="text-muted-foreground text-xs mt-2">
-                      Meses: {selectedMonths.map(m => {
-                        const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-                        return monthNames[m - 1];
-                      }).join(', ')}
+                      Meses: {selectedMonths.map(m => MONTHS_SHORT[m - 1]).join(', ')}
                     </p>
                   )}
                 </div>
@@ -1762,9 +1987,9 @@ const Budget: React.FC = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[300px] font-semibold">Descrição</TableHead>
-                  {months.map((month) => (
-                    <TableHead key={month} colSpan={3} className="text-center font-semibold border-r border-border">
-                      <div className="pb-2">{month}</div>
+                  {columnLabels.map((label) => (
+                    <TableHead key={label} colSpan={3} className="text-center font-semibold border-r border-border">
+                      <div className="pb-2">{label}</div>
                       <div className="grid grid-cols-3 gap-1 text-xs font-normal">
                         <div className="text-blue-600 dark:text-blue-400">Orçado</div>
                         <div className="text-card-foreground">Realizado</div>
@@ -1803,7 +2028,6 @@ const Budget: React.FC = () => {
                               )}
                             </div>
                           )}
-                          {getValueIcon(total, line.type)}
                           <div>
                             <span
                               className={
@@ -1822,12 +2046,12 @@ const Budget: React.FC = () => {
                         </div>
                       </TableCell>
 
-                      {line.values.map((realizado, monthIndex) => {
-                        const orcado = line.budgetedValues[monthIndex];
+                      {line.values.map((realizado, periodIndex) => {
+                        const orcado = line.budgetedValues[periodIndex];
                         const variacao = realizado - orcado;
                         
                         return (
-                          <React.Fragment key={monthIndex}>
+                          <React.Fragment key={periodIndex}>
                             {/* Orçado */}
                             <TableCell className="text-center text-sm border-r-0">
                               <span className="text-blue-600 dark:text-blue-400">
@@ -2018,6 +2242,8 @@ const Budget: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+        </>
+      )}
     </div>
   );
 };

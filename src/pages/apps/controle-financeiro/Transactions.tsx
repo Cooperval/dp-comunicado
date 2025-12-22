@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,32 +21,25 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { useAuth } from '@/components/auth/controle-financeiro/AuthProvider';
-
-interface Transaction {
-  id: string;
-  transaction_date: string;
-  amount: number;
-  description: string;
-  transaction_type: 'debit' | 'credit';
-  memo?: string;
-  fitid?: string;
-  banks: {
-    bank_name: string;
-    account_number: string;
-    bank_code: string;
-  };
-}
-
-interface Bank {
-  id: string;
-  bank_name: string;
-  account_number: string;
-  bank_code: string;
-}
+import { useAuth } from '@/pages/apps/controle-financeiro/auth/AuthProvider';
+import { formatCurrency } from '@/pages/apps/controle-financeiro/utils/formatters';
+import { 
+  ITEMS_PER_PAGE_OPTIONS, 
+  DEFAULT_ITEMS_PER_PAGE, 
+  TRANSACTION_TYPE_OPTIONS, 
+  MONTH_BUTTONS,
+  ALL_MONTHS 
+} from '@/pages/apps/controle-financeiro/constants/transactionsConstants';
+import type { Transaction, Bank, TransactionSummary } from '@/pages/apps/controle-financeiro/types/transactions';
+import { CompanyBranchFilter } from '@/pages/apps/controle-financeiro/components/filters/CompanyBranchFilter';
+import { useCompanyBranchFilter } from '@/pages/apps/controle-financeiro/hooks/useCompanyBranchFilter';
 
 const Transactions = () => {
   const { companyId } = useAuth();
+  
+  // Company and Branch filter
+  const companyBranchFilter = useCompanyBranchFilter();
+  
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [loading, setLoading] = useState(false);
@@ -56,36 +49,340 @@ const Transactions = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
-  
-  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
   const [totalItems, setTotalItems] = useState(0);
   const [hasSearched, setHasSearched] = useState(false);
+  const [summary, setSummary] = useState<TransactionSummary>({ totalCredit: 0, totalDebit: 0, totalCount: 0 });
 
-  // Reset page quando filtros mudarem, mas NÃO recarregar dados
+  // Data fetching functions
+  const fetchData = useCallback(async () => {
+    if (!companyId) return;
+    
+    try {
+      setLoading(true);
+
+      let query = supabase
+        .from('transactions')
+        .select(`
+          id,
+          transaction_date,
+          amount,
+          description,
+          transaction_type,
+          memo,
+          fitid,
+          banks!inner (
+            bank_name,
+            account_number,
+            bank_code
+          )
+        `)
+        .eq('company_id', companyBranchFilter.selectedCompanyId || companyId);
+      
+      if (companyBranchFilter.selectedBranchId) {
+        query = query.eq('branch_id', companyBranchFilter.selectedBranchId);
+      }
+
+      if (selectedBank !== 'all') {
+        query = query.eq('banks.bank_code', selectedBank);
+      }
+      if (selectedType !== 'all') {
+        query = query.eq('transaction_type', selectedType);
+      }
+      // Search term will be filtered on client-side
+
+      const yearStart = `${selectedYear}-01-01`;
+      const yearEnd = `${selectedYear}-12-31`;
+      query = query.gte('transaction_date', yearStart).lte('transaction_date', yearEnd);
+
+      const { data: transactionsData, error: transactionsError } = await query
+        .order('transaction_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(100000);
+
+      if (transactionsError) throw transactionsError;
+      
+      const typedTransactions = (transactionsData || []).map(transaction => ({
+        ...transaction,
+        transaction_type: transaction.transaction_type as 'debit' | 'credit'
+      }));
+      
+      let filtered = typedTransactions;
+
+      // First, filter by search term (description or memo)
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase().trim();
+        filtered = filtered.filter((transaction) => 
+          transaction.description?.toLowerCase().includes(searchLower) ||
+          (transaction.memo && transaction.memo.toLowerCase().includes(searchLower))
+        );
+      }
+
+      // Then, filter by selected months
+      if (selectedMonths.length > 0) {
+        filtered = filtered.filter((transaction) => {
+          const transactionMonth = new Date(transaction.transaction_date).getMonth() + 1;
+          return selectedMonths.includes(transactionMonth);
+        });
+      }
+
+      const totalFiltered = filtered.length;
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage;
+      const paginatedTransactions = filtered.slice(from, to);
+
+      setTransactions(paginatedTransactions);
+      setTotalItems(totalFiltered);
+
+    } catch (error) {
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Não foi possível carregar as transações",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [companyId, companyBranchFilter.selectedCompanyId, companyBranchFilter.selectedBranchId, selectedBank, selectedType, searchTerm, selectedYear, selectedMonths, currentPage, itemsPerPage]);
+
+  const fetchAvailableYears = useCallback(async () => {
+    if (!companyId) return;
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      let query = supabase
+        .from("transactions")
+        .select("transaction_date")
+        .eq("company_id", companyBranchFilter.selectedCompanyId || companyId);
+
+      if (companyBranchFilter.selectedBranchId) {
+        query = query.eq('branch_id', companyBranchFilter.selectedBranchId);
+      }
+
+      const { data, error } = await query.order("transaction_date", { ascending: false });
+
+      if (error) {
+        toast({
+          title: "Erro ao buscar anos",
+          description: "Não foi possível carregar os anos disponíveis",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const years = Array.from(
+          new Set(data.map((item) => new Date(item.transaction_date).getFullYear()))
+        ).sort((a, b) => b - a);
+
+        setAvailableYears(years);
+
+        if (years.length > 0 && !years.includes(selectedYear)) {
+          setSelectedYear(years[0]);
+        }
+      } else {
+        setAvailableYears([new Date().getFullYear()]);
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao buscar anos",
+        description: "Não foi possível carregar os anos disponíveis",
+        variant: "destructive"
+      });
+      setAvailableYears([new Date().getFullYear()]);
+    }
+  }, [companyId, companyBranchFilter.selectedCompanyId, companyBranchFilter.selectedBranchId, selectedYear]);
+
+  const fetchSummary = useCallback(async (): Promise<TransactionSummary> => {
+    if (!companyId) return { totalCredit: 0, totalDebit: 0, totalCount: 0 };
+    
+    try {
+      let query = supabase
+        .from('transactions')
+        .select(`
+          amount, 
+          transaction_type,
+          description,
+          memo,
+          transaction_date,
+          banks!inner (
+            bank_name,
+            account_number,
+            bank_code
+          )
+        `)
+        .eq('company_id', companyBranchFilter.selectedCompanyId || companyId);
+
+      if (companyBranchFilter.selectedBranchId) {
+        query = query.eq('branch_id', companyBranchFilter.selectedBranchId);
+      }
+
+      if (selectedBank !== 'all') {
+        query = query.eq('banks.bank_code', selectedBank);
+      }
+      if (selectedType !== 'all') {
+        query = query.eq('transaction_type', selectedType);
+      }
+      // Search term will be filtered on client-side
+
+      const yearStart = `${selectedYear}-01-01`;
+      const yearEnd = `${selectedYear}-12-31`;
+      query = query.gte('transaction_date', yearStart).lte('transaction_date', yearEnd);
+
+      const { data } = await query.limit(100000);
+      
+      if (!data) return { totalCredit: 0, totalDebit: 0, totalCount: 0 };
+
+      let filteredData = data;
+
+      // First, filter by search term (description or memo)
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase().trim();
+        filteredData = filteredData.filter((transaction) => 
+          transaction.description?.toLowerCase().includes(searchLower) ||
+          (transaction.memo && transaction.memo.toLowerCase().includes(searchLower))
+        );
+      }
+
+      // Then, filter by selected months
+      if (selectedMonths.length > 0) {
+        filteredData = filteredData.filter((transaction) => {
+          const transactionMonth = new Date(transaction.transaction_date).getMonth() + 1;
+          return selectedMonths.includes(transactionMonth);
+        });
+      }
+
+      const totalCredit = filteredData.filter(t => t.transaction_type === 'credit').reduce((sum, t) => sum + t.amount, 0);
+      const totalDebit = filteredData.filter(t => t.transaction_type === 'debit').reduce((sum, t) => sum + t.amount, 0);
+      
+      return { totalCredit, totalDebit, totalCount: filteredData.length };
+    } catch (error) {
+      toast({
+        title: "Erro ao calcular resumo",
+        description: "Não foi possível calcular o resumo das transações",
+        variant: "destructive"
+      });
+      return { totalCredit: 0, totalDebit: 0, totalCount: 0 };
+    }
+  }, [companyId, companyBranchFilter.selectedCompanyId, companyBranchFilter.selectedBranchId, selectedBank, selectedType, searchTerm, selectedYear, selectedMonths]);
+
+  const handleSearch = useCallback(async () => {
+    if (selectedMonths.length === 0) {
+      toast({
+        title: "Meses obrigatórios",
+        description: "Por favor, selecione pelo menos um mês para buscar as transações.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setHasSearched(true);
+    setCurrentPage(1);
+    await fetchData();
+    const summaryData = await fetchSummary();
+    setSummary(summaryData);
+  }, [selectedMonths, fetchData, fetchSummary]);
+
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+  }, []);
+
+  const handleItemsPerPageChange = useCallback((value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
+  }, []);
+
+  const exportToCSV = useCallback(() => {
+    const escapeCSV = (value: string | number) => {
+      const stringValue = String(value);
+      if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    };
+
+    const csvData = transactions.map(t => ({
+      Data: format(parseISO(t.transaction_date), 'dd/MM/yyyy'),
+      Descrição: escapeCSV(t.description),
+      Valor: t.amount,
+      Tipo: t.transaction_type === 'credit' ? 'Crédito' : 'Débito',
+      Banco: escapeCSV(t.banks.bank_name),
+      'Número da Conta': t.banks.account_number,
+      Memo: escapeCSV(t.memo || ''),
+      'ID Transação': t.fitid || ''
+    }));
+
+    const headers = Object.keys(csvData[0]);
+    const csvString = [
+      headers.join(','),
+      ...csvData.map(row => Object.values(row).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `movimentacoes_${format(new Date(), 'dd-MM-yyyy')}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }, [transactions]);
+
+  const netAmount = useMemo(() => summary.totalCredit - summary.totalDebit, [summary]);
+  const totalPages = useMemo(() => Math.ceil(totalItems / itemsPerPage), [totalItems, itemsPerPage]);
+
+  // Effects
+  useEffect(() => {
+    const fetchBanks = async () => {
+      if (!companyId) return;
+      
+      try {
+        let query = supabase
+          .from('banks')
+          .select('id, bank_name, account_number, bank_code')
+          .eq('company_id', companyBranchFilter.selectedCompanyId || companyId);
+
+        if (companyBranchFilter.selectedBranchId) {
+          query = query.eq('branch_id', companyBranchFilter.selectedBranchId);
+        }
+
+        const { data: banksData, error: banksError } = await query.order('bank_name');
+
+        if (banksError) throw banksError;
+        setBanks(banksData || []);
+      } catch (error) {
+        toast({
+          title: "Erro ao carregar bancos",
+          description: "Não foi possível carregar a lista de bancos",
+          variant: "destructive"
+        });
+      }
+    };
+    
+    fetchBanks();
+  }, [companyId, companyBranchFilter.selectedCompanyId, companyBranchFilter.selectedBranchId]);
+
   useEffect(() => {
     if (hasSearched && currentPage !== 1) {
       setCurrentPage(1);
     }
-  }, [searchTerm, selectedBank, selectedType, selectedYear, selectedMonths]);
+  }, [searchTerm, selectedBank, selectedType, selectedYear, selectedMonths, hasSearched, currentPage]);
 
-  // Recarregar apenas quando paginação mudar (se já houver buscado)
   useEffect(() => {
     if (hasSearched) {
       fetchData();
       fetchSummary().then(setSummary);
     }
-  }, [currentPage, itemsPerPage]);
+  }, [currentPage, itemsPerPage, hasSearched, fetchData, fetchSummary]);
 
-  // Carregar anos disponíveis ao montar o componente
   useEffect(() => {
     if (companyId) {
       fetchAvailableYears();
     }
-  }, [companyId]);
+  }, [companyId, fetchAvailableYears]);
 
-  // Real-time updates for transactions and uploads
   useEffect(() => {
     const channel = supabase
       .channel('transactions-realtime')
@@ -124,264 +421,10 @@ const Transactions = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [hasSearched]);
-
-  const fetchData = async () => {
-    if (!companyId) return;
-    
-    try {
-      setLoading(true);
-
-      // Fetch banks
-      const { data: banksData, error: banksError } = await supabase
-        .from('banks')
-        .select('id, bank_name, account_number, bank_code')
-        .eq('company_id', companyId)
-        .order('bank_name');
-
-      if (banksError) throw banksError;
-      setBanks(banksData || []);
-
-      // Build filters
-      let query = supabase
-        .from('transactions')
-        .select(`
-          id,
-          transaction_date,
-          amount,
-          description,
-          transaction_type,
-          memo,
-          fitid,
-          banks!inner (
-            bank_name,
-            account_number,
-            bank_code
-          )
-        `)
-        .eq('company_id', companyId);
-
-      // Apply filters
-      if (selectedBank !== 'all') {
-        query = query.eq('banks.bank_code', selectedBank);
-      }
-      if (selectedType !== 'all') {
-        query = query.eq('transaction_type', selectedType);
-      }
-      if (searchTerm) {
-        query = query.or(`description.ilike.%${searchTerm}%,memo.ilike.%${searchTerm}%`);
-      }
-
-      // Filtrar pelo ano inteiro primeiro
-      const yearStart = `${selectedYear}-01-01`;
-      const yearEnd = `${selectedYear}-12-31`;
-      query = query.gte('transaction_date', yearStart).lte('transaction_date', yearEnd);
-
-      // Buscar TODAS as transações sem paginação
-      const { data: transactionsData, error: transactionsError } = await query
-        .order('transaction_date', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(100000);
-
-      if (transactionsError) throw transactionsError;
-      
-      // Type cast transaction_type to ensure proper typing
-      const typedTransactions = (transactionsData || []).map(transaction => ({
-        ...transaction,
-        transaction_type: transaction.transaction_type as 'debit' | 'credit'
-      }));
-      
-      // 1. PRIMEIRO: Filtrar por meses específicos
-      let filteredByMonths = typedTransactions;
-      if (selectedMonths.length > 0) {
-        filteredByMonths = typedTransactions.filter((transaction) => {
-          const transactionMonth = new Date(transaction.transaction_date).getMonth() + 1;
-          return selectedMonths.includes(transactionMonth);
-        });
-      }
-
-      // 2. DEPOIS: Aplicar paginação no lado do cliente
-      const totalFiltered = filteredByMonths.length;
-      const from = (currentPage - 1) * itemsPerPage;
-      const to = from + itemsPerPage;
-      const paginatedTransactions = filteredByMonths.slice(from, to);
-
-      setTransactions(paginatedTransactions);
-      setTotalItems(totalFiltered);
-
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast({
-        title: "Erro ao carregar dados",
-        description: "Não foi possível carregar as transações",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchAvailableYears = async () => {
-    if (!companyId) return;
-    
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("transaction_date")
-        .eq("company_id", companyId)
-        .order("transaction_date", { ascending: false });
-
-      if (error) {
-        console.error("Erro ao buscar anos disponíveis:", error);
-        return;
-      }
-
-      if (data && data.length > 0) {
-        const years = Array.from(
-          new Set(data.map((item) => new Date(item.transaction_date).getFullYear()))
-        ).sort((a, b) => b - a);
-
-        setAvailableYears(years);
-
-        if (years.length > 0 && !years.includes(selectedYear)) {
-          setSelectedYear(years[0]);
-        }
-      } else {
-        setAvailableYears([new Date().getFullYear()]);
-      }
-    } catch (error) {
-      console.error("Error in fetchAvailableYears:", error);
-      setAvailableYears([new Date().getFullYear()]);
-    }
-  };
-
-  const handleSearch = async () => {
-    // Validar se pelo menos um mês foi selecionado
-    if (selectedMonths.length === 0) {
-      toast({
-        title: "Meses obrigatórios",
-        description: "Por favor, selecione pelo menos um mês para buscar as transações.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setHasSearched(true);
-    setCurrentPage(1);
-    await fetchData();
-    const summaryData = await fetchSummary();
-    setSummary(summaryData);
-  };
-
-  // Fetch summary data separately (for filtered results)
-  const fetchSummary = async () => {
-    if (!companyId) return { totalCredit: 0, totalDebit: 0, totalCount: 0 };
-    
-    try {
-      // Build the exact same query as fetchData but without pagination
-      let query = supabase
-        .from('transactions')
-        .select(`
-          amount, 
-          transaction_type,
-          description,
-          memo,
-          transaction_date,
-          banks!inner (
-            bank_name,
-            account_number,
-            bank_code
-          )
-        `)
-        .eq('company_id', companyId);
-
-      // Apply EXACTLY the same filters as main query
-      if (selectedBank !== 'all') {
-        query = query.eq('banks.bank_code', selectedBank);
-      }
-      if (selectedType !== 'all') {
-        query = query.eq('transaction_type', selectedType);
-      }
-      if (searchTerm) {
-        query = query.or(`description.ilike.%${searchTerm}%,memo.ilike.%${searchTerm}%`);
-      }
-
-      // Filtrar pelo ano inteiro
-      const yearStart = `${selectedYear}-01-01`;
-      const yearEnd = `${selectedYear}-12-31`;
-      query = query.gte('transaction_date', yearStart).lte('transaction_date', yearEnd);
-
-      // Set explicit high limit to get all filtered transactions (Supabase defaults to 1000)
-      const { data } = await query.limit(100000);
-      
-      if (!data) return { totalCredit: 0, totalDebit: 0, totalCount: 0 };
-
-      // Filtrar por meses específicos no lado do cliente
-      let filteredData = data;
-      if (selectedMonths.length > 0) {
-        filteredData = data.filter((transaction) => {
-          const transactionMonth = new Date(transaction.transaction_date).getMonth() + 1;
-          return selectedMonths.includes(transactionMonth);
-        });
-      }
-
-      const totalCredit = filteredData.filter(t => t.transaction_type === 'credit').reduce((sum, t) => sum + t.amount, 0);
-      const totalDebit = filteredData.filter(t => t.transaction_type === 'debit').reduce((sum, t) => sum + t.amount, 0);
-      
-      return { totalCredit, totalDebit, totalCount: filteredData.length };
-    } catch (error) {
-      console.error('Error fetching summary:', error);
-      return { totalCredit: 0, totalDebit: 0, totalCount: 0 };
-    }
-  };
-
-  const [summary, setSummary] = useState({ totalCredit: 0, totalDebit: 0, totalCount: 0 });
-
-  const netAmount = summary.totalCredit - summary.totalDebit;
-
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
-  const handleItemsPerPageChange = (value: string) => {
-    setItemsPerPage(Number(value));
-    setCurrentPage(1);
-  };
-
-  const exportToCSV = () => {
-    const csvData = transactions.map(t => ({
-      Data: format(parseISO(t.transaction_date), 'dd/MM/yyyy'),
-      Descrição: t.description,
-      Valor: t.amount,
-      Tipo: t.transaction_type === 'credit' ? 'Crédito' : 'Débito',
-      Banco: t.banks.bank_name,
-      'Número da Conta': t.banks.account_number,
-      Memo: t.memo || '',
-      'ID Transação': t.fitid || ''
-    }));
-
-    const csvString = [
-      Object.keys(csvData[0]).join(','),
-      ...csvData.map(row => Object.values(row).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvString], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `movimentacoes_${format(new Date(), 'dd-MM-yyyy')}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
+  }, [hasSearched, fetchData, fetchSummary, fetchAvailableYears]);
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
       {hasSearched && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -391,7 +434,7 @@ const Transactions = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Total Créditos</p>
                 <p className="text-xl font-bold text-success">
-                  R$ {summary.totalCredit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {formatCurrency(summary.totalCredit)}
                 </p>
               </div>
             </div>
@@ -405,7 +448,7 @@ const Transactions = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Total Débitos</p>
                 <p className="text-xl font-bold text-destructive">
-                  R$ {summary.totalDebit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {formatCurrency(summary.totalDebit)}
                 </p>
               </div>
             </div>
@@ -419,7 +462,7 @@ const Transactions = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Saldo Líquido</p>
                 <p className={`text-xl font-bold ${netAmount >= 0 ? 'text-success' : 'text-destructive'}`}>
-                  R$ {netAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {formatCurrency(netAmount)}
                 </p>
               </div>
             </div>
@@ -442,7 +485,6 @@ const Transactions = () => {
       </div>
       )}
 
-      {/* Filters */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -451,7 +493,18 @@ const Transactions = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Linha 1: Busca, Banco, Tipo */}
+          <CompanyBranchFilter
+            companies={companyBranchFilter.companies}
+            branches={companyBranchFilter.branches}
+            selectedCompanyId={companyBranchFilter.selectedCompanyId}
+            selectedBranchId={companyBranchFilter.selectedBranchId}
+            onCompanyChange={companyBranchFilter.handleCompanyChange}
+            onBranchChange={companyBranchFilter.handleBranchChange}
+            loading={companyBranchFilter.loading}
+          />
+
+          <Separator />
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div className="space-y-2 md:col-span-2 lg:col-span-3">
               <label className="text-sm font-medium">Buscar</label>
@@ -490,9 +543,11 @@ const Transactions = () => {
                   <SelectValue placeholder="Todos os tipos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os tipos</SelectItem>
-                  <SelectItem value="credit">Crédito</SelectItem>
-                  <SelectItem value="debit">Débito</SelectItem>
+                  {TRANSACTION_TYPE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -500,7 +555,6 @@ const Transactions = () => {
 
           <Separator />
 
-          {/* Linha 2: Ano e Meses */}
           <div className="space-y-4">
             <div className="flex items-center gap-4">
               <Label className="text-sm font-medium min-w-[60px]">Período:</Label>
@@ -530,20 +584,7 @@ const Transactions = () => {
             <div className="space-y-2">
               <Label className="text-sm font-medium">Meses:</Label>
               <div className="grid grid-cols-6 sm:grid-cols-10 md:grid-cols-12 gap-2">
-                {[
-                  { num: 1, label: "Jan" },
-                  { num: 2, label: "Fev" },
-                  { num: 3, label: "Mar" },
-                  { num: 4, label: "Abr" },
-                  { num: 5, label: "Mai" },
-                  { num: 6, label: "Jun" },
-                  { num: 7, label: "Jul" },
-                  { num: 8, label: "Ago" },
-                  { num: 9, label: "Set" },
-                  { num: 10, label: "Out" },
-                  { num: 11, label: "Nov" },
-                  { num: 12, label: "Dez" },
-                ].map((month) => (
+                {MONTH_BUTTONS.map((month) => (
                   <Button
                     key={month.num}
                     type="button"
@@ -567,7 +608,7 @@ const Transactions = () => {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setSelectedMonths([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])}
+                  onClick={() => setSelectedMonths(ALL_MONTHS)}
                   className="flex-1"
                 >
                   Selecionar Todos
@@ -587,7 +628,6 @@ const Transactions = () => {
 
           <Separator />
 
-          {/* Linha 3: Botão Buscar */}
           <div className="flex justify-end">
             <Button 
               onClick={handleSearch} 
@@ -601,7 +641,6 @@ const Transactions = () => {
         </CardContent>
       </Card>
 
-      {/* Transactions List */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -619,14 +658,15 @@ const Transactions = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="25">25</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
+                    {ITEMS_PER_PAGE_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option.toString()}>
+                        {option}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
-              <Button variant="outline" onClick={exportToCSV}>
+              <Button variant="outline" onClick={exportToCSV} disabled={transactions.length === 0}>
                 <Download className="w-4 h-4 mr-2" />
                 Exportar
               </Button>
@@ -679,14 +719,13 @@ const Transactions = () => {
                           className="text-base px-3 py-1"
                         >
                           {transaction.transaction_type === 'credit' ? '+' : '-'}
-                          R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          {formatCurrency(transaction.amount)}
                         </Badge>
                       </div>
                     </div>
                   ))}
                 </div>
 
-                {/* Pagination */}
                 <div className="flex items-center justify-between pt-4">
                   <div className="text-sm text-muted-foreground">
                     Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, totalItems)} de {totalItems} transações

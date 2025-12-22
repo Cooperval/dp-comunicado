@@ -1,9 +1,9 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { NumericInput } from '@/components/ui/numeric-input';
-import { useSimulator } from '@/contexts/SimulatorContext';
+import { useSimulator } from '@/pages/apps/simulador-cenarios/contexts/SimulatorContext';
 import { Badge } from '@/components/ui/badge';
-import { calcularProducoesCana } from '@/utils/simulatorCalculations';
+import { calcularProducoesCana } from '@/pages/apps/simulador-cenarios/utils/simulatorCalculations';
 
 
 const Productions: React.FC = () => {
@@ -79,61 +79,29 @@ const Productions: React.FC = () => {
               />
 
               <NumericInput
-                label="Cana Moída Açúcar"
-                unit="ton"
-                value={data.sugarCane.sugarGroundCane}
-                onChange={(value) => handleInputChange('sugarGroundCane', value)}
-                placeholder="0.00"
-              />
-
-              <NumericInput
-                label="Cana Moída Etanol"
-                unit="ton"
-                value={data.sugarCane.ethanolGroundCane}
-                onChange={(value) => handleInputChange('ethanolGroundCane', value)}
-                placeholder="0.00"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-
-              <NumericInput
-                label="ATR"
-                unit="kg/ton"
-                value={data.atr}
-                onChange={(value) => handleInputChange2('atr', value)}
-                placeholder="0.00"
-              />
-
-              <NumericInput
-                label="Extração ART"
+                label="Mix Açúcar"
                 unit="%"
-                value={data.extractionArt}
-                onChange={(value) => handleInputChange2('extractionArt', value)}
-                placeholder="0.00"
-                max={100}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <NumericInput
-                label="Horas Efetivas no mês"
-                unit="h"
-                value={data.effectiveHours}
-                onChange={(value) => handleInputChange2('effectiveHours', value)}
+                value={data.sugarCane.sugarMix}
+                onChange={(value) => handleInputChange('sugarMix', value)}
                 placeholder="0.00"
               />
 
               <NumericInput
-                label="Eficiência de Tempo Geral"
+                label="Mix Etanol"
                 unit="%"
-                value={data.generalTimeEfficiency}
-                onChange={(value) => handleInputChange2('generalTimeEfficiency', value)}
+                value={data.sugarCane.ethanolMix}
+                onChange={(value) => handleInputChange('ethanolMix', value)}
                 placeholder="0.00"
-                max={100}
               />
-
             </div>
+
+            <NumericInput
+              label="ATR"
+              unit="kg/ton"
+              value={data.atr}
+              onChange={(value) => handleInputChange2('atr', value)}
+              placeholder="0.00"
+            />
             <div className=" border-t pt-4 space-y-3">
               <h4 className="font-semibold text-foreground">Rendimentos</h4>
               <div className='grid grid-cols-3 gap-3'>

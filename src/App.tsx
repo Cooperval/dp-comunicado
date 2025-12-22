@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
-import { SimulatorProvider } from "./contexts/SimulatorContext";
+import { SimulatorProvider } from "./pages/apps/simulador-cenarios/contexts/SimulatorContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { PortalLayout } from "./components/layout/PortalLayout";
 import { AppLayout } from "./components/layout/AppLayout";
@@ -17,15 +17,16 @@ import DashboardCP from "./pages/apps/controle-ponto/Dashboard";
 import NovaOcorrenciaCP from "./pages/apps/controle-ponto/NovaOcorrencia";
 import OcorrenciasCP from "./pages/apps/controle-ponto/Ocorrencias";
 import ConfiguracoesCP from "./pages/apps/controle-ponto/Configuracoes";
+
 import { FluxoCaixaSidebar } from "./components/layout/FluxoCaixaSidebar";
 import DashboardFC from "./pages/apps/fluxo-de-caixa/Dashboard";
 import SaldosBancariosFC from "./pages/apps/fluxo-de-caixa/SaldosBancarios";
 import MovimentacoesFC from "./pages/apps/fluxo-de-caixa/Movimentacoes";
 import PendenciasFC from "./pages/apps/fluxo-de-caixa/Pendencias";
-import RelatorioFC from "./pages/apps/fluxo-de-caixa/Relatorios";
 import FluxoCaixaFC from "./pages/apps/fluxo-de-caixa/AnaliseMatriz";
 import LancamentoFuturoFC from "./pages/apps/fluxo-de-caixa/LancamentosFuturo";
 import ConfiguracaoFC from "./pages/apps/fluxo-de-caixa/Configuracoes";
+import ProjecaoFolhaFC from "./pages/apps/fluxo-de-caixa/ProjecaoFolha";
 
 import { AvaliacaoSidebar } from "./components/layout/AvaliacaoSidebar";
 import AvaliacaoDashboard from "./pages/apps/avaliacao/Dashboard";
@@ -71,17 +72,17 @@ import RelatoriosAuditoria from "./pages/apps/sgdnc/relatorios/RelatoriosAuditor
 
 
 
-import { AuthProviderMeuControle, useAuthMeuControle } from "@/components/auth/controle-financeiro/AuthProvider";
-import ProtectedRouteMeuControle from "@/components/auth/controle-financeiro/ProtectedRouteMeuControle";
+import { AuthProviderMeuControle } from "./pages/apps/controle-financeiro/auth/AuthProvider";
+import ProtectedRouteMeuControle from "./pages/apps/controle-financeiro/auth/ProtectedRouteMeuControle";
 import { SidebarProvider as SidebarProviderCF } from "@/components/ui/sidebar";
-import DashboardLayoutCF from "@/components/dashboard/controle-financeiro/DashboardLayout";
+import DashboardLayoutCF from "./pages/apps/controle-financeiro/dashboard/DashboardLayout";
 import DashboardCF from "./pages/apps/controle-financeiro/Dashboard";
 import MarginAnalysis from "./pages/apps/controle-financeiro/MarginAnalysis";
 import Budget from "./pages/apps/controle-financeiro/Budget";
 import Indicators from "./pages/apps/controle-financeiro/Indicators";
 import Team from "./pages/apps/controle-financeiro/Team";
 import Scenarios from "./pages/apps/controle-financeiro/Scenarios";
-import Settings from "./pages/apps/controle-financeiro/Settings";
+
 import AuthFC from "./pages/apps/controle-financeiro/Auth";
 import SetPasswordFC from "./pages/apps/controle-financeiro/SetPassword";
 import UploadOFX from "./pages/apps/controle-financeiro/UploadOFX";
@@ -93,7 +94,11 @@ import BankBalances from "./pages/apps/controle-financeiro/BankBalances";
 import FinancialStatement from "./pages/apps/controle-financeiro/FinancialStatement";
 import CashFlow from "./pages/apps/controle-financeiro/CashFlow";
 import HierarchyManagement from "./pages/apps/controle-financeiro/HierarchyManagement";
+import Organization from "./pages/apps/controle-financeiro/Organization";
 
+
+import { FechamentoSidebar } from "./components/layout/FechamentoSidebar";
+import Fechamento from "./pages/apps/fechamento/Fechamento";
 
 const queryClient = new QueryClient();
 
@@ -170,16 +175,6 @@ const App = () => (
               }
             />
             <Route
-              path="/apps/fluxo-de-caixa/relatorios"
-              element={
-                <ProtectedRoute requiredModule={12}>
-                  <AppLayout sidebar={<FluxoCaixaSidebar />} appName="Fluxo de Caixa">
-                    <RelatorioFC />
-                  </AppLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/apps/fluxo-de-caixa/fluxo-de-caixa"
               element={
                 <ProtectedRoute requiredModule={12}>
@@ -195,6 +190,16 @@ const App = () => (
                 <ProtectedRoute requiredModule={12}>
                   <AppLayout sidebar={<FluxoCaixaSidebar />} appName="Fluxo de Caixa">
                     <LancamentoFuturoFC />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apps/fluxo-de-caixa/projecao-dp"
+              element={
+                <ProtectedRoute requiredModule={12}>
+                  <AppLayout sidebar={<FluxoCaixaSidebar />} appName="Fluxo de Caixa">
+                    <ProjecaoFolhaFC />
                   </AppLayout>
                 </ProtectedRoute>
               }
@@ -646,213 +651,18 @@ const App = () => (
             />
 
 
-            {/* <Route
-              path="/apps/controle-financeiro/*"
-              element={
-                <AuthProviderMeuControle>
-                  <SidebarProviderCF>
-                    <Outlet />
-                  </SidebarProviderCF>
-                </AuthProviderMeuControle>
-              }
-            >
-         
-            <Route index element={<Navigate to="auth" replace />} />
-
-        
             <Route
-              path="auth"
+              path="/apps/fechamento"
               element={
-                <AuthFC />
-              }
-            />
-
-
-            
-            <Route
-              path="dashboard"
-              element={
-                <ProtectedRouteMeuControle>
-
-                  <DashboardLayoutCF />
-
-                </ProtectedRouteMeuControle>
-              }
-            />
-
-          
-            <Route
-              path="margin-analysis"
-              element={
-                <ProtectedRouteMeuControle>
-
-                  <DashboardLayoutCF />
-
-                </ProtectedRouteMeuControle>
-
-              }
-            >
-              <Route index element={<MarginAnalysis />} />
-            </Route>
-
-            <Route
-              path="budget"
-              element={
-                <ProtectedRouteMeuControle>
-                  <AppLayout sidebar={<DashboardLayoutCF />} appName="Controle Financeiro">
-                    <Budget />
+                <ProtectedRoute requiredModule={17}>
+                  <AppLayout sidebar={<FechamentoSidebar />} appName="Fechamento">
+                    <Fechamento />
                   </AppLayout>
-                </ProtectedRouteMeuControle>
+                </ProtectedRoute>
               }
             />
 
-            <Route
-              path="indicators"
-              element={
-                <ProtectedRouteMeuControle>
-                  <AppLayout sidebar={<DashboardLayoutCF />} appName="Controle Financeiro">
-                    <Indicators />
-                  </AppLayout>
-                </ProtectedRouteMeuControle>
-              }
-            />
 
-            <Route
-              path="team"
-              element={
-                <ProtectedRouteMeuControle>
-                  <AppLayout sidebar={<DashboardLayoutCF />} appName="Controle Financeiro">
-                    <Team />
-                  </AppLayout>
-                </ProtectedRouteMeuControle>
-              }
-            />
-
-            <Route
-              path="scenarios"
-              element={
-                <ProtectedRouteMeuControle>
-                  <AppLayout sidebar={<DashboardLayoutCF />} appName="Controle Financeiro">
-                    <Scenarios />
-                  </AppLayout>
-                </ProtectedRouteMeuControle>
-              }
-            />
-
-            <Route
-              path="settings"
-              element={
-                <ProtectedRouteMeuControle>
-                  <AppLayout sidebar={<DashboardLayoutCF />} appName="Controle Financeiro">
-                    <Settings />
-                  </AppLayout>
-                </ProtectedRouteMeuControle>
-              }
-            />
-
-            <Route
-              path="upload-ofx"
-              element={
-                <ProtectedRouteMeuControle>
-                  <AppLayout sidebar={<DashboardLayoutCF />} appName="Controle Financeiro">
-                    <UploadOFX />
-                  </AppLayout>
-                </ProtectedRouteMeuControle>
-              }
-            />
-
-            <Route
-              path="upload-nfe"
-              element={
-                <ProtectedRouteMeuControle>
-                  <AppLayout sidebar={<DashboardLayoutCF />} appName="Controle Financeiro">
-                    <UploadNFe />
-                  </AppLayout>
-                </ProtectedRouteMeuControle>
-              }
-            />
-
-            <Route
-              path="nfe-list"
-              element={
-                <ProtectedRouteMeuControle>
-                  <AppLayout sidebar={<DashboardLayoutCF />} appName="Controle Financeiro">
-                    <NFeList />
-                  </AppLayout>
-                </ProtectedRouteMeuControle>
-              }
-            />
-
-            <Route
-              path="transactions"
-              element={
-                <ProtectedRouteMeuControle>
-                  <AppLayout sidebar={<DashboardLayoutCF />} appName="Controle Financeiro">
-                    <Transactions />
-                  </AppLayout>
-                </ProtectedRouteMeuControle>
-              }
-            />
-
-            <Route
-              path="transaction-classification"
-              element={
-                <ProtectedRouteMeuControle>
-                  <AppLayout sidebar={<DashboardLayoutCF />} appName="Controle Financeiro">
-                    <TransactionClassification />
-                  </AppLayout>
-                </ProtectedRouteMeuControle>
-              }
-            />
-
-            <Route
-              path="bank-balances"
-              element={
-                <ProtectedRouteMeuControle>
-                  <AppLayout sidebar={<DashboardLayoutCF />} appName="Controle Financeiro">
-                    <BankBalances />
-                  </AppLayout>
-                </ProtectedRouteMeuControle>
-              }
-            />
-
-            <Route
-              path="financial-statement"
-              element={
-                <ProtectedRouteMeuControle>
-                  <AppLayout sidebar={<DashboardLayoutCF />} appName="Controle Financeiro">
-                    <FinancialStatement />
-                  </AppLayout>
-                </ProtectedRouteMeuControle>
-              }
-            />
-
-            <Route
-              path="cash-flow"
-              element={
-                <ProtectedRouteMeuControle>
-                  <AppLayout sidebar={<DashboardLayoutCF />} appName="Controle Financeiro">
-                    <CashFlow />
-                  </AppLayout>
-                </ProtectedRouteMeuControle>
-              }
-            />
-
-            <Route
-              path="hierarchy-management"
-              element={
-                <ProtectedRouteMeuControle>
-                  <AppLayout sidebar={<DashboardLayoutCF />} appName="Controle Financeiro">
-                    <HierarchyManagement />
-                  </AppLayout>
-                </ProtectedRouteMeuControle>
-              }
-            />
-
-         
-            <Route path="*" element={<Navigate to="auth" replace />} />
-
-          </Route> */}
 
             <Route
               path="/apps/controle-financeiro"
@@ -890,6 +700,7 @@ const App = () => (
                 <Route path="scenarios" element={<Scenarios />} />
                 <Route path="upload-nfe" element={<UploadNFe />} />
                 <Route path="nfe-list" element={<NFeList />} />
+                <Route path="organization" element={<Organization />} />
                 <Route path="transactions" element={<Transactions />} />
                 <Route path="financial-statement" element={<FinancialStatement />} />
                 <Route path="cash-flow" element={<CashFlow />} />

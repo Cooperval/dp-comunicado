@@ -46,6 +46,8 @@ export default function Ocorrencias() {
     setIsModalOpen,
   } = useOcorrencias({ token, user, departamentosPermitidos, tipoAcesso });
 
+  console.log("ocorrencias", ocorrencias);
+
   const { tipos, loading: loadingTipos } = useTipoOcorrencias({ token });
   const { respostas, respostaSelecionada, setRespostaSelecionada, loading: loadingRespostas } = useRespostasOcorrencia({ token });
   const { logs, loading: loadingLogs } = useLogsOcorrencia({ token, selectedOcorrencia });
@@ -73,20 +75,7 @@ export default function Ocorrencias() {
     });
   }, [dataInicio, dataFim, codigoFilter, statusFilter, tipoFilter, fetchOcorrencias]);
 
-  // useEffect(() => {
-  //   buscar();
-  // }, []); // Carrega ao montar
 
-  // Status visual
-  const isAtrasada = useCallback((data: string, status: string) => {
-    if (status !== "PE") return false;
-    const ontem = new Date();
-    ontem.setDate(ontem.getDate() - 1);
-    ontem.setHours(0, 0, 0, 0);
-    const dataOc = new Date(data);
-    dataOc.setHours(0, 0, 0, 0);
-    return dataOc < ontem;
-  }, []);
 
   const getStatusInfo = useCallback((status: string) => {
     const map = {
@@ -97,12 +86,18 @@ export default function Ocorrencias() {
     return map[status] || { label: "Desconhecido", class: "bg-gray-300 text-gray-700 border-gray-400" };
   }, []);
 
+
   const filteredOcorrencias = useMemo(() => {
-    return ocorrencias.filter(o =>
-      o.colaborador.toLowerCase().includes(codigoFilter.toLowerCase()) ||
-      o.codigo.includes(codigoFilter)
-    );
+    const filtro = (codigoFilter ?? "").toString().toLowerCase();
+
+    return ocorrencias.filter(o => {
+      const colaborador = (o.colaborador ?? "").toString().toLowerCase();
+      const codigo = (o.codigo ?? "").toString().toLowerCase();
+
+      return colaborador.includes(filtro) || codigo.includes(filtro);
+    });
   }, [ocorrencias, codigoFilter]);
+
 
   // Ações
   const aplicarResposta = async () => {
@@ -156,32 +151,30 @@ export default function Ocorrencias() {
 
 
   // === CONFIGURAÇÃO DO CONTADOR ===
-  const MODO_TESTE_CONTADOR = false; // ← Mude pra false em produção
+
+  const getAgora = () => new Date();
 
   // Prazo final: em produção = dia 01 às 08:30 | no teste = amanhã às 08:30
   const getPrazoFinal = () => {
-    if (MODO_TESTE_CONTADOR) {
-      // TESTE: amanhã (19/11) às 08:30
-      const amanha = addDays(new Date(), 1);
-      return setMinutes(setHours(amanha, 8), 30);
-    }
-
-    // PRODUÇÃO: dia 01 do próximo mês às 08:30
     const hoje = new Date();
-    const proximoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
-    return setMinutes(setHours(proximoMes, 8), 30);
+    const dia01 = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    return setMinutes(setHours(dia01, 8), 30);
   };
 
   const prazoFinal = getPrazoFinal();
-  const agora = new Date();
-  const ehUltimoDiaDoMes = new Date().getDate() === new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-  const deveMostrarContador = MODO_TESTE_CONTADOR || (ehUltimoDiaDoMes && agora < prazoFinal);
+
+  const ehDia01 = hoje.getDate() === 1;
+  const agora = getAgora();
+  const deveMostrarContador = ehDia01 && agora < prazoFinal;
 
   // Contador em tempo real
   const [tempoRestante, setTempoRestante] = useState("");
 
   useEffect(() => {
-    if (!deveMostrarContador) return;
+    if (!deveMostrarContador) {
+      setTempoRestante("");
+      return;
+    }
 
     const atualizar = () => {
       const distancia = formatDistanceToNow(prazoFinal, {
@@ -189,7 +182,6 @@ export default function Ocorrencias() {
         locale: ptBR,
       });
 
-      // Formata bonito: "14 horas e 23 minutos" → "14h 23min"
       const formatado = distancia
         .replace("cerca de ", "")
         .replace("menos de um minuto", "menos de 1min")
@@ -199,14 +191,14 @@ export default function Ocorrencias() {
         .replace("horas", "h")
         .replace("dia", "d")
         .replace("dias", "d")
-        .replace(" e ", " ");
+        .replace(" e ", " ")
+        .replace("um ", "1 ");
 
       setTempoRestante(formatado);
     };
 
     atualizar();
-    const interval = setInterval(atualizar, 1000); // atualiza a cada segundo
-
+    const interval = setInterval(atualizar, 1000);
     return () => clearInterval(interval);
   }, [deveMostrarContador, prazoFinal]);
 
@@ -228,28 +220,29 @@ export default function Ocorrencias() {
 
       <div className="grid grid-cols-1">
         {deveMostrarContador && tempoRestante && (
-          <div className="mb-6 p-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl shadow-sm">
+          <div className="mb-6 p-5 bg-gradient-to-r from-red-50 to-rose-50 border-2 border-red-300 rounded-xl shadow-lg">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-amber-100 rounded-full">
-                  <AlertCircle className="w-6 h-6 text-amber-700" />
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-red-100 rounded-full animate-bounce">
+                  <AlertCircle className="w-8 h-8 text-red-600" />
                 </div>
                 <div>
-                  <p className="font-semibold text-amber-900">
-                    Prazo para registro do mês anterior termina em:
+                  <p className="font-bold text-lg text-red-900">
+                    ATENÇÃO: Prazo final para lançar ocorrências do mês anterior!
                   </p>
-                  <p className="text-2xl font-bold text-amber-800">
+                  <p className="text-3xl font-extrabold text-red-700 mt-2">
                     {tempoRestante}
+                  </p>
+                  <p className="text-sm text-red-800 mt-1">
+                    Após as <strong>08:30</strong> não será mais possível registrar o dia <strong>30/11</strong>
                   </p>
                 </div>
               </div>
-              <div className="text-right text-sm text-amber-700">
-                <p>até {format(prazoFinal, "'dia' dd/MM 'às' HH:mm", { locale: ptBR })}</p>
-                {MODO_TESTE_CONTADOR && (
-                  <span className="inline-block mt-1 px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full font-medium">
-                    MODO TESTE
-                  </span>
-                )}
+              <div className="text-right">
+                <p className="text-2xl font-bold text-red-600">
+                  {format(prazoFinal, "HH:mm", { locale: ptBR })}
+                </p>
+                <p className="text-sm text-red-700">hoje, 01/12</p>
               </div>
             </div>
           </div>
@@ -313,7 +306,7 @@ export default function Ocorrencias() {
                 <TableRow>
                   <TableHead>Colaborador</TableHead>
                   <TableHead>Tipo</TableHead>
-                  <TableHead>Data/Hora</TableHead>
+                  {/* <TableHead>Data/Hora</TableHead> */}
                   <TableHead>Motivo</TableHead>
                   <TableHead>Situação</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
@@ -331,10 +324,10 @@ export default function Ocorrencias() {
                         </div>
                       </TableCell>
                       <TableCell><Badge variant="outline">{o.nome_tipo}</Badge></TableCell>
-                      <TableCell>
+                      {/* <TableCell>
                         <p className="font-medium">{new Date(o.data + "T12:00:00").toLocaleDateString("pt-BR")}</p>
                         <p className="text-muted-foreground">{o.horario}</p>
-                      </TableCell>
+                      </TableCell> */}
                       <TableCell className="max-w-xs truncate">{o.nome_motivo}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -390,8 +383,13 @@ export default function Ocorrencias() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     {/* <div><Label>Data</Label><Input value={selectedOcorrencia.data} readOnly /></div> */}
-                    <div><Label>Data</Label><Input value={new Date(selectedOcorrencia.data + "T12:00:00").toLocaleDateString("pt-BR")} readOnly /></div>
-                    <div><Label>Horário</Label><Input value={selectedOcorrencia.horario} readOnly /></div>
+                    <div><Label>Data Inicio</Label><Input value={new Date(selectedOcorrencia.data + "T12:00:00").toLocaleDateString("pt-BR")} readOnly /></div>
+                    <div><Label>Horário Inicio</Label><Input value={selectedOcorrencia.horario} readOnly /></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* <div><Label>Data</Label><Input value={selectedOcorrencia.data} readOnly /></div> */}
+                    <div><Label>Data Fim</Label><Input value={new Date(selectedOcorrencia.data_fim + "T12:00:00").toLocaleDateString("pt-BR")} readOnly /></div>
+                    <div><Label>Horário Fim</Label><Input value={selectedOcorrencia.horario_fim} readOnly /></div>
                   </div>
                   <div>
                     <Label>Situação</Label>
@@ -399,7 +397,7 @@ export default function Ocorrencias() {
                       <Badge variant="outline" className={getStatusInfo(selectedOcorrencia.status).class}>
                         {getStatusInfo(selectedOcorrencia.status).label}
                       </Badge>
-                      
+
                     </div>
                   </div>
                   <div><Label>Registrado por</Label><Input value={selectedOcorrencia.registradoPor} readOnly /></div>
@@ -454,11 +452,23 @@ export default function Ocorrencias() {
                 <Button onClick={aplicarResposta} disabled={!respostaSelecionada} className="bg-green-600">
                   <CheckCircle className="w-4 h-4 mr-2" /> Aplicar
                 </Button>
+
+              </>
+            )}
+            {(() => {
+              // pega a propriedade que estiver disponível
+              const situacao =
+                selectedOcorrencia?.SITUACAO ??
+                selectedOcorrencia?.situacao ??
+                selectedOcorrencia?.status;
+
+              // só mostra o botão se for 'PE'
+              return situacao === "PE" ? (
                 <Button variant="destructive" onClick={excluirOcorrencia}>
                   <Trash2 className="w-4 h-4 mr-2" /> Excluir
                 </Button>
-              </>
-            )}
+              ) : null;
+            })()}
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>

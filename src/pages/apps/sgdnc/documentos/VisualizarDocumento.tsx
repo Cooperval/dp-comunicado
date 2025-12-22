@@ -1,6 +1,6 @@
 // src/pages/sgdnc/VisualizarDocumento.tsx
 import { useParams, useNavigate } from 'react-router-dom';
-import { useDocumentos } from '@/hooks/sgdnc/useDocumentos';
+import { useDocumentos } from '@/pages/apps/sgdnc/hooks/useDocumentos';
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { ParagrafoViewer } from '@/components/sgdnc/editor/ParagrafoViewer';
+import { ParagrafoViewer } from '@/pages/apps/sgdnc/components/editor/ParagrafoViewer';
 
 export default function VisualizarDocumento() {
   const { id } = useParams<{ id: string }>();

@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowLeft, Clock, CheckCircle, Pen, Key } from 'lucide-react';
-import { getTreinamentoById, confirmarLeitura } from '@/services/sgdncMockData';
+import { getTreinamentoById, confirmarLeitura } from '@/pages/apps/sgdnc/services/sgdncMockData';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from '@/hooks/use-toast';

@@ -1,115 +1,103 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/components/auth/controle-financeiro/AuthProvider";
-import { TrendingUp, TrendingDown, Calendar, DollarSign, ArrowUpDown, Plus, CreditCard, Receipt, Edit, Trash2, ChevronDown, ChevronUp, Download } from "lucide-react";
+import { useAuth } from "@/pages/apps/controle-financeiro/auth/AuthProvider";
+import {
+  TrendingUp,
+  TrendingDown,
+  Calendar,
+  DollarSign,
+  ArrowUpDown,
+  Plus,
+  CreditCard,
+  Receipt,
+  Edit,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  Download,
+} from "lucide-react";
 import { format, startOfMonth, endOfMonth, addMonths, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import * as XLSX from 'xlsx';
-
-interface CashFlowItem {
-  date: string;
-  description: string;
-  amount: number;
-  type: 'historical' | 'payable' | 'receivable';
-  status?: string;
-  bank_id?: string;
-  classification?: {
-    group?: string;
-    commitment?: string;
-    commitmentType?: string;
-  };
-}
-
-interface BankInfo {
-  id: string;
-  bank_name: string;
-  account_number: string;
-}
-
-interface DailyCashFlow {
-  day: number;
-  date: string;
-  opening: number;
-  historicalIn: number;
-  historicalOut: number;
-  projectedIn: number;
-  projectedOut: number;
-  closing: number;
-  items: CashFlowItem[];
-}
-
-interface BankCashFlow {
-  bank: BankInfo;
-  days: DailyCashFlow[];
-  totalOpening: number;
-  totalHistoricalIn: number;
-  totalHistoricalOut: number;
-  totalProjectedIn: number;
-  totalProjectedOut: number;
-  totalClosing: number;
-}
-
-interface MonthlyCashFlow {
-  month: string;
-  banks: BankCashFlow[];
-  totalOpening: number;
-  totalHistoricalIn: number;
-  totalHistoricalOut: number;
-  totalProjectedIn: number;
-  totalProjectedOut: number;
-  totalClosing: number;
-}
-
-const futureEntrySchema = z.object({
-  description: z.string().min(1, "Descrição é obrigatória"),
-  amount: z.string().min(1, "Valor é obrigatório").refine((val) => !isNaN(Number(val)) && Number(val) > 0, "Valor deve ser um número positivo"),
-  due_date: z.string().min(1, "Data de vencimento é obrigatória"),
-  entry_type: z.enum(["payable", "receivable"], {
-    required_error: "Tipo de lançamento é obrigatório",
-  }),
-  commitment_group_id: z.string().optional(),
-  commitment_id: z.string().optional(),
-  commitment_type_id: z.string().optional(),
-  notes: z.string().optional(),
-});
-
-type FutureEntryForm = z.infer<typeof futureEntrySchema>;
+import * as XLSX from "xlsx";
+import { CashFlowTable } from "@/pages/apps/controle-financeiro/components/cash-flow/CashFlowTable";
+import { CashFlowDetailModal } from "@/pages/apps/controle-financeiro/components/cash-flow/CashFlowDetailModal";
+import { formatCurrency } from "@/pages/apps/controle-financeiro/utils/formatters";
+import { futureEntrySchema, type FutureEntryForm } from "@/pages/apps/controle-financeiro/schemas/cashFlowSchema";
+import { MONTH_BUTTONS } from "@/pages/apps/controle-financeiro/constants/cashFlowConstants";
+import type {
+  MonthlyCashFlow,
+  FutureEntry,
+  CommitmentGroup,
+  Commitment,
+  CommitmentType,
+  CashFlowItem,
+  DailyCashFlow,
+  BankCashFlow,
+  CashFlowType,
+  DataKeyType,
+} from "@/pages/apps/controle-financeiro/types/cashFlow";
+import { CompanyBranchFilter } from "@/pages/apps/controle-financeiro/components/filters/CompanyBranchFilter";
+import { useCompanyBranchFilter } from "@/pages/apps/controle-financeiro/hooks/useCompanyBranchFilter";
 
 export default function CashFlow() {
   const { companyId } = useAuth();
-  const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
-  const [dayRange, setDayRange] = useState({ start: 1, end: 31 });
+  
+  // Company and Branch filter
+  const companyBranchFilter = useCompanyBranchFilter();
+  
+  // Estados aplicados (usados para carregar dados)
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
+
+  // Estados pending (usados na UI dos filtros)
+  const [pendingYear, setPendingYear] = useState(new Date().getFullYear());
+  const [pendingMonths, setPendingMonths] = useState<number[]>([]);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [expandedBanks, setExpandedBanks] = useState<Record<string, boolean>>({});
-  const [expandedCells, setExpandedCells] = useState<Record<string, boolean>>({});
   const [showEmptyAccounts, setShowEmptyAccounts] = useState(false);
+
+  // Estado do modal de detalhes
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [detailModalData, setDetailModalData] = useState<{
+    title: string;
+    date: string;
+    items: CashFlowItem[];
+    type: CashFlowType;
+  } | null>(null);
 
   const [monthlyData, setMonthlyData] = useState<MonthlyCashFlow[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [manageModalOpen, setManageModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
-  const [futureEntries, setFutureEntries] = useState<any[]>([]);
-  const [editingEntry, setEditingEntry] = useState<any>(null);
-  const [commitmentGroups, setCommitmentGroups] = useState<any[]>([]);
-  const [commitments, setCommitments] = useState<any[]>([]);
-  const [commitmentTypes, setCommitmentTypes] = useState<any[]>([]);
+  const [futureEntries, setFutureEntries] = useState<FutureEntry[]>([]);
+  const [editingEntry, setEditingEntry] = useState<FutureEntry | null>(null);
+  const [commitmentGroups, setCommitmentGroups] = useState<CommitmentGroup[]>([]);
+  const [commitments, setCommitments] = useState<Commitment[]>([]);
+  const [commitmentTypes, setCommitmentTypes] = useState<CommitmentType[]>([]);
   const [filterDescription, setFilterDescription] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -134,32 +122,32 @@ export default function CashFlow() {
     setLoading(true);
     try {
       if (!companyId) return;
-      
+
       // First load all banks
       const { data: banksData } = await supabase
-        .from('banks')
-        .select('id, bank_name, account_number')
-        .eq('company_id', companyId)
-        .order('bank_name');
+        .from("banks")
+        .select("id, bank_name, account_number")
+        .eq("company_id", companyId)
+        .order("bank_name");
 
       // Get available months from both transactions and future entries
       const [transactionDatesResult, futureEntriesResult] = await Promise.all([
         supabase
-          .from('transactions')
-          .select('transaction_date')
-          .eq('company_id', companyId)
-          .order('transaction_date', { ascending: true }),
+          .from("transactions")
+          .select("transaction_date")
+          .eq("company_id", companyId)
+          .order("transaction_date", { ascending: true }),
         supabase
-          .from('future_entries')
-          .select('due_date')
-          .eq('company_id', companyId)
-          .order('due_date', { ascending: true })
+          .from("future_entries")
+          .select("due_date")
+          .eq("company_id", companyId)
+          .order("due_date", { ascending: true }),
       ]);
 
       // Combine dates from both sources
       const allDates = [
-        ...(transactionDatesResult.data || []).map(t => t.transaction_date),
-        ...(futureEntriesResult.data || []).map(fe => fe.due_date)
+        ...(transactionDatesResult.data || []).map((t) => t.transaction_date),
+        ...(futureEntriesResult.data || []).map((fe) => fe.due_date),
       ];
 
       if (allDates.length === 0) {
@@ -170,9 +158,7 @@ export default function CashFlow() {
       }
 
       // Get unique year-months from all available data
-      const availableMonthsList = Array.from(new Set(
-        allDates.map(date => format(parseISO(date), 'yyyy-MM'))
-      )).sort();
+      const availableMonthsList = Array.from(new Set(allDates.map((date) => format(parseISO(date), "yyyy-MM")))).sort();
 
       setAvailableMonths(availableMonthsList);
       const allMonthsList = availableMonthsList;
@@ -180,7 +166,7 @@ export default function CashFlow() {
       const months: MonthlyCashFlow[] = [];
 
       for (const monthKey of allMonthsList) {
-        const monthDate = parseISO(monthKey + '-01');
+        const monthDate = parseISO(monthKey + "-01");
         const monthStart = startOfMonth(monthDate);
         const monthEnd = endOfMonth(monthDate);
         const daysInMonth = monthEnd.getDate();
@@ -189,66 +175,76 @@ export default function CashFlow() {
 
         // Future entries (load for all months)
         const { data: futureEntries } = await supabase
-          .from('future_entries')
-          .select('id, amount, due_date, description, entry_type, status, commitment_group_id, commitment_id, commitment_type_id')
-          .eq('company_id', companyId)
-          .gte('due_date', format(monthStart, 'yyyy-MM-dd'))
-          .lte('due_date', format(monthEnd, 'yyyy-MM-dd'))
-          .order('due_date', { ascending: true });
+          .from("future_entries")
+          .select(
+            "id, amount, due_date, description, entry_type, status, commitment_group_id, commitment_id, commitment_type_id",
+          )
+          .eq("company_id", companyId)
+          .gte("due_date", format(monthStart, "yyyy-MM-dd"))
+          .lte("due_date", format(monthEnd, "yyyy-MM-dd"))
+          .order("due_date", { ascending: true });
 
         // Get commitment data for future entries
-        const commitmentGroupIds = [...new Set(futureEntries?.map(fe => fe.commitment_group_id).filter(Boolean) || [])];
-        const commitmentIds = [...new Set(futureEntries?.map(fe => fe.commitment_id).filter(Boolean) || [])];
-        const commitmentTypeIds = [...new Set(futureEntries?.map(fe => fe.commitment_type_id).filter(Boolean) || [])];
+        const commitmentGroupIds = [
+          ...new Set(futureEntries?.map((fe) => fe.commitment_group_id).filter(Boolean) || []),
+        ];
+        const commitmentIds = [...new Set(futureEntries?.map((fe) => fe.commitment_id).filter(Boolean) || [])];
+        const commitmentTypeIds = [...new Set(futureEntries?.map((fe) => fe.commitment_type_id).filter(Boolean) || [])];
 
         const [commitmentGroupsData, commitmentsData, commitmentTypesData] = await Promise.all([
-          commitmentGroupIds.length > 0 ? supabase
-            .from('commitment_groups')
-            .select('id, name')
-            .eq('company_id', companyId)
-            .in('id', commitmentGroupIds) : Promise.resolve({ data: [] }),
-          commitmentIds.length > 0 ? supabase
-            .from('commitments')
-            .select('id, name')
-            .eq('company_id', companyId)
-            .in('id', commitmentIds) : Promise.resolve({ data: [] }),
-          commitmentTypeIds.length > 0 ? supabase
-            .from('commitment_types')
-            .select('id, name')
-            .eq('company_id', companyId)
-            .in('id', commitmentTypeIds) : Promise.resolve({ data: [] }),
+          commitmentGroupIds.length > 0
+            ? supabase
+                .from("commitment_groups")
+                .select("id, name")
+                .eq("company_id", companyId)
+                .in("id", commitmentGroupIds)
+            : Promise.resolve({ data: [] }),
+          commitmentIds.length > 0
+            ? supabase.from("commitments").select("id, name").eq("company_id", companyId).in("id", commitmentIds)
+            : Promise.resolve({ data: [] }),
+          commitmentTypeIds.length > 0
+            ? supabase
+                .from("commitment_types")
+                .select("id, name")
+                .eq("company_id", companyId)
+                .in("id", commitmentTypeIds)
+            : Promise.resolve({ data: [] }),
         ]);
 
         // Create lookup maps
-        const groupsMap = new Map((commitmentGroupsData.data || []).map(g => [g.id, g.name]));
-        const commitmentsMap = new Map((commitmentsData.data || []).map(c => [c.id, c.name]));
-        const typesMap = new Map((commitmentTypesData.data || []).map(t => [t.id, t.name]));
+        const groupsMap = new Map((commitmentGroupsData.data || []).map((g) => [g.id, g.name]));
+        const commitmentsMap = new Map((commitmentsData.data || []).map((c) => [c.id, c.name]));
+        const typesMap = new Map((commitmentTypesData.data || []).map((t) => [t.id, t.name]));
 
         // Process banks if they exist, and add a "manual" bank only if there are future entries
         const banksToProcess = [
           ...(banksData || []),
-          ...((futureEntries && futureEntries.length > 0) ? [{ id: 'manual', bank_name: 'Lançamentos Manuais', account_number: '' }] : [])
+          ...(futureEntries && futureEntries.length > 0
+            ? [{ id: "manual", bank_name: "Lançamentos Manuais", account_number: "" }]
+            : []),
         ];
 
         for (const bank of banksToProcess) {
           // Historical transactions for this bank (only if it's a real bank, not manual)
           let transactions = [];
-          if (bank.id !== 'manual') {
+          if (bank.id !== "manual") {
             const { data: transactionData } = await supabase
-              .from('transactions')
-              .select(`
+              .from("transactions")
+              .select(
+                `
                 id, amount, transaction_date, description, transaction_type, bank_id,
                 transaction_classifications(
                   commitment_groups(name),
                   commitments(name),
                   commitment_types(name)
                 )
-              `)
-              .eq('bank_id', bank.id)
-              .eq('company_id', companyId)
-              .gte('transaction_date', format(monthStart, 'yyyy-MM-dd'))
-              .lte('transaction_date', format(monthEnd, 'yyyy-MM-dd'))
-              .order('transaction_date', { ascending: true });
+              `,
+              )
+              .eq("bank_id", bank.id)
+              .eq("company_id", companyId)
+              .gte("transaction_date", format(monthStart, "yyyy-MM-dd"))
+              .lte("transaction_date", format(monthEnd, "yyyy-MM-dd"))
+              .order("transaction_date", { ascending: true });
             transactions = transactionData || [];
           }
 
@@ -258,7 +254,7 @@ export default function CashFlow() {
 
           for (let day = 1; day <= daysInMonth; day++) {
             const dayDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), day);
-            const dayString = format(dayDate, 'yyyy-MM-dd');
+            const dayString = format(dayDate, "yyyy-MM-dd");
 
             const dayItems: CashFlowItem[] = [];
             let dayHistoricalIn = 0;
@@ -267,7 +263,7 @@ export default function CashFlow() {
             let dayProjectedOut = 0;
 
             // Process historical transactions for this day and bank
-            (transactions || []).forEach(t => {
+            (transactions || []).forEach((t) => {
               if (t.transaction_date === dayString) {
                 const amount = Number(t.amount);
                 const classification = t.transaction_classifications?.[0];
@@ -275,17 +271,17 @@ export default function CashFlow() {
                 dayItems.push({
                   date: t.transaction_date,
                   description: t.description,
-                  amount: t.transaction_type === 'credit' ? amount : -amount,
-                  type: 'historical',
+                  amount: t.transaction_type === "credit" ? amount : -amount,
+                  type: "historical",
                   bank_id: t.bank_id,
                   classification: {
                     group: classification?.commitment_groups?.name,
                     commitment: classification?.commitments?.name,
                     commitmentType: classification?.commitment_types?.name,
-                  }
+                  },
                 });
 
-                if (t.transaction_type === 'credit') {
+                if (t.transaction_type === "credit") {
                   dayHistoricalIn += amount;
                 } else {
                   dayHistoricalOut += amount;
@@ -294,8 +290,8 @@ export default function CashFlow() {
             });
 
             // Process future entries for this day (only for manual bank)
-            if (bank.id === 'manual') {
-              (futureEntries || []).forEach(fe => {
+            if (bank.id === "manual") {
+              (futureEntries || []).forEach((fe) => {
                 if (fe.due_date === dayString) {
                   const amount = Number(fe.amount);
 
@@ -303,16 +299,16 @@ export default function CashFlow() {
                     date: fe.due_date,
                     description: fe.description,
                     amount: amount,
-                    type: fe.entry_type as 'payable' | 'receivable',
+                    type: fe.entry_type as "payable" | "receivable",
                     status: fe.status,
                     classification: {
                       group: fe.commitment_group_id ? groupsMap.get(fe.commitment_group_id) : undefined,
                       commitment: fe.commitment_id ? commitmentsMap.get(fe.commitment_id) : undefined,
                       commitmentType: fe.commitment_type_id ? typesMap.get(fe.commitment_type_id) : undefined,
-                    }
+                    },
                   });
 
-                  if (fe.entry_type === 'receivable') {
+                  if (fe.entry_type === "receivable") {
                     dayProjectedIn += amount;
                   } else {
                     dayProjectedOut += amount;
@@ -380,10 +376,9 @@ export default function CashFlow() {
 
       setMonthlyData(months);
     } catch (error) {
-      console.error('Error loading cash flow data:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível carregar os dados do fluxo de caixa",
+        description: error instanceof Error ? error.message : "Não foi possível carregar os dados do fluxo de caixa",
         variant: "destructive",
       });
     } finally {
@@ -391,29 +386,79 @@ export default function CashFlow() {
     }
   };
 
-  // Função separada para carregar apenas os meses disponíveis
-  const loadAvailableMonths = async () => {
+  // Função para carregar anos disponíveis
+  const fetchAvailableYears = useCallback(async () => {
+    if (!companyId) return;
+
     try {
-      if (!companyId) return;
-      
-      // Get available months from both transactions and future entries
       const [transactionDatesResult, futureEntriesResult] = await Promise.all([
         supabase
-          .from('transactions')
-          .select('transaction_date')
-          .eq('company_id', companyId)
-          .order('transaction_date', { ascending: true }),
+          .from("transactions")
+          .select("transaction_date")
+          .eq("company_id", companyId)
+          .order("transaction_date", { ascending: false }),
         supabase
-          .from('future_entries')
-          .select('due_date')
-          .eq('company_id', companyId)
-          .order('due_date', { ascending: true })
+          .from("future_entries")
+          .select("due_date")
+          .eq("company_id", companyId)
+          .order("due_date", { ascending: false }),
       ]);
 
-      // Combine dates from both sources
       const allDates = [
-        ...(transactionDatesResult.data || []).map(t => t.transaction_date),
-        ...(futureEntriesResult.data || []).map(fe => fe.due_date)
+        ...(transactionDatesResult.data || []).map((t) => t.transaction_date),
+        ...(futureEntriesResult.data || []).map((fe) => fe.due_date),
+      ];
+
+      if (allDates.length === 0) {
+        setAvailableYears([new Date().getFullYear()]);
+        return;
+      }
+
+      const years = Array.from(new Set(allDates.map((date) => new Date(date).getFullYear()))).sort((a, b) => b - a);
+
+      setAvailableYears(years);
+
+      if (years.length > 0 && !years.includes(selectedYear)) {
+        setSelectedYear(years[0]);
+      }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Não foi possível carregar os anos disponíveis",
+        variant: "destructive",
+      });
+      setAvailableYears([new Date().getFullYear()]);
+    }
+  }, [companyId, selectedYear]);
+
+  // Função separada para carregar apenas os meses disponíveis
+  const loadAvailableMonths = useCallback(async () => {
+    try {
+      if (!companyId) return;
+
+      const yearStart = `${pendingYear}-01-01`;
+      const yearEnd = `${pendingYear}-12-31`;
+
+      const [transactionDatesResult, futureEntriesResult] = await Promise.all([
+        supabase
+          .from("transactions")
+          .select("transaction_date")
+          .eq("company_id", companyId)
+          .gte("transaction_date", yearStart)
+          .lte("transaction_date", yearEnd)
+          .order("transaction_date", { ascending: true }),
+        supabase
+          .from("future_entries")
+          .select("due_date")
+          .eq("company_id", companyId)
+          .gte("due_date", yearStart)
+          .lte("due_date", yearEnd)
+          .order("due_date", { ascending: true }),
+      ]);
+
+      const allDates = [
+        ...(transactionDatesResult.data || []).map((t) => t.transaction_date),
+        ...(futureEntriesResult.data || []).map((fe) => fe.due_date),
       ];
 
       if (allDates.length === 0) {
@@ -421,88 +466,113 @@ export default function CashFlow() {
         return;
       }
 
-      // Get unique year-months from all available data
-      const availableMonthsList = Array.from(new Set(
-        allDates.map(date => format(parseISO(date), 'yyyy-MM'))
-      )).sort();
+      const availableMonthsList = Array.from(new Set(allDates.map((date) => format(parseISO(date), "yyyy-MM")))).sort();
 
       setAvailableMonths(availableMonthsList);
     } catch (error) {
-      console.error('Error loading available months:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível carregar os meses disponíveis",
+        description: error instanceof Error ? error.message : "Não foi possível carregar os meses disponíveis",
         variant: "destructive",
       });
     }
+  }, [companyId, pendingYear]);
+
+  const handleLoadData = async () => {
+    // Validar que pelo menos um mês foi selecionado
+    if (pendingMonths.length === 0) {
+      toast({
+        title: "Atenção",
+        description: "Selecione pelo menos um mês para visualizar",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Aplicar os valores pending aos aplicados
+    setSelectedYear(pendingYear);
+    setSelectedMonths(pendingMonths);
+
+    // Carregar os dados com os novos valores
+    await loadCashFlowData();
   };
 
-  // Removido carregamento automático - dados são carregados apenas ao selecionar mês
   useEffect(() => {
-    loadAvailableMonths(); // Carrega apenas os meses disponíveis
-  }, [companyId]);
+    if (companyId) {
+      fetchAvailableYears();
+    }
+  }, [companyId, fetchAvailableYears]);
+
+  // Carregar meses disponíveis quando pendingYear mudar
+  useEffect(() => {
+    if (companyId && pendingYear) {
+      loadAvailableMonths();
+    }
+  }, [companyId, pendingYear, loadAvailableMonths]);
+
+  // Sincronizar pendingYear com selectedYear na inicialização
+  useEffect(() => {
+    setPendingYear(selectedYear);
+  }, []);
 
   useEffect(() => {
     const loadCommitmentData = async () => {
       try {
         if (!companyId) return;
-        
+
         // Load commitment groups
         const { data: groups, error: groupsError } = await supabase
-          .from('commitment_groups')
-          .select('id, name')
-          .eq('company_id', companyId)
-          .eq('is_active', true)
-          .order('name');
+          .from("commitment_groups")
+          .select("id, name")
+          .eq("company_id", companyId)
+          .eq("is_active", true)
+          .order("name");
 
         if (groupsError) throw groupsError;
         setCommitmentGroups(groups || []);
 
         // Load commitments with their commitment types
         const { data: commitmentData, error: commitmentsError } = await supabase
-          .from('commitments')
-          .select('id, name, commitment_group_id, commitment_type_id')
-          .eq('company_id', companyId)
-          .eq('is_active', true)
-          .order('name');
+          .from("commitments")
+          .select("id, name, commitment_group_id, commitment_type_id")
+          .eq("company_id", companyId)
+          .eq("is_active", true)
+          .order("name");
 
         if (commitmentsError) throw commitmentsError;
         setCommitments(commitmentData || []);
 
         // Load commitment types
         const { data: types, error: typesError } = await supabase
-          .from('commitment_types')
-          .select('id, name')
-          .eq('company_id', companyId)
-          .eq('is_active', true)
-          .order('name');
+          .from("commitment_types")
+          .select("id, name")
+          .eq("company_id", companyId)
+          .eq("is_active", true)
+          .order("name");
 
         if (typesError) throw typesError;
         setCommitmentTypes(types || []);
       } catch (error) {
-        console.error('Error loading commitment data:', error);
         toast({
           title: "Erro",
-          description: "Não foi possível carregar os dados de classificação",
+          description: error instanceof Error ? error.message : "Não foi possível carregar os dados de classificação",
           variant: "destructive",
         });
       }
     };
     loadCommitmentData();
-  }, [companyId]);
+  }, [companyId, toast]);
 
   const selectedGroupId = form.watch("commitment_group_id");
   const selectedCommitmentId = form.watch("commitment_id");
 
   // Filter commitments based on selected group
-  const filteredCommitments = commitments.filter(c =>
-    !selectedGroupId || c.commitment_group_id === selectedGroupId
-  );
+  const filteredCommitments = commitments.filter((c) => !selectedGroupId || c.commitment_group_id === selectedGroupId);
 
   // Auto-set commitment type when commitment is selected
   useEffect(() => {
     if (selectedCommitmentId && selectedCommitmentId !== "none") {
-      const selectedCommitment = commitments.find(c => c.id === selectedCommitmentId);
+      const selectedCommitment = commitments.find((c) => c.id === selectedCommitmentId);
       if (selectedCommitment?.commitment_type_id) {
         form.setValue("commitment_type_id", selectedCommitment.commitment_type_id);
       } else {
@@ -514,20 +584,22 @@ export default function CashFlow() {
   }, [selectedCommitmentId, commitments, form]);
 
   const getFilteredData = () => {
-    const filteredMonths = selectedMonths.length > 0
-      ? monthlyData.filter(month => selectedMonths.includes(month.month))
-      : monthlyData;
+    const filteredMonths =
+      selectedMonths.length > 0
+        ? monthlyData.filter((month) => {
+            const monthNumber = parseInt(month.month.split("-")[1]);
+            return selectedMonths.includes(monthNumber);
+          })
+        : monthlyData;
 
-    // If no months are found, return empty array
     if (filteredMonths.length === 0) {
       return [];
     }
 
-    // Aggregate all banks data across filtered months
     const bankAggregates = new Map<string, BankCashFlow>();
 
-    filteredMonths.forEach(month => {
-      month.banks.forEach(bankData => {
+    filteredMonths.forEach((month) => {
+      month.banks.forEach((bankData) => {
         const bankId = bankData.bank.id;
 
         if (!bankAggregates.has(bankId)) {
@@ -545,12 +617,7 @@ export default function CashFlow() {
 
         const aggregate = bankAggregates.get(bankId)!;
 
-        // Filter days by day range
-        const filteredDays = bankData.days.filter(day =>
-          day.day >= dayRange.start && day.day <= dayRange.end
-        );
-
-        aggregate.days.push(...filteredDays);
+        aggregate.days.push(...bankData.days);
         aggregate.totalHistoricalIn += bankData.totalHistoricalIn;
         aggregate.totalHistoricalOut += bankData.totalHistoricalOut;
         aggregate.totalProjectedIn += bankData.totalProjectedIn;
@@ -558,31 +625,26 @@ export default function CashFlow() {
       });
     });
 
-    // Calculate correct closing balance for each bank after aggregation
     bankAggregates.forEach((aggregate, bankId) => {
       if (aggregate.days.length === 0) return;
-      
-      // Sort days by date to calculate running balance correctly
+
       aggregate.days.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-      
-      // Get opening balance from first day
       aggregate.totalOpening = aggregate.days[0]?.opening || 0;
-      
-      // Calculate closing balance: opening + total in - total out + projected in - projected out
-      aggregate.totalClosing = aggregate.totalOpening + 
-        aggregate.totalHistoricalIn - 
-        aggregate.totalHistoricalOut + 
-        aggregate.totalProjectedIn - 
+      aggregate.totalClosing =
+        aggregate.totalOpening +
+        aggregate.totalHistoricalIn -
+        aggregate.totalHistoricalOut +
+        aggregate.totalProjectedIn -
         aggregate.totalProjectedOut;
     });
 
-    return Array.from(bankAggregates.values()).filter(bank => {
-      const hasMovement = 
-        bank.totalHistoricalIn > 0 || 
-        bank.totalHistoricalOut > 0 || 
-        bank.totalProjectedIn > 0 || 
+    return Array.from(bankAggregates.values()).filter((bank) => {
+      const hasMovement =
+        bank.totalHistoricalIn > 0 ||
+        bank.totalHistoricalOut > 0 ||
+        bank.totalProjectedIn > 0 ||
         bank.totalProjectedOut > 0;
-      
+
       return bank.days.length > 0 && (showEmptyAccounts || hasMovement);
     });
   };
@@ -590,37 +652,33 @@ export default function CashFlow() {
   const filteredData = getFilteredData();
 
   const toggleBankExpansion = (bankId: string) => {
-    setExpandedBanks(prev => ({
+    setExpandedBanks((prev) => ({
       ...prev,
-      [bankId]: !prev[bankId]
+      [bankId]: !prev[bankId],
     }));
   };
 
   const toggleRowExpansion = (rowId: string) => {
-    setExpandedRows(prev => ({
+    setExpandedRows((prev) => ({
       ...prev,
-      [rowId]: !prev[rowId]
+      [rowId]: !prev[rowId],
     }));
   };
 
-  const toggleCellDetails = (cellId: string) => {
-    setExpandedCells(prev => ({
-      ...prev,
-      [cellId]: !prev[cellId]
-    }));
-  };
-
-  const getCellItems = (day: DailyCashFlow, type: 'historicalIn' | 'historicalOut' | 'projectedIn' | 'projectedOut') => {
-    const items = day.items.filter(item => {
+  const getCellItems = (
+    day: DailyCashFlow,
+    type: "historicalIn" | "historicalOut" | "projectedIn" | "projectedOut",
+  ) => {
+    const items = day.items.filter((item) => {
       switch (type) {
-        case 'historicalIn':
-          return item.type === 'historical' && item.amount > 0;
-        case 'historicalOut':
-          return item.type === 'historical' && item.amount < 0;
-        case 'projectedIn':
-          return item.type === 'receivable';
-        case 'projectedOut':
-          return item.type === 'payable';
+        case "historicalIn":
+          return item.type === "historical" && item.amount > 0;
+        case "historicalOut":
+          return item.type === "historical" && item.amount < 0;
+        case "projectedIn":
+          return item.type === "receivable";
+        case "projectedOut":
+          return item.type === "payable";
         default:
           return false;
       }
@@ -628,83 +686,101 @@ export default function CashFlow() {
     return items;
   };
 
+  const openCellDetails = useCallback((
+    day: DailyCashFlow,
+    type: DataKeyType,
+    bankName: string,
+  ) => {
+    const items = getCellItems(day, type);
+
+    const typeMap = {
+      historicalIn: { label: "Entradas", type: "entry" as const },
+      historicalOut: { label: "Saídas", type: "exit" as const },
+      projectedIn: { label: "Receber", type: "receivable" as const },
+      projectedOut: { label: "Pagar", type: "payable" as const },
+    };
+
+    const config = typeMap[type];
+
+    setDetailModalData({
+      title: bankName,
+      date: day.date,
+      items: items,
+      type: config.type,
+    });
+    setDetailModalOpen(true);
+  }, []);
+
   const loadFutureEntries = async () => {
     try {
       if (!companyId) return;
-      
+
       const { data, error } = await supabase
-        .from('future_entries')
-        .select(`
+        .from("future_entries")
+        .select(
+          `
           id, description, amount, due_date, entry_type, status, notes,
           commitment_group_id, commitment_id, commitment_type_id
-        `)
-        .eq('company_id', companyId)
-        .order('due_date', { ascending: true });
+        `,
+        )
+        .eq("company_id", companyId)
+        .order("due_date", { ascending: true });
 
       if (error) throw error;
 
       // Load related data separately
-      const groupIds = [...new Set(data?.map(fe => fe.commitment_group_id).filter(Boolean))];
-      const commitmentIds = [...new Set(data?.map(fe => fe.commitment_id).filter(Boolean))];
-      const typeIds = [...new Set(data?.map(fe => fe.commitment_type_id).filter(Boolean))];
+      const groupIds = [...new Set(data?.map((fe) => fe.commitment_group_id).filter(Boolean))];
+      const commitmentIds = [...new Set(data?.map((fe) => fe.commitment_id).filter(Boolean))];
+      const typeIds = [...new Set(data?.map((fe) => fe.commitment_type_id).filter(Boolean))];
 
       const [groupsData, commitmentsData, typesData] = await Promise.all([
-        groupIds.length > 0 ? supabase
-          .from('commitment_groups')
-          .select('id, name')
-          .eq('company_id', companyId)
-          .in('id', groupIds) : Promise.resolve({ data: [] }),
-        commitmentIds.length > 0 ? supabase
-          .from('commitments')
-          .select('id, name')
-          .eq('company_id', companyId)
-          .in('id', commitmentIds) : Promise.resolve({ data: [] }),
-        typeIds.length > 0 ? supabase
-          .from('commitment_types')
-          .select('id, name')
-          .eq('company_id', companyId)
-          .in('id', typeIds) : Promise.resolve({ data: [] }),
+        groupIds.length > 0
+          ? supabase.from("commitment_groups").select("id, name").eq("company_id", companyId).in("id", groupIds)
+          : Promise.resolve({ data: [] }),
+        commitmentIds.length > 0
+          ? supabase.from("commitments").select("id, name").eq("company_id", companyId).in("id", commitmentIds)
+          : Promise.resolve({ data: [] }),
+        typeIds.length > 0
+          ? supabase.from("commitment_types").select("id, name").eq("company_id", companyId).in("id", typeIds)
+          : Promise.resolve({ data: [] }),
       ]);
 
       // Create lookup maps
-      const groupsMap = new Map((groupsData.data || []).map(g => [g.id, g.name]));
-      const commitmentsMap = new Map((commitmentsData.data || []).map(c => [c.id, c.name]));
-      const typesMap = new Map((typesData.data || []).map(t => [t.id, t.name]));
+      const groupsMap = new Map((groupsData.data || []).map((g) => [g.id, g.name]));
+      const commitmentsMap = new Map((commitmentsData.data || []).map((c) => [c.id, c.name]));
+      const typesMap = new Map((typesData.data || []).map((t) => [t.id, t.name]));
 
       // Merge the data
-      const enrichedEntries = (data || []).map(entry => ({
+      const enrichedEntries: FutureEntry[] = (data || []).map((entry) => ({
         ...entry,
-        commitment_groups: entry.commitment_group_id ? { name: groupsMap.get(entry.commitment_group_id) } : null,
-        commitments: entry.commitment_id ? { name: commitmentsMap.get(entry.commitment_id) } : null,
-        commitment_types: entry.commitment_type_id ? { name: typesMap.get(entry.commitment_type_id) } : null,
+        entry_type: entry.entry_type as "payable" | "receivable",
+        commitment_groups: entry.commitment_group_id ? { name: groupsMap.get(entry.commitment_group_id) || "" } : null,
+        commitments: entry.commitment_id ? { name: commitmentsMap.get(entry.commitment_id) || "" } : null,
+        commitment_types: entry.commitment_type_id ? { name: typesMap.get(entry.commitment_type_id) || "" } : null,
       }));
 
       setFutureEntries(enrichedEntries);
     } catch (error) {
-      console.error('Error loading future entries:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível carregar os lançamentos futuros",
+        description: error instanceof Error ? error.message : "Não foi possível carregar os lançamentos futuros",
         variant: "destructive",
       });
     }
   };
-
 
   const combinedData = useMemo(() => {
     if (!filteredData || filteredData.length === 0) return null;
 
     // Coletar todas as datas únicas
     const allDates = new Set<string>();
-    filteredData.forEach(b =>
-      b.days.forEach(d => allDates.add(d.date))
-    );
+    filteredData.forEach((b) => b.days.forEach((d) => allDates.add(d.date)));
     const orderedDates = Array.from(allDates).sort(); // yyyy-MM-dd já ordena lexicograficamente
 
     // Indexar por banco+data pra pegar abertura do primeiro dia
     const dayByBankDate = new Map<string, DailyCashFlow>();
-    filteredData.forEach(b => {
-      b.days.forEach(d => {
+    filteredData.forEach((b) => {
+      b.days.forEach((d) => {
         dayByBankDate.set(`${b.bank.id}__${d.date}`, d);
       });
     });
@@ -718,7 +794,7 @@ export default function CashFlow() {
 
     const combinedDays: DailyCashFlow[] = [];
 
-    orderedDates.forEach(date => {
+    orderedDates.forEach((date) => {
       // Agregar por data
       let historicalIn = 0;
       let historicalOut = 0;
@@ -726,7 +802,7 @@ export default function CashFlow() {
       let projectedOut = 0;
       const items: CashFlowItem[] = [];
 
-      filteredData.forEach(b => {
+      filteredData.forEach((b) => {
         const d = dayByBankDate.get(`${b.bank.id}__${date}`);
         if (!d) return;
         historicalIn += d.historicalIn;
@@ -778,8 +854,7 @@ export default function CashFlow() {
     return combinedBank;
   }, [filteredData]);
 
-
-  const handleEditEntry = (entry: any) => {
+  const handleEditEntry = useCallback((entry: FutureEntry) => {
     setEditingEntry(entry);
     form.reset({
       description: entry.description,
@@ -792,17 +867,13 @@ export default function CashFlow() {
       notes: entry.notes || "",
     });
     setModalOpen(true);
-  };
+  }, [form]);
 
-  const handleDeleteEntry = async (entryId: string) => {
+  const handleDeleteEntry = useCallback(async (entryId: string) => {
     try {
       if (!companyId) return;
-      
-      const { error } = await supabase
-        .from('future_entries')
-        .delete()
-        .eq('id', entryId)
-        .eq('company_id', companyId);
+
+      const { error } = await supabase.from("future_entries").delete().eq("id", entryId).eq("company_id", companyId);
 
       if (error) throw error;
 
@@ -814,14 +885,13 @@ export default function CashFlow() {
       loadFutureEntries();
       loadCashFlowData();
     } catch (error) {
-      console.error('Error deleting entry:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível excluir o lançamento",
+        description: error instanceof Error ? error.message : "Não foi possível excluir o lançamento",
         variant: "destructive",
       });
     }
-  };
+  }, [companyId, toast]);
 
   const onSubmit = async (data: FutureEntryForm) => {
     setModalLoading(true);
@@ -831,9 +901,11 @@ export default function CashFlow() {
         amount: Number(data.amount),
         due_date: data.due_date,
         entry_type: data.entry_type,
-        commitment_group_id: data.commitment_group_id && data.commitment_group_id !== 'none' ? data.commitment_group_id : null,
-        commitment_id: data.commitment_id && data.commitment_id !== 'none' ? data.commitment_id : null,
-        commitment_type_id: data.commitment_type_id && data.commitment_type_id !== 'none' ? data.commitment_type_id : null,
+        commitment_group_id:
+          data.commitment_group_id && data.commitment_group_id !== "none" ? data.commitment_group_id : null,
+        commitment_id: data.commitment_id && data.commitment_id !== "none" ? data.commitment_id : null,
+        commitment_type_id:
+          data.commitment_type_id && data.commitment_type_id !== "none" ? data.commitment_type_id : null,
         notes: data.notes || null,
         company_id: companyId,
       };
@@ -841,15 +913,13 @@ export default function CashFlow() {
       let error;
       if (editingEntry) {
         const { error: updateError } = await supabase
-          .from('future_entries')
+          .from("future_entries")
           .update(entryData)
-          .eq('id', editingEntry.id)
-          .eq('company_id', companyId);
+          .eq("id", editingEntry.id)
+          .eq("company_id", companyId);
         error = updateError;
       } else {
-        const { error: insertError } = await supabase
-          .from('future_entries')
-          .insert([entryData]);
+        const { error: insertError } = await supabase.from("future_entries").insert([entryData]);
         error = insertError;
       }
 
@@ -865,10 +935,9 @@ export default function CashFlow() {
       form.reset();
       loadCashFlowData();
     } catch (error) {
-      console.error('Error saving entry:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível salvar o lançamento",
+        description: error instanceof Error ? error.message : "Não foi possível salvar o lançamento",
         variant: "destructive",
       });
     } finally {
@@ -878,11 +947,11 @@ export default function CashFlow() {
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'historical':
+      case "historical":
         return <ArrowUpDown className="h-4 w-4" />;
-      case 'receivable':
+      case "receivable":
         return <Receipt className="h-4 w-4 text-green-600" />;
-      case 'payable':
+      case "payable":
         return <CreditCard className="h-4 w-4 text-red-600" />;
       default:
         return <DollarSign className="h-4 w-4" />;
@@ -891,23 +960,17 @@ export default function CashFlow() {
 
   const getTypeLabel = (type: string) => {
     switch (type) {
-      case 'historical':
-        return 'Realizado';
-      case 'receivable':
-        return 'A Receber';
-      case 'payable':
-        return 'A Pagar';
+      case "historical":
+        return "Realizado";
+      case "receivable":
+        return "Receber";
+      case "payable":
+        return "Pagar";
       default:
-        return 'Outros';
+        return "Outros";
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
 
   const exportToExcel = () => {
     if (!filteredData || filteredData.length === 0) {
@@ -927,28 +990,36 @@ export default function CashFlow() {
       mainTableData.push([`BANCO: ${bankData.bank.bank_name} - ${bankData.bank.account_number}`]);
 
       // Header da tabela
-      const headerRow = ['Tipo', ...bankData.days.map(day => `${day.day}/${day.date.split('-')[1]}`), 'Total'];
+      const headerRow = ["Tipo", ...bankData.days.map((day) => `${day.day}/${day.date.split("-")[1]}`), "Total"];
       mainTableData.push(headerRow);
 
       // Linhas de dados
-      const entradasRow = ['Entradas', ...bankData.days.map(day => day.historicalIn || 0), bankData.totalHistoricalIn];
+      const entradasRow = [
+        "Entradas",
+        ...bankData.days.map((day) => day.historicalIn || 0),
+        bankData.totalHistoricalIn,
+      ];
       mainTableData.push(entradasRow);
 
-      const saidasRow = ['Saídas', ...bankData.days.map(day => day.historicalOut || 0), bankData.totalHistoricalOut];
+      const saidasRow = ["Saídas", ...bankData.days.map((day) => day.historicalOut || 0), bankData.totalHistoricalOut];
       mainTableData.push(saidasRow);
 
-      const receberRow = ['A Receber', ...bankData.days.map(day => day.projectedIn || 0), bankData.totalProjectedIn];
+      const receberRow = ["Receber", ...bankData.days.map((day) => day.projectedIn || 0), bankData.totalProjectedIn];
       mainTableData.push(receberRow);
 
-      const pagarRow = ['A Pagar', ...bankData.days.map(day => day.projectedOut || 0), bankData.totalProjectedOut];
+      const pagarRow = ["Pagar", ...bankData.days.map((day) => day.projectedOut || 0), bankData.totalProjectedOut];
       mainTableData.push(pagarRow);
 
-      const saldoRow = ['Saldo', ...bankData.days.map(day => day.closing || 0), bankData.days[bankData.days.length - 1]?.closing || 0];
+      const saldoRow = [
+        "Saldo",
+        ...bankData.days.map((day) => day.closing || 0),
+        bankData.days[bankData.days.length - 1]?.closing || 0,
+      ];
       mainTableData.push(saldoRow);
 
       // Linha em branco entre bancos
       if (bankIndex < filteredData.length - 1) {
-        mainTableData.push(['']);
+        mainTableData.push([""]);
       }
     });
 
@@ -957,14 +1028,15 @@ export default function CashFlow() {
 
     // Criar worksheet principal
     const wsMain = XLSX.utils.aoa_to_sheet(mainTableData);
-    XLSX.utils.book_append_sheet(wb, wsMain, 'Fluxo de Caixa');
+    XLSX.utils.book_append_sheet(wb, wsMain, "Fluxo de Caixa");
 
     // Gerar nome do arquivo
-    const monthName = selectedMonths.length > 0
-      ? format(parseISO(selectedMonths[0] + '-01'), 'MMMM-yyyy', { locale: ptBR })
-      : format(new Date(), 'MMMM-yyyy', { locale: ptBR });
+    const monthLabels =
+      selectedMonths.length > 0
+        ? selectedMonths.map((m) => m.toString().padStart(2, "0")).join("-")
+        : format(new Date(), "MM");
 
-    const fileName = `fluxo-caixa-${monthName}.xlsx`;
+    const fileName = `fluxo-caixa-${selectedYear}-${monthLabels}.xlsx`;
 
     // Salvar arquivo
     XLSX.writeFile(wb, fileName);
@@ -978,25 +1050,22 @@ export default function CashFlow() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
-        
-
         <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            onClick={exportToExcel}
-            disabled={!filteredData || filteredData.length === 0}
-          >
+          <Button variant="outline" onClick={exportToExcel} disabled={!filteredData || filteredData.length === 0}>
             <Download className="mr-2 h-4 w-4" />
             Exportar Excel
           </Button>
 
-          <Dialog open={modalOpen} onOpenChange={(open) => {
-            setModalOpen(open);
-            if (!open) {
-              setEditingEntry(null);
-              form.reset();
-            }
-          }}>
+          <Dialog
+            open={modalOpen}
+            onOpenChange={(open) => {
+              setModalOpen(open);
+              if (!open) {
+                setEditingEntry(null);
+                form.reset();
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
@@ -1006,11 +1075,11 @@ export default function CashFlow() {
 
             <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
               <DialogHeader>
-                <DialogTitle>
-                  {editingEntry ? 'Editar Lançamento' : 'Novo Lançamento Futuro'}
-                </DialogTitle>
+                <DialogTitle>{editingEntry ? "Editar Lançamento" : "Novo Lançamento Futuro"}</DialogTitle>
                 <DialogDescription>
-                  {editingEntry ? 'Edite os dados do lançamento' : 'Adicione um novo lançamento futuro (conta a pagar ou a receber)'}
+                  {editingEntry
+                    ? "Edite os dados do lançamento"
+                    : "Adicione um novo lançamento futuro (conta a pagar ou a receber)"}
                 </DialogDescription>
               </DialogHeader>
 
@@ -1038,12 +1107,7 @@ export default function CashFlow() {
                         <FormItem>
                           <FormLabel>Valor</FormLabel>
                           <FormControl>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="0,00"
-                              {...field}
-                            />
+                            <Input type="number" step="0.01" placeholder="0,00" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1078,8 +1142,8 @@ export default function CashFlow() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="receivable">A Receber</SelectItem>
-                            <SelectItem value="payable">A Pagar</SelectItem>
+                            <SelectItem value="receivable">Receber</SelectItem>
+                            <SelectItem value="payable">Pagar</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -1143,8 +1207,10 @@ export default function CashFlow() {
                     control={form.control}
                     name="commitment_type_id"
                     render={({ field }) => {
-                      const selectedCommitment = commitments.find(c => c.id === form.watch("commitment_id"));
-                      const commitmentType = commitmentTypes.find(t => t.id === selectedCommitment?.commitment_type_id);
+                      const selectedCommitment = commitments.find((c) => c.id === form.watch("commitment_id"));
+                      const commitmentType = commitmentTypes.find(
+                        (t) => t.id === selectedCommitment?.commitment_type_id,
+                      );
 
                       return (
                         <FormItem>
@@ -1214,102 +1280,103 @@ export default function CashFlow() {
       <Card>
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
-          <CardDescription>
-            Selecione os meses e intervalo de dias para visualizar
-          </CardDescription>
+          <CardDescription>Selecione o ano e os meses para visualizar</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Label>Dia início:</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={dayRange.start}
-                  onChange={(e) => setDayRange(prev => ({ ...prev, start: Number(e.target.value) }))}
-                  className="w-20"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Label>Dia fim:</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={dayRange.end}
-                  onChange={(e) => setDayRange(prev => ({ ...prev, end: Number(e.target.value) }))}
-                  className="w-20"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium mb-2 block">Meses:</Label>
-              <Select>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={
-                    selectedMonths.length === 0
-                      ? "Selecione os meses"
-                      : selectedMonths.length === availableMonths.length
-                      ? "Todos os meses selecionados"
-                      : `${selectedMonths.length} mês(es) selecionado(s)`
-                  } />
+              <Label className="text-sm font-medium min-w-[60px]">Período:</Label>
+              <Select
+                value={pendingYear.toString()}
+                onValueChange={(value) => {
+                  setPendingYear(Number(value));
+                  setPendingMonths([]);
+                }}
+              >
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="Ano" />
                 </SelectTrigger>
                 <SelectContent>
-                  {/* Opção "Selecionar todos os meses" */}
-                  <div className="flex items-center space-x-2 px-2 py-1 hover:bg-accent cursor-pointer border-b mb-1"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (selectedMonths.length === availableMonths.length) {
-                        setSelectedMonths([]);
-                      } else {
-                        setSelectedMonths(availableMonths);
-                        if (availableMonths.length > 0) {
-                          loadCashFlowData(); // Carrega dados quando todos os meses são selecionados
-                        }
-                      }
-                    }}
-                  >
-                    <Checkbox
-                      checked={selectedMonths.length === availableMonths.length && availableMonths.length > 0}
-                      onCheckedChange={() => { }} // Disabled porque o click é tratado pelo div pai
-                    />
-                    <Label className="text-sm cursor-pointer font-medium">
-                      Selecionar todos os meses
-                    </Label>
-                  </div>
-                  {availableMonths.map((month) => (
-                    <div key={month} className="flex items-center space-x-2 px-2 py-1 hover:bg-accent cursor-pointer"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (selectedMonths.includes(month)) {
-                          setSelectedMonths(prev => prev.filter(m => m !== month));
-                        } else {
-                          setSelectedMonths(prev => [...prev, month]);
-                          // Carrega dados na primeira seleção de mês
-                          if (monthlyData.length === 0) {
-                            loadCashFlowData();
-                          }
-                        }
-                      }}
-                    >
-                      <Checkbox
-                        checked={selectedMonths.includes(month)}
-                        onCheckedChange={() => { }} // Disabled because click is handled by parent div
-                      />
-                      <Label className="text-sm cursor-pointer">
-                        {format(parseISO(month + '-01'), 'MMMM yyyy', { locale: ptBR })}
-                      </Label>
-                    </div>
-                  ))}
+                  {availableYears.length > 0 ? (
+                    availableYears.map((year) => (
+                      <SelectItem key={year} value={year.toString()}>
+                        {year}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value={new Date().getFullYear().toString()}>{new Date().getFullYear()}</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Meses:</Label>
+              <div className="grid grid-cols-6 sm:grid-cols-10 md:grid-cols-12 gap-2">
+                {MONTH_BUTTONS.map((month) => (
+                  <Button
+                    key={month.num}
+                    type="button"
+                    variant={pendingMonths.includes(month.num) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setPendingMonths((prev) =>
+                        prev.includes(month.num)
+                          ? prev.filter((m) => m !== month.num)
+                          : [...prev, month.num].sort((a, b) => a - b),
+                      );
+                    }}
+                    className="h-9"
+                  >
+                    {month.label}
+                  </Button>
+                ))}
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPendingMonths([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])}
+                  className="flex-1"
+                >
+                  Selecionar Todos
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPendingMonths([])}
+                  className="flex-1"
+                >
+                  Limpar
+                </Button>
+              </div>
+
+              {/* Botão Carregar */}
+              <Button
+                type="button"
+                onClick={handleLoadData}
+                disabled={loading || pendingMonths.length === 0}
+                className="w-full"
+              >
+                {loading ? (
+                  <>
+                    <Download className="mr-2 h-4 w-4 animate-spin" />
+                    Carregando...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Carregar Dados
+                  </>
+                )}
+              </Button>
+            </div>
+
             <div className="flex items-center gap-2">
-              <Checkbox 
+              <Checkbox
                 id="show-empty-accounts"
                 checked={showEmptyAccounts}
                 onCheckedChange={(checked) => setShowEmptyAccounts(checked as boolean)}
@@ -1327,9 +1394,11 @@ export default function CashFlow() {
         {selectedMonths.length === 0 ? (
           <Card>
             <CardContent className="p-8 text-center">
-              <Calendar className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Selecione um mês</h3>
-              <p className="text-gray-500">Selecione pelo menos um mês nos filtros acima para visualizar o fluxo de caixa.</p>
+              <Calendar className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium">Selecione pelo menos um mês</h3>
+              <p className="text-sm text-muted-foreground mt-2">
+                Escolha o ano e os meses desejados, depois clique em "Carregar Dados"
+              </p>
             </CardContent>
           </Card>
         ) : filteredData.length === 0 ? (
@@ -1340,7 +1409,9 @@ export default function CashFlow() {
                 {loading ? "Carregando dados..." : "Nenhum dado encontrado"}
               </h3>
               <p className="text-gray-500">
-                {loading ? "Aguarde enquanto carregamos os dados do fluxo de caixa." : "Não há dados de fluxo de caixa para o período selecionado."}
+                {loading
+                  ? "Aguarde enquanto carregamos os dados do fluxo de caixa."
+                  : "Não há dados de fluxo de caixa para o período selecionado."}
               </p>
             </CardContent>
           </Card>
@@ -1365,9 +1436,7 @@ export default function CashFlow() {
                       <div className="flex items-center gap-4">
                         <div className="text-right">
                           <div className="text-sm text-muted-foreground">Saldo Final</div>
-                          <div className="text-lg font-bold text-primary">
-                            {formatCurrency(bankData.totalClosing)}
-                          </div>
+                          <div className="text-lg font-bold text-primary">{formatCurrency(bankData.totalClosing)}</div>
                         </div>
 
                         <div className="flex gap-2">
@@ -1391,349 +1460,13 @@ export default function CashFlow() {
 
                 <CollapsibleContent>
                   <CardContent>
-                    {bankData.days.length === 0 ? (
-                      <div className="text-center py-8 text-gray-500">
-                        Nenhuma movimentação encontrada para este banco no período selecionado.
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full border-collapse border border-gray-200">
-                          <thead>
-                            <tr>
-                              <th className="border border-gray-200 p-2 bg-muted text-left font-medium">Tipo</th>
-                              {bankData.days.map((day) => (
-                                <th key={`${day.date}-${day.day}`} className="border border-gray-200 p-2 bg-muted text-center font-medium min-w-[80px]">
-                                  {day.day}/{day.date.split('-')[1]}
-                                </th>
-                              ))}
-                              <th className="border border-gray-200 p-2 bg-muted text-center font-medium">Total</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {/* Entradas Realizadas */}
-                            <tr>
-                              <td className="border border-gray-200 p-2 font-medium text-green-600">
-                                <div className="flex items-center gap-2">
-                                  <TrendingUp className="h-4 w-4" />
-                                  Entradas
-                                </div>
-                              </td>
-                              {bankData.days.map((day) => {
-                                const cellId = `${bankData.bank.id}-entry-${day.date}`;
-                                const hasItems = day.historicalIn > 0;
-                                return (
-                                  <td key={`entry-${day.date}-${day.day}`} className="border border-gray-200 p-1 text-center">
-                                    {hasItems ? (
-                                      <button
-                                        onClick={() => toggleCellDetails(cellId)}
-                                        className="text-green-600 text-sm font-medium hover:underline cursor-pointer"
-                                      >
-                                        {formatCurrency(day.historicalIn)}
-                                      </button>
-                                    ) : (
-                                      <span className="text-gray-300">-</span>
-                                    )}
-                                  </td>
-                                );
-                              })}
-                              <td className="border border-gray-200 p-2 text-center font-medium text-green-600">
-                                {formatCurrency(bankData.totalHistoricalIn)}
-                              </td>
-                            </tr>
-
-                            {/* Detalhes das Entradas - mostrar apenas se alguma célula estiver expandida */}
-                            {bankData.days.some(day => {
-                              const cellId = `${bankData.bank.id}-entry-${day.date}`;
-                              return expandedCells[cellId] && day.historicalIn > 0;
-                            }) && (
-                                <tr>
-                                  <td colSpan={bankData.days.length + 2} className="border border-gray-200 p-0">
-                                    <div className="bg-green-50 p-4">
-                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {bankData.days.map((day) => {
-                                          const cellId = `${bankData.bank.id}-entry-${day.date}`;
-                                          if (!expandedCells[cellId] || day.historicalIn === 0) return null;
-
-                                          const items = getCellItems(day, 'historicalIn');
-                                          return (
-                                            <div key={`detail-entry-${day.date}`} className="bg-white p-3 rounded border">
-                                              <h4 className="font-medium text-green-600 mb-2">
-                                                Entradas - {day.day}/{day.date.split('-')[1]}
-                                              </h4>
-                                              <div className="space-y-2">
-                                                {items.map((item, idx) => (
-                                                  <div key={idx} className="text-sm">
-                                                    <div className="font-medium">{item.description}</div>
-                                                    <div className="text-green-600 font-medium">
-                                                      {formatCurrency(Math.abs(item.amount))}
-                                                    </div>
-                                                    {item.classification?.group && (
-                                                      <div className="text-xs text-gray-500">
-                                                        {item.classification.group}
-                                                        {item.classification.commitment && ` - ${item.classification.commitment}`}
-                                                      </div>
-                                                    )}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-
-                            {/* Saídas Realizadas */}
-                            <tr>
-                              <td className="border border-gray-200 p-2 font-medium text-red-600">
-                                <div className="flex items-center gap-2">
-                                  <TrendingDown className="h-4 w-4" />
-                                  Saídas
-                                </div>
-                              </td>
-                              {bankData.days.map((day) => {
-                                const cellId = `${bankData.bank.id}-exit-${day.date}`;
-                                const hasItems = day.historicalOut > 0;
-                                return (
-                                  <td key={`exit-${day.date}-${day.day}`} className="border border-gray-200 p-1 text-center">
-                                    {hasItems ? (
-                                      <button
-                                        onClick={() => toggleCellDetails(cellId)}
-                                        className="text-red-600 text-sm font-medium hover:underline cursor-pointer"
-                                      >
-                                        {formatCurrency(day.historicalOut)}
-                                      </button>
-                                    ) : (
-                                      <span className="text-gray-300">-</span>
-                                    )}
-                                  </td>
-                                );
-                              })}
-                              <td className="border border-gray-200 p-2 text-center font-medium text-red-600">
-                                {formatCurrency(bankData.totalHistoricalOut)}
-                              </td>
-                            </tr>
-
-                            {/* Detalhes das Saídas */}
-                            {bankData.days.some(day => {
-                              const cellId = `${bankData.bank.id}-exit-${day.date}`;
-                              return expandedCells[cellId] && day.historicalOut > 0;
-                            }) && (
-                                <tr>
-                                  <td colSpan={bankData.days.length + 2} className="border border-gray-200 p-0">
-                                    <div className="bg-red-50 p-4">
-                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {bankData.days.map((day) => {
-                                          const cellId = `${bankData.bank.id}-exit-${day.date}`;
-                                          if (!expandedCells[cellId] || day.historicalOut === 0) return null;
-
-                                          const items = getCellItems(day, 'historicalOut');
-                                          return (
-                                            <div key={`detail-exit-${day.date}`} className="bg-white p-3 rounded border">
-                                              <h4 className="font-medium text-red-600 mb-2">
-                                                Saídas - {day.day}/{day.date.split('-')[1]}
-                                              </h4>
-                                              <div className="space-y-2">
-                                                {items.map((item, idx) => (
-                                                  <div key={idx} className="text-sm">
-                                                    <div className="font-medium">{item.description}</div>
-                                                    <div className="text-red-600 font-medium">
-                                                      {formatCurrency(Math.abs(item.amount))}
-                                                    </div>
-                                                    {item.classification?.group && (
-                                                      <div className="text-xs text-gray-500">
-                                                        {item.classification.group}
-                                                        {item.classification.commitment && ` - ${item.classification.commitment}`}
-                                                      </div>
-                                                    )}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-
-                            {/* Entradas Projetadas */}
-                            <tr>
-                              <td className="border border-gray-200 p-2 font-medium text-green-500">
-                                <div className="flex items-center gap-2">
-                                  <Receipt className="h-4 w-4" />
-                                  A Receber
-                                </div>
-                              </td>
-                              {bankData.days.map((day) => {
-                                const cellId = `${bankData.bank.id}-receivable-${day.date}`;
-                                const hasItems = day.projectedIn > 0;
-                                return (
-                                  <td key={`proj-in-${day.date}-${day.day}`} className="border border-gray-200 p-1 text-center">
-                                    {hasItems ? (
-                                      <button
-                                        onClick={() => toggleCellDetails(cellId)}
-                                        className="text-green-500 text-sm font-medium hover:underline cursor-pointer"
-                                      >
-                                        {formatCurrency(day.projectedIn)}
-                                      </button>
-                                    ) : (
-                                      <span className="text-gray-300">-</span>
-                                    )}
-                                  </td>
-                                );
-                              })}
-                              <td className="border border-gray-200 p-2 text-center font-medium text-green-500">
-                                {formatCurrency(bankData.totalProjectedIn)}
-                              </td>
-                            </tr>
-
-                            {/* Detalhes A Receber */}
-                            {bankData.days.some(day => {
-                              const cellId = `${bankData.bank.id}-receivable-${day.date}`;
-                              return expandedCells[cellId] && day.projectedIn > 0;
-                            }) && (
-                                <tr>
-                                  <td colSpan={bankData.days.length + 2} className="border border-gray-200 p-0">
-                                    <div className="bg-green-50 p-4">
-                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {bankData.days.map((day) => {
-                                          const cellId = `${bankData.bank.id}-receivable-${day.date}`;
-                                          if (!expandedCells[cellId] || day.projectedIn === 0) return null;
-
-                                          const items = getCellItems(day, 'projectedIn');
-                                          return (
-                                            <div key={`detail-receivable-${day.date}`} className="bg-white p-3 rounded border">
-                                              <h4 className="font-medium text-green-500 mb-2">
-                                                A Receber - {day.day}/{day.date.split('-')[1]}
-                                              </h4>
-                                              <div className="space-y-2">
-                                                {items.map((item, idx) => (
-                                                  <div key={idx} className="text-sm">
-                                                    <div className="font-medium">{item.description}</div>
-                                                    <div className="text-green-500 font-medium">
-                                                      {formatCurrency(item.amount)}
-                                                    </div>
-                                                    {item.classification?.group && (
-                                                      <div className="text-xs text-gray-500">
-                                                        {item.classification.group}
-                                                        {item.classification.commitment && ` - ${item.classification.commitment}`}
-                                                      </div>
-                                                    )}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-
-                            {/* Saídas Projetadas */}
-                            <tr>
-                              <td className="border border-gray-200 p-2 font-medium text-red-500">
-                                <div className="flex items-center gap-2">
-                                  <CreditCard className="h-4 w-4" />
-                                  A Pagar
-                                </div>
-                              </td>
-                              {bankData.days.map((day) => {
-                                const cellId = `${bankData.bank.id}-payable-${day.date}`;
-                                const hasItems = day.projectedOut > 0;
-                                return (
-                                  <td key={`proj-out-${day.date}-${day.day}`} className="border border-gray-200 p-1 text-center">
-                                    {hasItems ? (
-                                      <button
-                                        onClick={() => toggleCellDetails(cellId)}
-                                        className="text-red-500 text-sm font-medium hover:underline cursor-pointer"
-                                      >
-                                        {formatCurrency(day.projectedOut)}
-                                      </button>
-                                    ) : (
-                                      <span className="text-gray-300">-</span>
-                                    )}
-                                  </td>
-                                );
-                              })}
-                              <td className="border border-gray-200 p-2 text-center font-medium text-red-500">
-                                {formatCurrency(bankData.totalProjectedOut)}
-                              </td>
-                            </tr>
-
-                            {/* Detalhes A Pagar */}
-                            {bankData.days.some(day => {
-                              const cellId = `${bankData.bank.id}-payable-${day.date}`;
-                              return expandedCells[cellId] && day.projectedOut > 0;
-                            }) && (
-                                <tr>
-                                  <td colSpan={bankData.days.length + 2} className="border border-gray-200 p-0">
-                                    <div className="bg-red-50 p-4">
-                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {bankData.days.map((day) => {
-                                          const cellId = `${bankData.bank.id}-payable-${day.date}`;
-                                          if (!expandedCells[cellId] || day.projectedOut === 0) return null;
-
-                                          const items = getCellItems(day, 'projectedOut');
-                                          return (
-                                            <div key={`detail-payable-${day.date}`} className="bg-white p-3 rounded border">
-                                              <h4 className="font-medium text-red-500 mb-2">
-                                                A Pagar - {day.day}/{day.date.split('-')[1]}
-                                              </h4>
-                                              <div className="space-y-2">
-                                                {items.map((item, idx) => (
-                                                  <div key={idx} className="text-sm">
-                                                    <div className="font-medium">{item.description}</div>
-                                                    <div className="text-red-500 font-medium">
-                                                      {formatCurrency(item.amount)}
-                                                    </div>
-                                                    {item.classification?.group && (
-                                                      <div className="text-xs text-gray-500">
-                                                        {item.classification.group}
-                                                        {item.classification.commitment && ` - ${item.classification.commitment}`}
-                                                      </div>
-                                                    )}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-
-                            {/* Linha de Saldo */}
-                            <tr className="bg-blue-50">
-                              <td className="border border-gray-200 p-2 font-bold text-blue-600">
-                                <div className="flex items-center gap-2">
-                                  <DollarSign className="h-4 w-4" />
-                                  Saldo
-                                </div>
-                              </td>
-                              {bankData.days.map((day) => (
-                                <td key={`balance-${day.date}-${day.day}`} className="border border-gray-200 p-1 text-center bg-blue-50">
-                                  <span className={`text-sm font-bold ${day.closing >= 0 ? 'text-blue-600' : 'text-red-600'
-                                    }`}>
-                                    {formatCurrency(day.closing)}
-                                  </span>
-                                </td>
-                              ))}
-                              <td className="border border-gray-200 p-2 text-center font-bold text-blue-600 bg-blue-50">
-                                {formatCurrency(bankData.days[bankData.days.length - 1]?.closing || 0)}
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                    <CashFlowTable
+                      bankData={bankData}
+                      bankId={bankData.bank.id}
+                      bankName={bankData.bank.bank_name}
+                      onOpenDetails={(day, type) => openCellDetails(day, type, bankData.bank.bank_name)}
+                      formatCurrency={formatCurrency}
+                    />
                   </CardContent>
                 </CollapsibleContent>
               </Collapsible>
@@ -1788,344 +1521,18 @@ export default function CashFlow() {
 
               <CollapsibleContent>
                 <CardContent>
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse border border-gray-200">
-                      <thead>
-                        <tr>
-                          <th className="border border-gray-200 p-2 bg-muted text-left font-medium">Tipo</th>
-                          {combinedData.days.map((day) => (
-                            <th key={`all-${day.date}-${day.day}`} className="border border-gray-200 p-2 bg-muted text-center font-medium min-w-[80px]">
-                              {day.day}/{day.date.split('-')[1]}
-                            </th>
-                          ))}
-                          <th className="border border-gray-200 p-2 bg-muted text-center font-medium">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {/* Entradas Realizadas */}
-                        <tr>
-                          <td className="border border-gray-200 p-2 font-medium text-green-600">
-                            <div className="flex items-center gap-2">
-                              <TrendingUp className="h-4 w-4" />
-                              Entradas
-                            </div>
-                          </td>
-                          {combinedData.days.map((day) => {
-                            const cellId = `${combinedData.bank.id}-entry-${day.date}`;
-                            const hasItems = day.historicalIn > 0;
-                            return (
-                              <td key={`all-entry-${day.date}-${day.day}`} className="border border-gray-200 p-1 text-center">
-                                {hasItems ? (
-                                  <button
-                                    onClick={() => toggleCellDetails(cellId)}
-                                    className="text-green-600 text-sm font-medium hover:underline cursor-pointer"
-                                  >
-                                    {formatCurrency(day.historicalIn)}
-                                  </button>
-                                ) : (
-                                  <span className="text-gray-300">-</span>
-                                )}
-                              </td>
-                            );
-                          })}
-                          <td className="border border-gray-200 p-2 text-center font-medium text-green-600">
-                            {formatCurrency(combinedData.totalHistoricalIn)}
-                          </td>
-                        </tr>
-
-                        {/* Detalhes Entradas */}
-                        {combinedData.days.some(day => {
-                          const cellId = `${combinedData.bank.id}-entry-${day.date}`;
-                          return expandedCells[cellId] && day.historicalIn > 0;
-                        }) && (
-                            <tr>
-                              <td colSpan={combinedData.days.length + 2} className="border border-gray-200 p-0">
-                                <div className="bg-green-50 p-4">
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {combinedData.days.map((day) => {
-                                      const cellId = `${combinedData.bank.id}-entry-${day.date}`;
-                                      if (!expandedCells[cellId] || day.historicalIn === 0) return null;
-                                      const items = getCellItems(day, 'historicalIn');
-                                      return (
-                                        <div key={`all-detail-entry-${day.date}`} className="bg-white p-3 rounded border">
-                                          <h4 className="font-medium text-green-600 mb-2">
-                                            Entradas - {day.day}/{day.date.split('-')[1]}
-                                          </h4>
-                                          <div className="space-y-2">
-                                            {items.map((item, idx) => (
-                                              <div key={idx} className="text-sm">
-                                                <div className="font-medium">{item.description}</div>
-                                                <div className="text-green-600 font-medium">
-                                                  {formatCurrency(Math.abs(item.amount))}
-                                                </div>
-                                                {item.classification?.group && (
-                                                  <div className="text-xs text-gray-500">
-                                                    {item.classification.group}
-                                                    {item.classification.commitment && ` - ${item.classification.commitment}`}
-                                                  </div>
-                                                )}
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-
-                        {/* Saídas Realizadas */}
-                        <tr>
-                          <td className="border border-gray-200 p-2 font-medium text-red-600">
-                            <div className="flex items-center gap-2">
-                              <TrendingDown className="h-4 w-4" />
-                              Saídas
-                            </div>
-                          </td>
-                          {combinedData.days.map((day) => {
-                            const cellId = `${combinedData.bank.id}-exit-${day.date}`;
-                            const hasItems = day.historicalOut > 0;
-                            return (
-                              <td key={`all-exit-${day.date}-${day.day}`} className="border border-gray-200 p-1 text-center">
-                                {hasItems ? (
-                                  <button
-                                    onClick={() => toggleCellDetails(cellId)}
-                                    className="text-red-600 text-sm font-medium hover:underline cursor-pointer"
-                                  >
-                                    {formatCurrency(day.historicalOut)}
-                                  </button>
-                                ) : (
-                                  <span className="text-gray-300">-</span>
-                                )}
-                              </td>
-                            );
-                          })}
-                          <td className="border border-gray-200 p-2 text-center font-medium text-red-600">
-                            {formatCurrency(combinedData.totalHistoricalOut)}
-                          </td>
-                        </tr>
-
-                        {/* Detalhes Saídas */}
-                        {combinedData.days.some(day => {
-                          const cellId = `${combinedData.bank.id}-exit-${day.date}`;
-                          return expandedCells[cellId] && day.historicalOut > 0;
-                        }) && (
-                            <tr>
-                              <td colSpan={combinedData.days.length + 2} className="border border-gray-200 p-0">
-                                <div className="bg-red-50 p-4">
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {combinedData.days.map((day) => {
-                                      const cellId = `${combinedData.bank.id}-exit-${day.date}`;
-                                      if (!expandedCells[cellId] || day.historicalOut === 0) return null;
-                                      const items = getCellItems(day, 'historicalOut');
-                                      return (
-                                        <div key={`all-detail-exit-${day.date}`} className="bg-white p-3 rounded border">
-                                          <h4 className="font-medium text-red-600 mb-2">
-                                            Saídas - {day.day}/{day.date.split('-')[1]}
-                                          </h4>
-                                          <div className="space-y-2">
-                                            {items.map((item, idx) => (
-                                              <div key={idx} className="text-sm">
-                                                <div className="font-medium">{item.description}</div>
-                                                <div className="text-red-600 font-medium">
-                                                  {formatCurrency(Math.abs(item.amount))}
-                                                </div>
-                                                {item.classification?.group && (
-                                                  <div className="text-xs text-gray-500">
-                                                    {item.classification.group}
-                                                    {item.classification.commitment && ` - ${item.classification.commitment}`}
-                                                  </div>
-                                                )}
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-
-                        {/* A Receber */}
-                        <tr>
-                          <td className="border border-gray-200 p-2 font-medium text-green-500">
-                            <div className="flex items-center gap-2">
-                              <Receipt className="h-4 w-4" />
-                              A Receber
-                            </div>
-                          </td>
-                          {combinedData.days.map((day) => {
-                            const cellId = `${combinedData.bank.id}-receivable-${day.date}`;
-                            const hasItems = day.projectedIn > 0;
-                            return (
-                              <td key={`all-proj-in-${day.date}-${day.day}`} className="border border-gray-200 p-1 text-center">
-                                {hasItems ? (
-                                  <button
-                                    onClick={() => toggleCellDetails(cellId)}
-                                    className="text-green-500 text-sm font-medium hover:underline cursor-pointer"
-                                  >
-                                    {formatCurrency(day.projectedIn)}
-                                  </button>
-                                ) : (
-                                  <span className="text-gray-300">-</span>
-                                )}
-                              </td>
-                            );
-                          })}
-                          <td className="border border-gray-200 p-2 text-center font-medium text-green-500">
-                            {formatCurrency(combinedData.totalProjectedIn)}
-                          </td>
-                        </tr>
-
-                        {/* Detalhes A Receber */}
-                        {combinedData.days.some(day => {
-                          const cellId = `${combinedData.bank.id}-receivable-${day.date}`;
-                          return expandedCells[cellId] && day.projectedIn > 0;
-                        }) && (
-                            <tr>
-                              <td colSpan={combinedData.days.length + 2} className="border border-gray-200 p-0">
-                                <div className="bg-green-50 p-4">
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {combinedData.days.map((day) => {
-                                      const cellId = `${combinedData.bank.id}-receivable-${day.date}`;
-                                      if (!expandedCells[cellId] || day.projectedIn === 0) return null;
-                                      const items = getCellItems(day, 'projectedIn');
-                                      return (
-                                        <div key={`all-detail-receivable-${day.date}`} className="bg-white p-3 rounded border">
-                                          <h4 className="font-medium text-green-500 mb-2">
-                                            A Receber - {day.day}/{day.date.split('-')[1]}
-                                          </h4>
-                                          <div className="space-y-2">
-                                            {items.map((item, idx) => (
-                                              <div key={idx} className="text-sm">
-                                                <div className="font-medium">{item.description}</div>
-                                                <div className="text-green-500 font-medium">
-                                                  {formatCurrency(item.amount)}
-                                                </div>
-                                                {item.classification?.group && (
-                                                  <div className="text-xs text-gray-500">
-                                                    {item.classification.group}
-                                                    {item.classification.commitment && ` - ${item.classification.commitment}`}
-                                                  </div>
-                                                )}
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-
-                        {/* A Pagar */}
-                        <tr>
-                          <td className="border border-gray-200 p-2 font-medium text-red-500">
-                            <div className="flex items-center gap-2">
-                              <CreditCard className="h-4 w-4" />
-                              A Pagar
-                            </div>
-                          </td>
-                          {combinedData.days.map((day) => {
-                            const cellId = `${combinedData.bank.id}-payable-${day.date}`;
-                            const hasItems = day.projectedOut > 0;
-                            return (
-                              <td key={`all-proj-out-${day.date}-${day.day}`} className="border border-gray-200 p-1 text-center">
-                                {hasItems ? (
-                                  <button
-                                    onClick={() => toggleCellDetails(cellId)}
-                                    className="text-red-500 text-sm font-medium hover:underline cursor-pointer"
-                                  >
-                                    {formatCurrency(day.projectedOut)}
-                                  </button>
-                                ) : (
-                                  <span className="text-gray-300">-</span>
-                                )}
-                              </td>
-                            );
-                          })}
-                          <td className="border border-gray-200 p-2 text-center font-medium text-red-500">
-                            {formatCurrency(combinedData.totalProjectedOut)}
-                          </td>
-                        </tr>
-
-                        {/* Detalhes A Pagar */}
-                        {combinedData.days.some(day => {
-                          const cellId = `${combinedData.bank.id}-payable-${day.date}`;
-                          return expandedCells[cellId] && day.projectedOut > 0;
-                        }) && (
-                            <tr>
-                              <td colSpan={combinedData.days.length + 2} className="border border-gray-200 p-0">
-                                <div className="bg-red-50 p-4">
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {combinedData.days.map((day) => {
-                                      const cellId = `${combinedData.bank.id}-payable-${day.date}`;
-                                      if (!expandedCells[cellId] || day.projectedOut === 0) return null;
-                                      const items = getCellItems(day, 'projectedOut');
-                                      return (
-                                        <div key={`all-detail-payable-${day.date}`} className="bg-white p-3 rounded border">
-                                          <h4 className="font-medium text-red-500 mb-2">
-                                            A Pagar - {day.day}/{day.date.split('-')[1]}
-                                          </h4>
-                                          <div className="space-y-2">
-                                            {items.map((item, idx) => (
-                                              <div key={idx} className="text-sm">
-                                                <div className="font-medium">{item.description}</div>
-                                                <div className="text-red-500 font-medium">
-                                                  {formatCurrency(item.amount)}
-                                                </div>
-                                                {item.classification?.group && (
-                                                  <div className="text-xs text-gray-500">
-                                                    {item.classification.group}
-                                                    {item.classification.commitment && ` - ${item.classification.commitment}`}
-                                                  </div>
-                                                )}
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-
-                        {/* Saldo */}
-                        <tr className="bg-blue-50">
-                          <td className="border border-gray-200 p-2 font-bold text-blue-600">
-                            <div className="flex items-center gap-2">
-                              <DollarSign className="h-4 w-4" />
-                              Saldo
-                            </div>
-                          </td>
-                          {combinedData.days.map((day) => (
-                            <td key={`all-balance-${day.date}-${day.day}`} className="border border-gray-200 p-1 text-center bg-blue-50">
-                              <span className={`text-sm font-bold ${day.closing >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                                {formatCurrency(day.closing)}
-                              </span>
-                            </td>
-                          ))}
-                          <td className="border border-gray-200 p-2 text-center font-bold text-blue-600 bg-blue-50">
-                            {formatCurrency(combinedData.days[combinedData.days.length - 1]?.closing || 0)}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
+                  <CashFlowTable
+                    bankData={combinedData}
+                    bankId={combinedData.bank.id}
+                    bankName="Todos os Bancos"
+                    onOpenDetails={(day, type) => openCellDetails(day, type, "Todos os Bancos")}
+                    formatCurrency={formatCurrency}
+                  />
                 </CardContent>
               </CollapsibleContent>
             </Collapsible>
           </Card>
         )}
-
       </div>
 
       {/* Manage Future Entries Modal */}
@@ -2133,9 +1540,7 @@ export default function CashFlow() {
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Gerenciar Lançamentos Futuros</DialogTitle>
-            <DialogDescription>
-              Visualize e gerencie todos os lançamentos futuros
-            </DialogDescription>
+            <DialogDescription>Visualize e gerencie todos os lançamentos futuros</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -2161,8 +1566,8 @@ export default function CashFlow() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="receivable">A Receber</SelectItem>
-                      <SelectItem value="payable">A Pagar</SelectItem>
+                      <SelectItem value="receivable">Receber</SelectItem>
+                      <SelectItem value="payable">Pagar</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -2200,17 +1605,15 @@ export default function CashFlow() {
               </div>
             </div>
 
-            {futureEntries.filter(entry => {
-              const matchesDescription = filterDescription === "" || 
-                entry.description.toLowerCase().includes(filterDescription.toLowerCase());
+            {futureEntries.filter((entry) => {
+              const matchesDescription =
+                filterDescription === "" || entry.description.toLowerCase().includes(filterDescription.toLowerCase());
               const matchesType = filterType === "all" || entry.entry_type === filterType;
               const matchesStatus = filterStatus === "all" || entry.status === filterStatus;
               const matchesGroup = filterGroup === "all" || entry.commitment_group_id === filterGroup;
               return matchesDescription && matchesType && matchesStatus && matchesGroup;
             }).length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                Nenhum lançamento futuro encontrado.
-              </div>
+              <div className="text-center py-8 text-gray-500">Nenhum lançamento futuro encontrado.</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse border border-gray-200">
@@ -2227,8 +1630,9 @@ export default function CashFlow() {
                   </thead>
                   <tbody>
                     {futureEntries
-                      .filter(entry => {
-                        const matchesDescription = filterDescription === "" || 
+                      .filter((entry) => {
+                        const matchesDescription =
+                          filterDescription === "" ||
                           entry.description.toLowerCase().includes(filterDescription.toLowerCase());
                         const matchesType = filterType === "all" || entry.entry_type === filterType;
                         const matchesStatus = filterStatus === "all" || entry.status === filterStatus;
@@ -2236,52 +1640,46 @@ export default function CashFlow() {
                         return matchesDescription && matchesType && matchesStatus && matchesGroup;
                       })
                       .map((entry) => (
-                      <tr key={entry.id} className="hover:bg-gray-50">
-                        <td className="border border-gray-200 p-2">
-                          {format(parseISO(entry.due_date), 'dd/MM/yyyy')}
-                        </td>
-                        <td className="border border-gray-200 p-2">{entry.description}</td>
-                        <td className="border border-gray-200 p-2">
-                          <span className={entry.entry_type === 'receivable' ? 'text-green-600' : 'text-red-600'}>
-                            {formatCurrency(entry.amount)}
-                          </span>
-                        </td>
-                        <td className="border border-gray-200 p-2">
-                          <Badge variant={entry.entry_type === 'receivable' ? 'default' : 'secondary'}>
-                            {getTypeLabel(entry.entry_type)}
-                          </Badge>
-                        </td>
-                        <td className="border border-gray-200 p-2">
-                          <Badge variant="outline">{entry.status}</Badge>
-                        </td>
-                        <td className="border border-gray-200 p-2">
-                          {entry.commitment_groups?.name || '-'}
-                        </td>
-                        <td className="border border-gray-200 p-2 text-center">
-                          <div className="flex gap-2 justify-center">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEditEntry(entry)}
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                if (window.confirm('Tem certeza que deseja excluir este lançamento?')) {
-                                  handleDeleteEntry(entry.id);
-                                }
-                              }}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                        <tr key={entry.id} className="hover:bg-gray-50">
+                          <td className="border border-gray-200 p-2">
+                            {format(parseISO(entry.due_date), "dd/MM/yyyy")}
+                          </td>
+                          <td className="border border-gray-200 p-2">{entry.description}</td>
+                          <td className="border border-gray-200 p-2">
+                            <span className={entry.entry_type === "receivable" ? "text-green-600" : "text-red-600"}>
+                              {formatCurrency(entry.amount)}
+                            </span>
+                          </td>
+                          <td className="border border-gray-200 p-2">
+                            <Badge variant={entry.entry_type === "receivable" ? "default" : "secondary"}>
+                              {getTypeLabel(entry.entry_type)}
+                            </Badge>
+                          </td>
+                          <td className="border border-gray-200 p-2">
+                            <Badge variant="outline">{entry.status}</Badge>
+                          </td>
+                          <td className="border border-gray-200 p-2">{entry.commitment_groups?.name || "-"}</td>
+                          <td className="border border-gray-200 p-2 text-center">
+                            <div className="flex gap-2 justify-center">
+                              <Button variant="outline" size="sm" onClick={() => handleEditEntry(entry)}>
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  if (window.confirm("Tem certeza que deseja excluir este lançamento?")) {
+                                    handleDeleteEntry(entry.id);
+                                  }
+                                }}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>
@@ -2289,6 +1687,18 @@ export default function CashFlow() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Detalhes do Cash Flow */}
+      {detailModalData && (
+        <CashFlowDetailModal
+          open={detailModalOpen}
+          onOpenChange={setDetailModalOpen}
+          title={detailModalData.title}
+          date={detailModalData.date}
+          items={detailModalData.items}
+          type={detailModalData.type}
+        />
+      )}
     </div>
   );
 }

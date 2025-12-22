@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileText, AlertTriangle, GraduationCap, TrendingUp, Plus, BarChart3 } from 'lucide-react';
-import { getKPIs, getDadosGrafico } from '@/services/sgdncMockData';
+import { getKPIs, getDadosGrafico } from '@/pages/apps/sgdnc/services/sgdncMockData';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 export default function Dashboard() {

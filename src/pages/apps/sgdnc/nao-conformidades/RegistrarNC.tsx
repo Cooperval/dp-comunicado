@@ -34,9 +34,9 @@ import { CalendarIcon, ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from 'luci
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { createNaoConformidade } from '@/services/sgdncMockData';
+import { createNaoConformidade } from '@/pages/apps/sgdnc/services/sgdncMockData';
 import { toast } from 'sonner';
-import { EvidenceUpload, Evidence } from '@/components/sgdnc/EvidenceUpload';
+import { EvidenceUpload, Evidence } from '@/pages/apps/sgdnc/components/EvidenceUpload';
 
 const ncSchema = z.object({
   // Step 1: Identificação

@@ -1,12 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useSimulator } from '@/contexts/SimulatorContext';
+import { useSimulator } from '@/pages/apps/simulador-cenarios/contexts/SimulatorContext';
 import { TrendingUp, TrendingDown, DollarSign, Leaf, Wheat, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { calcularResumoFinanceiro } from '@/utils/simulatorCalculations';
+import { calcularResumoFinanceiro } from '@/pages/apps/simulador-cenarios/utils/simulatorCalculations';
 
 const ExecutiveSummary = () => {
   const { data } = useSimulator();

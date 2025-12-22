@@ -1,4 +1,4 @@
-import { MetricCard } from "@/components/dashboard/MetricCard";
+import { MetricCard } from "@/pages/apps/controle-ponto/components/MetricCard";
 import { useState, useEffect } from "react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
@@ -95,7 +95,7 @@ export default function Dashboard() {
         data_fim: hojeISO,
       };
 
-      
+
       const response = await fetch(`${urlApi}/controle-de-ponto/lista-ocorrencias`, {
         method: "POST",
         headers: {
@@ -114,17 +114,35 @@ export default function Dashboard() {
 
       // === Mapeia todas as ocorrências ===
       const todasMapped = data.map((item: any) => {
+        // === DATA INÍCIO (sempre existe) ===
         const [day, month, year] = item.DATA_FORMATADA.split("/");
-        const dataISO = `${year}-${month}-${day}`;
+        const dataISO = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+
+        // === DATA FIM (pode ser null ou string vazia) ===
+        let dataFimISO = "";
+        let horarioFim = "";
+
+        if (item.DATA_FORMATADA_FIM && item.DATA_FORMATADA_FIM.trim() !== "") {
+          const [dayF, monthF, yearF] = item.DATA_FORMATADA_FIM.split("/");
+          dataFimISO = `${yearF}-${monthF.padStart(2, "0")}-${dayF.padStart(2, "0")}`;
+          horarioFim = item.HORARIO_FIM || ""; // pode ser null também
+        }
+        // Se não tiver data_fim → deixa vazio (você decide depois como exibir)
+
         return {
           id: item.ID_OCORRENCIA,
           colaborador: item.DES_FUNC || "Não informado",
           codigo: item.COD_FUNCIONARIO?.toString().padStart(6, "0") || "000000",
           tipo: item.NOME_TIPO || "Não definido",
-          data: dataISO,
-          horario: item.HORARIO || "--:--",
-          status: item.LAST_SITUACAO_CODE || "PE",
           motivo: item.NOME_MOTIVO || "Sem motivo",
+
+          // Campos novos
+          data: dataISO,
+          data_fim: dataFimISO,           // "2025-03-15" ou "" se não existir
+          horario: item.HORARIO || "--:--",
+          horario_fim: horarioFim || "--:--", // ou "" se preferir vazio
+
+          status: item.LAST_SITUACAO_CODE || "PE",
         };
       });
 
@@ -141,7 +159,7 @@ export default function Dashboard() {
           return dateB.getTime() - dateA.getTime();
         })
         .slice(0, 5);
-      console.log('recentes', recentes)
+
       setOcorrenciasRecentes(recentes);
 
     } catch (err: any) {
@@ -272,19 +290,38 @@ export default function Dashboard() {
                         </StatusBadge>
 
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {occurrence.tipo}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {formatarDataLocal(occurrence.data)} às {occurrence.horario}
-                        </span>
+                      <div className="flex flex-col gap-2 text-sm">
+                        {/* Linha 1: Tipo + Data Início (direita) */}
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <Clock className="w-3.5 h-3.5" />
+                            {occurrence.tipo}
+                          </span>
+
+                          <span className="flex items-center gap-1 font-medium text-foreground">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {formatarDataLocal(occurrence.data)} • {occurrence.horario || "--:--"}
+                          </span>
+                        </div>
+
+                        {/* Linha 2: Motivo + Data Fim (direita) */}
+                        <div className="flex items-center justify-between">
+                          <p className="text-muted-foreground italic">
+                            {occurrence.motivo}
+                          </p>
+
+                          {/* Só mostra Data Fim se existir */}
+                          {occurrence.data_fim ? (
+                            <span className="flex items-center gap-1 font-medium text-foreground">
+                              <Calendar className="w-3.5 h-3.5" />
+                              {formatarDataLocal(occurrence.data_fim)} • {occurrence.horario_fim || "--:--"}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground/70">— sem saída</span>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {occurrence.motivo}
-                      </p>
+
                     </div>
                   </div>
                 ))

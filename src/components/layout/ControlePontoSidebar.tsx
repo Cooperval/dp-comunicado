@@ -4,7 +4,7 @@ import {
   List,
   Settings,
   ArrowLeft,
-  Home, LogOut, User
+  LogOut, User
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import {
@@ -39,17 +39,6 @@ const menuItems = [
     url: '/apps/controle-ponto/nova-ocorrencia',
     icon: Plus,
   },
-
-  // {
-  //   title: 'Colaboradores',
-  //   url: '/apps/controle-ponto/colaboradores',
-  //   icon: Users,
-  // },
-  // {
-  //   title: 'Relatórios',
-  //   url: '/apps/controle-ponto/relatorios',
-  //   icon: FileText,
-  // },
   {
     title: 'Configurações',
     url: '/apps/controle-ponto/configuracoes',

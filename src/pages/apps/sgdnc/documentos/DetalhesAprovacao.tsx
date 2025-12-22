@@ -7,14 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, FileText, Download, Calendar, User } from 'lucide-react';
-import { TextoParagrafo } from '@/components/sgdnc/editor/TextoParagrafo';
-import { ImagemParagrafo } from '@/components/sgdnc/editor/ImagemParagrafo';
-import { TabelaParagrafo } from '@/components/sgdnc/editor/TabelaParagrafo';
-import { HistoricoAprovacao } from '@/components/sgdnc/HistoricoAprovacao';
-import { PainelAprovacao } from '@/components/sgdnc/PainelAprovacao';
-import { getDocumentoById, aprovarDocumento, rejeitarDocumento, solicitarRevisaoDocumento, mockAprovadores, type Documento } from '@/services/sgdncMockData';
+import { HistoricoAprovacao } from '@/pages/apps/sgdnc/components/HistoricoAprovacao';
+import { PainelAprovacao } from '@/pages/apps/sgdnc/components/PainelAprovacao';
+import { getDocumentoById, aprovarDocumento, rejeitarDocumento, solicitarRevisaoDocumento, mockAprovadores, type Documento } from '@/pages/apps/sgdnc/services/sgdncMockData';
 import { toast } from 'sonner';
-import type { ImagemConteudo, TabelaConteudo } from '@/types/paragrafo';
+import type { ImagemConteudo, TabelaConteudo } from '@/pages/apps/sgdnc/types/paragrafo';
 
 export default function DetalhesAprovacao() {
   const { id } = useParams<{ id: string }>();

@@ -5,9 +5,9 @@ import { applications } from '@/config/applications';
 export default function Portal() {
   const { user, acessos } = useAuth();
 
-  console.log('user', user);
+  //console.log('user', user);
   
-  console.log('acessos', acessos);
+  //console.log('acessos', acessos);
 
   // Filter applications based on user access
   const accessibleApps = applications.filter((app) => {
@@ -16,7 +16,7 @@ export default function Portal() {
     return access && ['A', 'S', 'G', 'U'].includes(access.TIPO_ACESSO);
   });
 
-    console.log('accessibleApps', accessibleApps);
+    //console.log('accessibleApps', accessibleApps);
 
   return (
     <div className="space-y-8 animate-fade-in">

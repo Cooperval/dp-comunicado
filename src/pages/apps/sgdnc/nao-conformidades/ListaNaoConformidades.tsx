@@ -14,7 +14,7 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertTriangle, Plus, Eye, Edit, Paperclip, CalendarIcon, X } from 'lucide-react';
-import { getNaoConformidades, type NaoConformidade } from '@/services/sgdncMockData';
+import { getNaoConformidades, type NaoConformidade } from '@/pages/apps/sgdnc/services/sgdncMockData';
 import { format, differenceInDays, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';

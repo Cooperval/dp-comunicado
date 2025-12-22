@@ -43,7 +43,9 @@ export default function NovaOcorrencia() {
     tipo: "",
     motivo: "",
     data: undefined as Date | undefined,
+    data_fim: undefined as Date | undefined,        // ← novo
     horario: "",
+    horario_fim: "",                                // ← novo
     observacoes: "",
   });
 
@@ -103,6 +105,24 @@ export default function NovaOcorrencia() {
       .map(m => ({ value: String(m.id), label: m.nome }));
   }, [formData.tipo, motivos]);
 
+  // Adicione esta função logo após os seus estados ou dentro do componente
+  const resetForm = () => {
+    setColaboradoresSelecionados([]);
+    setFormData({
+      codigo: "",
+      tipo: "",
+      motivo: "",
+      data: undefined,
+      horario: "",
+      data_fim: undefined,
+      horario_fim: "",
+      observacoes: "",
+    });
+    setShowConfirm(false);
+    setBloqueadoPorPrazo(false);
+    setMostrarAviso(false);
+  };
+
   // Enviar ocorrência
   const handleConfirmSave = async () => {
     setIsSubmitting(true);
@@ -117,6 +137,8 @@ export default function NovaOcorrencia() {
           motivo: Number(formData.motivo),
           data_ocorrencia: format(formData.data!, "yyyy-MM-dd"),
           horario: formData.horario,
+          data_ocorrencia_fim: format(formData.data_fim!, "yyyy-MM-dd"),
+          horario_fim: formData.horario_fim,
           observacoes: formData.observacoes,
           cod_funcionario_registrou: user?.id,
         };
@@ -130,24 +152,42 @@ export default function NovaOcorrencia() {
           body: JSON.stringify(payload),
         });
 
-        res.ok ? success++ : errors.push(`${col.codigo}: ${await res.text().catch(() => "Erro")}`);
+        if (res.ok) {
+          success++;
+        } else {
+          const erroTexto = await res.text().catch(() => "Erro desconhecido");
+          errors.push(`${col.codigo}: ${erroTexto}`);
+        }
       }
 
+      // Sucesso total → limpa tudo e mostra toast de sucesso
       if (success === colaboradoresSelecionados.length) {
-        toast({ title: "Sucesso!", description: `${success} ocorrência(s) registrada(s).` });
-        setTimeout(() => navigate("/apps/controle-ponto"), 1500);
+        toast({
+          title: "Sucesso!",
+          description: `${success} ocorrência(s) registrada(s) com sucesso.`,
+        });
+
+        resetForm(); // ← AQUI limpamos o formulário!
+
+        // Opcional: rolar para o topo ou focar no campo de crachá
+        window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
+        // Parcial ou erro total
         toast({
           title: `${success}/${colaboradoresSelecionados.length} salvas`,
-          description: errors[0] || "Alguns registros falharam",
+          description: errors.join(" | ") || "Alguns registros falharam",
           variant: "destructive",
         });
       }
-    } catch {
-      toast({ title: "Erro", description: "Falha ao salvar.", variant: "destructive" });
+    } catch (err: any) {
+      toast({
+        title: "Erro inesperado",
+        description: err.message || "Falha na comunicação com o servidor.",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
-      setShowConfirm(false);
+      setShowConfirm(false); // sempre fecha o modal
     }
   };
 
@@ -155,7 +195,7 @@ export default function NovaOcorrencia() {
     e.preventDefault();
     if (colaboradoresSelecionados.length === 0) return toast({ title: "Selecione ao menos 1 colaborador", variant: "destructive" });
     if (colaboradoresSelecionados.length > 10) return toast({ title: "Máximo 10 colaboradores", variant: "destructive" });
-    if (!formData.tipo || !formData.motivo || !formData.data || !formData.horario)
+    if (!formData.tipo || !formData.motivo)
       return toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
 
     setShowConfirm(true);
@@ -166,31 +206,54 @@ export default function NovaOcorrencia() {
 
 
 
-  const MODO_TESTE_CONTADOR = false; // ← Mude pra false em produção
+  const getAgora = () => new Date();
+  // ← Mude pra false em produção
 
-  // Prazo final: em produção = dia 01 às 08:30 | no teste = amanhã às 08:30
+  const agora = getAgora();
+
   const getPrazoFinal = () => {
-    if (MODO_TESTE_CONTADOR) {
-      // TESTE: amanhã (19/11) às 08:30
-      const amanha = addDays(new Date(), 1);
-      return setMinutes(setHours(amanha, 8), 30);
-    }
-
-    // PRODUÇÃO: dia 01 do próximo mês às 08:30
     const hoje = new Date();
-    const proximoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
-    return setMinutes(setHours(proximoMes, 8), 30);
+    const dia01 = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    return setMinutes(setHours(dia01, 8), 30);
   };
 
   const prazoFinal = getPrazoFinal();
-  const ehUltimoDiaDoMes = new Date().getDate() === new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-  const deveMostrarContador = MODO_TESTE_CONTADOR || (ehUltimoDiaDoMes && agora < prazoFinal);
+
+
+
+  /* ---------- helper: pega "agora" (você pode trocar por simulação se quiser) ---------- */
+
+  /* ---------- helper: data mínima permitida (regra normal + segunda-feira estendida) ---------- */
+  const getEarliestAllowedDate = useCallback(() => {
+    const agora = getAgora();
+    const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+    const diaSemana = hoje.getDay(); // 0 dom ... 1 seg ... 6 sab
+
+    // Segunda -> permite voltar até 3 dias (sexta, sábado, domingo)
+    if (diaSemana === 1) {
+      return subDays(hoje, 3);
+    }
+
+    // qualquer outro dia -> permite apenas ontem
+    return subDays(hoje, 1);
+  }, []);
+
+
+
+  // Mostra contador apenas no dia 01 do mês, e só se ainda não passou das 08:30
+  const hoje = new Date();
+  const ehDia01 = hoje.getDate() === 1;
+
+  const deveMostrarContador = ehDia01 && agora < prazoFinal;
 
   // Contador em tempo real
   const [tempoRestante, setTempoRestante] = useState("");
 
   useEffect(() => {
-    if (!deveMostrarContador) return;
+    if (!deveMostrarContador) {
+      setTempoRestante("");
+      return;
+    }
 
     const atualizar = () => {
       const distancia = formatDistanceToNow(prazoFinal, {
@@ -198,7 +261,6 @@ export default function NovaOcorrencia() {
         locale: ptBR,
       });
 
-      // Formata bonito: "14 horas e 23 minutos" → "14h 23min"
       const formatado = distancia
         .replace("cerca de ", "")
         .replace("menos de um minuto", "menos de 1min")
@@ -208,14 +270,14 @@ export default function NovaOcorrencia() {
         .replace("horas", "h")
         .replace("dia", "d")
         .replace("dias", "d")
-        .replace(" e ", " ");
+        .replace(" e ", " ")
+        .replace("um ", "1 ");
 
       setTempoRestante(formatado);
     };
 
     atualizar();
-    const interval = setInterval(atualizar, 1000); // atualiza a cada segundo
-
+    const interval = setInterval(atualizar, 1000);
     return () => clearInterval(interval);
   }, [deveMostrarContador, prazoFinal]);
 
@@ -273,73 +335,13 @@ export default function NovaOcorrencia() {
 
 
 
-  // // dentro do componente:
-  // const [bloqueadoPorPrazo, setBloqueadoPorPrazo] = useState(false);
-  // const [mostrarAviso, setMostrarAviso] = useState(false);
-
-  // // "hoje" usado na mensagem (normalizado)
-  // const hoje = new Date();
-  // hoje.setHours(0, 0, 0, 0);
-
-  // // função que avalia o bloqueio com base numa data (usa a data passada, evita condição de corrida)
-  // const avaliarBloqueioPorData = useCallback((dataEscolhida?: Date) => {
-  //   if (!dataEscolhida) {
-  //     setBloqueadoPorPrazo(false);
-  //     setMostrarAviso(false);
-  //     return;
-  //   }
-
-  //   // normaliza
-  //   const dataSel = new Date(dataEscolhida);
-  //   dataSel.setHours(0, 0, 0, 0);
-
-  //   const ontem = subDays(hoje, 1);
-
-  //   // se selecionou exatamente o dia anterior
-  //   if (isSameDay(dataSel, ontem)) {
-  //     const agora = new Date();
-  //     // horário limite = hoje 08:30
-  //     const limite = setMinutes(setHours(new Date(), 8), 30);
-
-  //     if (agora > limite) {
-  //       setBloqueadoPorPrazo(true);
-  //       setMostrarAviso(true);
-  //       return;
-  //     }
-  //   }
-
-  //   // caso contrário libera
-  //   setBloqueadoPorPrazo(false);
-  //   setMostrarAviso(false);
-  // }, [hoje]);
-
-
-
-
-
-  // // handler que atualiza o form e já avalia usando a data selecionada
-  // const handleCalendarSelect = useCallback((date: Date | undefined) => {
-  //   if (!date) return;
-  //   // atualiza o formData como você já fazia
-  //   setFormData(prev => ({ ...prev, data: date }));
-
-  //   // avalia imediatamente com a data selecionada (evita race condition)
-  //   avaliarBloqueioPorData(date);
-
-  //   // mantém seu debug
-  //   verificarDataAgora();
-  // }, [setFormData, avaliarBloqueioPorData]);
-
-  // useEffect(() => {
-  //   avaliarBloqueioPorData(formData.data);
-  // }, [formData.data, avaliarBloqueioPorData]);
-
-
-  // estados
+  /* ---------- estados ---------- */
   const [bloqueadoPorPrazo, setBloqueadoPorPrazo] = useState(false);
   const [mostrarAviso, setMostrarAviso] = useState(false);
 
-  // função que avalia o bloqueio com base numa data (calcula "hoje" dinamicamente)
+
+
+  /* ---------- avaliar bloqueio (mantive comportamento especial do dia 1) ---------- */
   const avaliarBloqueioPorData = useCallback((dataEscolhida?: Date) => {
     if (!dataEscolhida) {
       setBloqueadoPorPrazo(false);
@@ -347,67 +349,79 @@ export default function NovaOcorrencia() {
       return;
     }
 
-    // normaliza data selecionada (00:00)
     const dataSel = new Date(dataEscolhida);
     dataSel.setHours(0, 0, 0, 0);
 
-    // "hoje" dinâmico (quando a avaliação rodar)
-    const hojeAgora = new Date();
-    const hoje = new Date(hojeAgora.getFullYear(), hojeAgora.getMonth(), hojeAgora.getDate()); // 00:00:00 do hoje atual
+    const agora = getAgora();
+    const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
 
-    // ontem (se hoje for 1º, ontem será último dia do mês anterior)
+    // regra especial: se hoje é dia 1, ontem será último dia do mês anterior
     const ontem = subDays(hoje, 1);
 
     // horário limite = hoje 08:30
-    const limite = setMinutes(setHours(new Date(hojeAgora), 8), 30); // usa hojeAgora para preservar timezone/hora real
+    const limite = setMinutes(setHours(new Date(agora), 8), 30);
 
     const hojeEhPrimeiroDia = hoje.getDate() === 1;
     const selecionouUltimoDoMesAnterior = isSameDay(dataSel, ontem);
-    const agora = new Date();
 
+    // Se for 1º do mês e o usuário escolheu o último dia do mês anterior e já passou de 08:30 → bloquear
     if (hojeEhPrimeiroDia && selecionouUltimoDoMesAnterior && agora > limite) {
       setBloqueadoPorPrazo(true);
       setMostrarAviso(true);
       return;
     }
 
-    // caso contrário, libera
+    // Se a data selecionada for anterior ao earliestAllowedDate (por exemplo via input manual),
+    // você pode opcionalmente bloquear ou apenas normalizar. Aqui eu libero pois o Calendar já previne.
     setBloqueadoPorPrazo(false);
     setMostrarAviso(false);
-  }, []); // sem dependências (usa datas dinâmicas dentro da função)
+  }, [/* sem deps externas */]);
 
-  // handler do calendário: atualiza o form e avalia imediatamente
+  /* ---------- handler do calendário ---------- */
   const handleCalendarSelect = useCallback((date: Date | undefined) => {
     if (!date) return;
     setFormData(prev => ({ ...prev, data: date }));
     avaliarBloqueioPorData(date);
-    verificarDataAgora(); // seu debug
+    verificarDataAgora();
   }, [setFormData, avaliarBloqueioPorData]);
 
-  // reavalie sempre que formData.data mudar (cobre atualizações vindas de outros lugares)
+  const handleDataInicioSelect = (date: Date | undefined) => {
+    if (!date) return;
+    setFormData(prev => ({ ...prev, data: date }));
+    avaliarBloqueioPorData(date);
+  };
+
+  const handleDataFimSelect = (date: Date | undefined) => {
+    if (!date) return;
+    setFormData(prev => ({ ...prev, data_fim: date }));
+    // opcional: se quiser validar que data_fim >= data_inicio, faça aqui
+  };
+
+  /* ---------- reavalie quando formData.data mudar (cobre mudanças externas) ---------- */
   useEffect(() => {
     avaliarBloqueioPorData(formData.data);
   }, [formData.data, avaliarBloqueioPorData]);
 
-  // reavalia automaticamente a cada minuto quando o usuário selecionou "ontem"
-  // para cobrir o caso: abriu antes das 08:30, passou das 08:30 e o bloqueio deve ativar
+  /* ---------- se quiser reavaliar eventual transição do horário (ex.: antes 08:20 -> depois 08:40) ---------- */
+  /* mantive a lógica que reavalia só quando a data selecionada for "candidata" (ontem / último dia) */
   useEffect(() => {
     if (!formData.data) return;
 
-    // só precisamos desse interval se a data selecionada for ontem (possível candidato ao bloqueio)
+    const agora = getAgora();
+    const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+    const ontem = subDays(hoje, 1);
+
     const dataSel = new Date(formData.data);
     dataSel.setHours(0, 0, 0, 0);
-    const hoje = new Date();
-    const ontem = subDays(new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()), 1);
 
+    // apenas se selecionou ontem (possível candidato ao bloqueio por ser último dia do mês anterior)
     if (!isSameDay(dataSel, ontem)) return;
 
-    // cria interval que reavalia a cada 60s
     const id = setInterval(() => {
       avaliarBloqueioPorData(formData.data);
     }, 60_000);
 
-    // reavalia imediatamente também (caso o tempo já tenha passado enquanto o efeito configurava)
+    // reavalia agora também
     avaliarBloqueioPorData(formData.data);
 
     return () => clearInterval(id);
@@ -425,28 +439,29 @@ export default function NovaOcorrencia() {
       <header>
 
         {deveMostrarContador && tempoRestante && (
-          <div className="mb-6 p-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl shadow-sm">
+          <div className="mb-6 p-5 bg-gradient-to-r from-red-50 to-rose-50 border-2 border-red-300 rounded-xl shadow-lg">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-amber-100 rounded-full">
-                  <AlertCircle className="w-6 h-6 text-amber-700" />
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-red-100 rounded-full animate-bounce">
+                  <AlertCircle className="w-8 h-8 text-red-600" />
                 </div>
                 <div>
-                  <p className="font-semibold text-amber-900">
-                    Prazo para registro do mês anterior termina em:
+                  <p className="font-bold text-lg text-red-900">
+                    ATENÇÃO: Prazo final para lançar ocorrências do mês anterior!
                   </p>
-                  <p className="text-2xl font-bold text-amber-800">
+                  <p className="text-3xl font-extrabold text-red-700 mt-2">
                     {tempoRestante}
+                  </p>
+                  <p className="text-sm text-red-800 mt-1">
+                    Após as <strong>08:30</strong> não será mais possível registrar o dia <strong>30/11</strong>
                   </p>
                 </div>
               </div>
-              <div className="text-right text-sm text-amber-700">
-                <p>até {format(prazoFinal, "'dia' dd/MM 'às' HH:mm", { locale: ptBR })}</p>
-                {MODO_TESTE_CONTADOR && (
-                  <span className="inline-block mt-1 px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full font-medium">
-                    MODO TESTE
-                  </span>
-                )}
+              <div className="text-right">
+                <p className="text-2xl font-bold text-red-600">
+                  {format(prazoFinal, "HH:mm", { locale: ptBR })}
+                </p>
+                <p className="text-sm text-red-700">hoje, 01/12</p>
               </div>
             </div>
           </div>
@@ -517,85 +532,6 @@ export default function NovaOcorrencia() {
             )}
           </div>
 
-          {/* Data e Horário */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Data *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !formData.data && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.data
-                      ? format(formData.data, "PPP", { locale: ptBR })
-                      : "Selecione a data"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.data}
-                    onSelect={handleCalendarSelect}
-
-                    disabled={(date) => {
-                      const today = new Date();
-                      const twoDaysAgo = subDays(today, 2);
-                      // Desabilita: antes de 2 dias atrás OU no futuro
-                      return date < twoDaysAgo;
-                    }}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Horário *</Label>
-              <Input type="time" value={formData.horario} onChange={e => setFormData(prev => ({ ...prev, horario: e.target.value }))} />
-            </div>
-          </div>
-
-
-          {/* {mostrarAviso && (
-            <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg text-sm mb-4">
-              <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-bold text-red-900">Registro bloqueado</p>
-                <p className="text-red-800 mt-1">
-                  O prazo para registrar ocorrências do mês anterior terminou às{" "}
-                  <strong>08:30 do dia {format(hoje, "dd/MM/yyyy")}</strong>.
-                  <br />
-
-                </p>
-              </div>
-            </div>
-          )} */}
-
-          {mostrarAviso && (
-            <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg text-sm mb-4">
-              <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-bold text-red-900">Registro bloqueado</p>
-                <p className="text-red-800 mt-1">
-                  O prazo para registrar ocorrências do mês anterior terminou às{" "}
-                  <strong>08:30 do dia {format(new Date(), "dd/MM/yyyy")}</strong>.
-                  <br />
-                  <strong className="text-red-900">
-                    Altere a data para hoje ({format(new Date(), "dd/MM/yyyy")}) para continuar.
-                  </strong>
-                </p>
-              </div>
-            </div>
-          )}
-
-
-
 
           {/* Motivo */}
           <div className="space-y-2">
@@ -619,6 +555,137 @@ export default function NovaOcorrencia() {
               </Select>
             )}
           </div>
+
+          {/* Data e Horário */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Data Entrada</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !formData.data && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formData.data
+                      ? format(formData.data, "PPP", { locale: ptBR })
+                      : "Selecione a data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={formData.data}
+                    onSelect={handleDataInicioSelect}
+                    disabled={(date) => {
+                      const agora = getAgora();
+                      const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+
+                      // Se hoje for 1º e já passou das 08:30 => só permite hoje
+                      const limite = setMinutes(setHours(new Date(agora), 8), 30);
+                      if (hoje.getDate() === 1 && agora > limite) {
+                        // só permite o próprio dia
+                        return !isSameDay(date, hoje);
+                      }
+
+                      // caso normal: calcula a data mínima permitida (segunda -> -3, outros -> -1)
+                      const earliest = getEarliestAllowedDate();
+                      // desabilita tudo antes da earliestAllowedDate
+                      // também desabilita datas no futuro? (se quiser permitir futuro, remova a parte future)
+                      // aqui permitimos hoje, ontem (ou até -3) e qualquer dia futuro
+                      return date < earliest;
+                    }}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Horário Entrada</Label>
+              <Input type="time" value={formData.horario} onChange={e => setFormData(prev => ({ ...prev, horario: e.target.value }))} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Data Saída</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !formData.data_fim && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formData.data_fim
+                      ? format(formData.data_fim, "PPP", { locale: ptBR })
+                      : "Selecione a data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={formData.data_fim}
+                    onSelect={handleDataFimSelect}
+                    disabled={(date) => {
+                      const agora = getAgora();
+                      const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+
+                      // Se hoje for 1º e já passou das 08:30 => só permite hoje
+                      const limite = setMinutes(setHours(new Date(agora), 8), 30);
+                      if (hoje.getDate() === 1 && agora > limite) {
+                        // só permite o próprio dia
+                        return !isSameDay(date, hoje);
+                      }
+
+                      // caso normal: calcula a data mínima permitida (segunda -> -3, outros -> -1)
+                      const earliest = getEarliestAllowedDate();
+                      // desabilita tudo antes da earliestAllowedDate
+                      // também desabilita datas no futuro? (se quiser permitir futuro, remova a parte future)
+                      // aqui permitimos hoje, ontem (ou até -3) e qualquer dia futuro
+                      return date < earliest;
+                    }}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Horário Saída</Label>
+              <Input type="time" value={formData.horario_fim} onChange={e => setFormData(prev => ({ ...prev, horario_fim: e.target.value }))} />
+            </div>
+          </div>
+
+
+          {mostrarAviso && (
+            <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg text-sm mb-4">
+              <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-bold text-red-900">Registro bloqueado</p>
+                <p className="text-red-800 mt-1">
+                  O prazo para registrar ocorrências do mês anterior terminou às{" "}
+                  <strong>08:30 do dia {format(new Date(), "dd/MM/yyyy")}</strong>.
+                  <br />
+                  <strong className="text-red-900">
+                    Altere a data para hoje ({format(new Date(), "dd/MM/yyyy")}) para continuar.
+                  </strong>
+                </p>
+              </div>
+            </div>
+          )}
+
+
+
+
+
 
           {/* Observações */}
           <div className="space-y-2">
@@ -649,7 +716,7 @@ export default function NovaOcorrencia() {
               <Save className="w-4 h-4 mr-2" />
               Registrar
             </Button>
-            <Button type="button" variant="outline" onClick={() => navigate("/apps/controle-ponto")}>
+            <Button type="button" variant="outline">
               Cancelar
             </Button>
           </div>
@@ -665,8 +732,8 @@ export default function NovaOcorrencia() {
               <p><strong>Colaboradores:</strong> {colaboradoresSelecionados.map(c => `${c.codigo} - ${c.nome}`).join("; ")}</p>
               <p><strong>Tipo:</strong> {tipos.find(t => t.id === Number(formData.tipo))?.nome}</p>
               <p><strong>Motivo:</strong> {motivos.find(m => m.id === Number(formData.motivo))?.nome}</p>
-              <p><strong>Data:</strong> {formData.data && format(formData.data, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
-              <p><strong>Horário:</strong> {formData.horario}</p>
+              <p><strong>Data Inicio:</strong> {formData.data && format(formData.data, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })} | <strong>Horário:</strong> {formData.horario}</p>
+              <p><strong>Data Fim:</strong> {formData.data_fim && format(formData.data_fim, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })} | <strong>Horário:</strong> {formData.horario_fim}</p>
               {formData.observacoes && <p><strong>Obs:</strong> {formData.observacoes}</p>}
             </div>
             <div className="flex justify-end gap-3 mt-6">

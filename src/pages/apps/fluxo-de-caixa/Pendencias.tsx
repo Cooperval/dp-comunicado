@@ -5,11 +5,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { ArrowDown, ArrowUp, TrendingDown, TrendingUp, Pencil } from "lucide-react";
+import { ArrowDown, ArrowUp, TrendingDown, TrendingUp, Pencil, RotateCcw, Search, Filter, Loader2, Brush, ArrowUpDown } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { useMovimentacao } from "@/hooks/fluxo-de-caixa/use-pendencias";
-import { upsertPendencia } from "@/lib/fluxo-de-caixa/api";
-
+import { useMovimentacao } from "@/pages/apps/fluxo-de-caixa/hooks/use-pendencias";
+import { upsertPendencia } from "@/pages/apps/fluxo-de-caixa/lib/api";
+import { useGef } from "@/pages/apps/fluxo-de-caixa/hooks/use-gef";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle
@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from '@/contexts/AuthContext';
 
 /* --------------------------------------------------------------------------------
  * Tipos que vêm da API (mantemos as chaves em UPPERCASE para casar com o backend)
@@ -155,21 +156,175 @@ const mapApiToUI = (items: ApiMov[]): MovimentacaoUI[] =>
  * Componente principal
  * =================================================================================*/
 const Movimentacoes = () => {
+  const { token } = useAuth();
+
+  const urlApi = import.meta.env.VITE_API_URL?.replace(/\/+$/, '');
+
   /* ------------------------ Filtros de busca (datas) ------------------------ */
   const [dataInicio, setDataInicio] = useState<string>("");
   const [dataFim, setDataFim] = useState<string>("");
 
   /* ------------------------ Busca de dados do hook -------------------------- */
   const { movimentacoes2, loading2, error, fetchData } = useMovimentacao();
-  //console.log(movimentacoes2); // útil em dev
+  const { gef, loadingGef, errorGef, fetchDataGef } = useGef();
+  const [gefSelecionado, setGefSelecionado] = useState<any>(null);
+
+
+  useEffect(() => { fetchDataGef(); }, [fetchDataGef]);
+
+  const getGefKey = (item: any) =>
+    `${item.COD_GRUPOEMPRESA}-${item.COD_EMPRESA}-${item.COD_FILIAL}`;
+
+
+  const [fornecedorId, setFornecedorId] = useState<string>("");
+  const [fornecedor, setFornecedor] = useState<any>(null);
+
+  const [loadingFornecedor, setLoadingFornecedor] = useState(false);
+  const limparFornecedor = () => {
+    setFornecedorId("");
+    setFornecedor("");
+  };
+
+  const buscarFornecedor = async () => {
+    if (!fornecedorId) {
+      toast({ title: "Erro", description: "Digite um ID válido", variant: "destructive" });
+      return;
+    }
+
+    setLoadingFornecedor(true);
+    setFornecedor(null);
+
+    try {
+      const res = await fetch(`${urlApi}/fluxo-caixa/consultar-fornecedor/${fornecedorId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        if (res.status === 404) throw new Error("Fornecedor não encontrado.");
+        throw new Error("Erro ao consultar fornecedor.");
+      }
+
+      const data = await res.json();
+      setFornecedor(data);
+
+      toast({
+        title: "Fornecedor encontrado",
+        description: `${data.nome || data.NOME || "Fornecedor"} carregado.`,
+        variant: "default",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Erro",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingFornecedor(false);
+    }
+  };
+
+
+
+  const [sorting, setSorting] = useState<{
+    column: keyof typeof g.items[0] | null;
+    direction: "asc" | "desc";
+  }>({
+    column: null,
+    direction: "asc",
+  });
+
+  const getSortedGroups = () => {
+    const groupsCopy = [...groups];
+
+    groupsCopy.forEach((group) => {
+      if (!sorting.column) {
+        group.items.sort((a, b) => new Date(b.data_original || "").getTime() - new Date(a.data_original || "").getTime());
+        return;
+      }
+
+      group.items.sort((a: any, b: any) => {
+        let aValue = a[sorting.column];
+        let bValue = b[sorting.column];
+
+        // Tratamento especial para datas (data_original e data_sugerida)
+        if (sorting.column === "data_original" || sorting.column === "data_sugerida") {
+          aValue = aValue ? new Date(aValue + "T12:00:00").getTime() : 0;
+          bValue = bValue ? new Date(bValue + "T12:00:00").getTime() : 0;
+        }
+
+        // Tratamento para valores numéricos
+        if (sorting.column === "valor") {
+          aValue = Number(aValue) || 0;
+          bValue = Number(bValue) || 0;
+        }
+
+        // Tratamento para strings
+        if (typeof aValue === "string") {
+          aValue = aValue.toLowerCase();
+          bValue = bValue.toLowerCase();
+        }
+
+        if (aValue < bValue) return sorting.direction === "asc" ? -1 : 1;
+        if (aValue > bValue) return sorting.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    });
+
+    return groupsCopy;
+  };
+
+
 
   const onCarregar = useCallback(() => {
     if (dataInicio && dataFim && dataInicio > dataFim) {
       alert("Data início não pode ser maior que data fim.");
       return;
     }
-    fetchData({ dataInicio, dataFim });
-  }, [dataInicio, dataFim, fetchData]);
+
+    if (!gefSelecionado || !gefSelecionado.COD_GRUPOEMPRESA) {
+      toast({
+        title: "Selecione uma empresa",
+        description: "Escolha uma empresa/filial para continuar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // monta payload de filtros
+    const payload: any = {
+      dataInicio,
+      dataFim,
+      codGrupoEmpresa: gefSelecionado.COD_GRUPOEMPRESA,
+      codEmpresa: gefSelecionado.COD_EMPRESA,
+      codFilial: gefSelecionado.COD_FILIAL,
+      codFornecedor: fornecedorId,
+    };
+
+    // se houver fornecedor encontrado, envia o código (nome do bind depende da sua API)
+    if (fornecedor && (fornecedor.cod_fornecedor || fornecedor.COD_FORNECEDOR || fornecedor.id)) {
+      payload.codFornecedor =
+        fornecedor.cod_fornecedor ?? fornecedor.COD_FORNECEDOR ?? fornecedor.id;
+    } else if (fornecedorId && !fornecedor) {
+      // se digitou ID mas não buscou/existe, avisa (opcional)
+      toast({
+        title: "Fornecedor não carregado",
+        description: "Digite o ID e clique em Buscar para carregar o fornecedor.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    fetchData(payload);
+  }, [
+    dataInicio,
+    dataFim,
+    gefSelecionado,
+    fornecedor,
+    fornecedorId,
+    fetchData,
+
+  ]);
+
 
   /* ------------------------ Normalização p/ UI ------------------------------ */
   const movsUI = useMemo(
@@ -341,6 +496,8 @@ const Movimentacoes = () => {
     return Array.from(map.values()).sort((a, b) => a.descricao.localeCompare(b.descricao, "pt-BR"));
   }, [filteredMovimentacoes, descricaoFilter]);
 
+
+
   /* ------------------------ Totais (cards) ---------------------------------- */
   const totalAReceber = useMemo(
     () => filteredMovimentacoes.filter((m) => m.tipo === "receber" && m.situacao === "pendente")
@@ -385,35 +542,212 @@ const Movimentacoes = () => {
     }
   };
 
+
+
+  const SortableTableHead = ({
+    children,
+    column,
+  }: {
+    children: React.ReactNode;
+    column: keyof (typeof groups)[0]["items"][0];
+  }) => {
+    const isSorted = sorting.column === column;
+    const direction = isSorted ? sorting.direction : "asc";
+
+    return (
+      <TableHead
+        className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+        onClick={() => {
+          if (isSorted) {
+            setSorting({
+              column,
+              direction: direction === "asc" ? "desc" : "asc",
+            });
+          } else {
+            setSorting({ column, direction: "asc" });
+          }
+        }}
+      >
+        <div className="flex items-center justify-between">
+          {children}
+          {isSorted && (
+            <span className="ml-2">
+              {direction === "asc" ? (
+                <ArrowUp className="h-3 w-3" />
+              ) : (
+                <ArrowDown className="h-3 w-3" />
+              )}
+            </span>
+          )}
+          {!isSorted && <ArrowUpDown className="h-3 w-3 ml-2 opacity-30" />}
+        </div>
+      </TableHead>
+    );
+  };
+
   /* ------------------------ Render ----------------------------------------- */
   return (
     <div className="space-y-6">
       {/* Filtro por datas */}
-      <div className="flex flex-col items-center md:flex-row md:items-end gap-4">
-        <div>
-          <span className="block text-sm font-medium mb-1">Data Início</span>
-          <input
-            type="date"
-            value={dataInicio}
-            onChange={(e) => setDataInicio(e.target.value)}
-            className="h-9 w-[180px] rounded-md border px-2 text-sm"
-          />
-        </div>
 
-        <div>
-          <span className="block text-sm font-medium mb-1">Data Fim</span>
-          <input
-            type="date"
-            value={dataFim}
-            onChange={(e) => setDataFim(e.target.value)}
-            className="h-9 w-[180px] rounded-md border px-2 text-sm"
-          />
-        </div>
+      <Card className="w-full border shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <Filter className="w-5 h-5 text-primary" />
+            Filtros
+          </CardTitle>
+        </CardHeader>
 
-        <button onClick={onCarregar} className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent">
-          Carregar
-        </button>
-      </div>
+        <CardContent className="space-y-4">
+          {/* GRID: 1 col mobile, 2 cols sm, 3 cols md, 6 cols lg.
+        Reservamos col-span para inputs maiores e uma coluna fixa para ações. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end">
+
+
+
+            {/* Empresa/Filial */}
+            <div className="space-y-2 col-span-1 md:col-span-1 lg:col-span-1">
+              <Label className="text-sm font-medium">Empresa/Filial</Label>
+              {loadingGef ? (
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Carregando empresas...
+                </div>
+              ) : errorGef ? (
+                <p className="text-xs text-red-600">Erro ao carregar empresas</p>
+              ) : (
+                <Select
+                  value={gefSelecionado ? getGefKey(gefSelecionado) : ""}
+                  onValueChange={(value) => {
+                    const selecionado = gef.find((g) => getGefKey(g) === value);
+                    setGefSelecionado(selecionado || null);
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione uma empresa/filial" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {gef.map((item) => (
+                      <SelectItem key={getGefKey(item)} value={getGefKey(item)}>
+                        {item.NOMEFANTASIA}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            {/* Data Início */}
+            <div className="space-y-1.5 col-span-1">
+              <Label htmlFor="data-inicio" className="text-sm font-medium">Data Início</Label>
+              <Input
+                id="data-inicio"
+                type="date"
+                value={dataInicio}
+                onChange={(e) => setDataInicio(e.target.value)}
+                className="h-9 w-full"
+              />
+            </div>
+
+            {/* Data Fim */}
+            <div className="space-y-1.5 col-span-1">
+              <Label htmlFor="data-fim" className="text-sm font-medium">Data Fim</Label>
+              <Input
+                id="data-fim"
+                type="date"
+                value={dataFim}
+                onChange={(e) => setDataFim(e.target.value)}
+                className="h-9 w-full"
+              />
+            </div>
+
+            {/* Fornecedor ID (ocupa mais espaço em telas grandes) */}
+            <div className="col-span-1 md:col-span-1 lg:col-span-1 space-y-1.5">
+              <Label className="text-sm font-medium">Código do Fornecedor</Label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  className="h-9 w-full border rounded px-2"
+                  placeholder="ID do fornecedor"
+                  value={fornecedorId}
+                  onChange={(e) => setFornecedorId(e.target.value)}
+                  aria-label="ID do fornecedor"
+                />
+
+                <Button
+                  onClick={buscarFornecedor}
+                  disabled={loadingFornecedor}
+                  className="h-9 px-3 shrink-0"
+                  aria-label="Buscar fornecedor"
+                >
+                  {loadingFornecedor ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Search className="w-4 h-4" />
+                  )}
+                </Button>
+
+                {/* Botão de limpar */}
+                <Button
+                  variant="secondary"
+                  onClick={limparFornecedor}
+                  className="h-9 px-3 shrink-0"
+                  aria-label="Limpar fornecedor"
+                >
+                  <Brush className="w-4 h-4" />
+                </Button>
+              </div>
+
+
+
+            </div>
+
+            <div className="space-y-2 col-span-1 md:col-span-1 lg:col-span-1">
+              <Label className="text-sm font-medium">Descrição Fornecedor</Label>
+              <Input
+                type="text"
+                className="h-9 w-full border rounded px-2 mt-1"
+                placeholder="Fornecedor"
+                value={fornecedor?.DESC_FORNECEDOR || ""}
+                disabled
+                aria-label="Resumo do fornecedor"
+              />
+            </div>
+
+          </div>
+
+          <div className="flex gap-3 justify-end">
+            <Button
+              onClick={onCarregar}
+              className="h-9 px-4 font-medium"
+              disabled={loading2}
+            >
+              {loading2 ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Search className="w-4 h-4 mr-2" />
+              )}
+              Carregar
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDataInicio("");
+                setDataFim("");
+                setFornecedor(null);
+                setFornecedorId("");
+                setGefSelecionado(null);
+              }}
+              className="h-9 px-4"
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Limpar
+            </Button>
+          </div>
+
+        </CardContent>
+      </Card>
+
 
       {/* Cards de resumo */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -439,7 +773,7 @@ const Movimentacoes = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Saldo Líquido</CardTitle>
+            <CardTitle className="text-sm font-medium">Saldo</CardTitle>
             {saldoLiquido >= 0 ? (
               <TrendingUp className="h-4 w-4 text-success" />
             ) : (
@@ -512,13 +846,12 @@ const Movimentacoes = () => {
 
               {/* Lista agrupada por Descrição */}
               <Accordion type="multiple" className="w-full">
-                {groups.map((g) => (
+                {getSortedGroups().map((g) => (
                   <AccordionItem key={g.descricao} value={`desc-${g.descricao}`}>
                     <AccordionTrigger className="w-full">
                       <div className="flex w-full items-center justify-between gap-3 pr-6">
                         <div className="flex min-w-0 items-center gap-2">
                           <span className="font-semibold truncate">{g.descricao}</span>
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">({g.count})</span>
                         </div>
                         <div className={`text-right font-semibold tabular-nums ${g.totalLiquido >= 0 ? "text-success" : "text-destructive"}`}>
                           {currencyBRL(g.totalLiquido)}
@@ -530,13 +863,13 @@ const Movimentacoes = () => {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Documento</TableHead>
-                            <TableHead>Fornecedor</TableHead>
-                            <TableHead>Tipo</TableHead>
-                            <TableHead>Situação</TableHead>
-                            <TableHead>Data Vencimento</TableHead>
-                            <TableHead>Data Sugerida</TableHead>
-                            <TableHead>Valor</TableHead>
+                            <SortableTableHead column="documento">Documento</SortableTableHead>
+                            <TableHead >Fornecedor</TableHead>
+                            <TableHead >Tipo</TableHead>
+                            <TableHead >Situação</TableHead>
+                            <SortableTableHead column="data_original">Data Vencimento</SortableTableHead>
+                            <SortableTableHead column="data_sugerida">Data Sugerida</SortableTableHead>
+                            <SortableTableHead column="valor">Valor</SortableTableHead>
                             <TableHead className="text-right">Ações</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -545,9 +878,7 @@ const Movimentacoes = () => {
                           {g.items.map((mov) => (
                             <TableRow key={mov.id}>
                               <TableCell>{mov.documento}</TableCell>
-
-                              <TableCell>{mov.bancos?.nome ?? "—"}</TableCell>
-
+                              <TableCell>{mov.banco_id ?? "—"} - {mov.bancos?.nome ?? "—"}</TableCell>
                               <TableCell>
                                 <Badge variant={mov.tipo === "receber" ? "default" : "destructive"}>
                                   {mov.tipo === "receber" ? (
@@ -561,31 +892,26 @@ const Movimentacoes = () => {
                                   )}
                                 </Badge>
                               </TableCell>
-
                               <TableCell>
                                 <Badge variant={mov.situacao === "realizado" ? "default" : "secondary"}>
                                   {mov.desc_situacao}
                                 </Badge>
                               </TableCell>
-
                               <TableCell>
                                 {mov.data_original
                                   ? new Date(mov.data_original + "T12:00:00").toLocaleDateString("pt-BR")
                                   : "-"}
                               </TableCell>
-
                               <TableCell>
                                 {mov.data_sugerida
                                   ? new Date(mov.data_sugerida + "T12:00:00").toLocaleDateString("pt-BR")
                                   : "-"}
                               </TableCell>
-
                               <TableCell>
                                 <div className={`font-medium ${mov.tipo === "receber" ? "text-success" : "text-destructive"}`}>
                                   {mov.tipo === "receber" ? "+" : "-"}{currencyBRL(mov.valor)}
                                 </div>
                               </TableCell>
-
                               <TableCell className="text-right">
                                 <Button
                                   variant="ghost"

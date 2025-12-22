@@ -1,31 +1,25 @@
 import React, {useEffect} from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { NumericInput } from '@/components/ui/numeric-input';
-import { useSimulator } from '@/contexts/SimulatorContext';
+import { useSimulator } from '@/pages/apps/simulador-cenarios/contexts/SimulatorContext';
 import { Badge } from '@/components/ui/badge';
 
 const Commercialization: React.FC = () => {
-  const { data, updateCommerce, derivedCornProductions, derivedProductions } = useSimulator();
+  const { data, updateCommerce } = useSimulator();
 
-  if (!derivedCornProductions) return null;
-  const {
-    prodEAM,
-    prodDDG,
-    prodWDG,
-
-  } = derivedCornProductions;
-
-  if (!derivedProductions) return null;
-  const {
-    prodVHP,
-    prodEHC,
-    prodEAC,
-
-  } = derivedProductions;
+  // Compute derived values locally
+  const prodEAM = (data.corn?.hydratedEthanol || 0) + (data.corn?.anhydrousEthanol || 0);
+  const prodDDG = data.corn?.ddg || 0;
+  const prodWDG = data.corn?.wdg || 0;
+  const prodVHP = data.sugarCane?.vhpSugar || 0;
+  const prodEHC = data.sugarCane?.hydratedEthanol || 0;
+  const prodEAC = data.sugarCane?.anhydrousEthanol || 0;
+  const prodCO2 = data.otherProductions?.co2Corn || 0;
+  const prodCBIO = data.otherProductions?.cbio || 0;
+  const prodEH = prodEHC;
+  const prodEA = prodEAC;
 
   useEffect(() => {
-    if (!derivedProductions || !derivedCornProductions) return;
-
     const shouldUpdate =
       data.commercialization.vhpSugar === 0 ||
       data.commercialization.hydratedEthanolCane === 0 ||
@@ -36,18 +30,17 @@ const Commercialization: React.FC = () => {
 
     if (shouldUpdate) {
       updateCommerce({
-        vhpSugar: derivedProductions.prodVHP,
-        hydratedEthanolCane: derivedProductions.prodEHC,
-        anhydrousEthanolCane: derivedProductions.prodEAC,
-        cornEthanol: derivedCornProductions.prodEAM,
-        ddg: derivedCornProductions.prodDDG,
-        wdg: derivedCornProductions.prodWDG,
+        vhpSugar: prodVHP,
+        hydratedEthanolCane: prodEHC,
+        anhydrousEthanolCane: prodEAC,
+        cornEthanol: prodEAM,
+        ddg: prodDDG,
+        wdg: prodWDG,
       });
     }
   }, [
     data.commercialization,
-    derivedProductions,
-    derivedCornProductions,
+    prodVHP, prodEHC, prodEAC, prodEAM, prodDDG, prodWDG,
     updateCommerce,
   ]);
 

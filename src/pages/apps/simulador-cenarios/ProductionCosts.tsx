@@ -1,9 +1,9 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { NumericInput } from '@/components/ui/numeric-input';
-import { useSimulator } from '@/contexts/SimulatorContext';
+import { useSimulator } from '@/pages/apps/simulador-cenarios/contexts/SimulatorContext';
 import { Badge } from '@/components/ui/badge';
-import { calcularCustosTotais } from '@/utils/simulatorCalculations';
+import { calcularCustosTotais } from '@/pages/apps/simulador-cenarios/utils/simulatorCalculations';
 
 const ProductionCosts: React.FC = () => {
   const { data, updateCosts } = useSimulator();
@@ -136,7 +136,7 @@ const ProductionCosts: React.FC = () => {
             <div className="border-t pt-4">
               <div className="flex justify-between items-center">
                 <span className="font-semibold text-foreground">Custo Total Milho:</span>
-                <Badge className="bg-secondary/10 text-secondary font-mono text-base">
+                <Badge className="bg-secondary/10 text-yellow-600 font-mono text-base bg-yellow-100">
                   R$ {formatNumber(totalCornCost)}/ton
                 </Badge>
               </div>
@@ -149,7 +149,6 @@ const ProductionCosts: React.FC = () => {
       <Card className="shadow-card">
         <CardHeader className="bg-gradient-to-r from-green-700 to-green-600 text-white rounded-t-lg">
           <CardTitle className="flex items-center gap-2">
-            {/* <span>🏢</span> */}
             Custos Administrativos
           </CardTitle>
           <CardDescription className="text-success-foreground/80">
@@ -164,6 +163,36 @@ const ProductionCosts: React.FC = () => {
               value={data.productionCosts.administration}
               onChange={(value) => handleInputChange('administration', value)}
               placeholder="0.00"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Despesas de Comercialização */}
+      <Card className="shadow-card">
+        <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-t-lg">
+          <CardTitle className="flex items-center gap-2">
+            Despesas de Comercialização
+          </CardTitle>
+          <CardDescription className="text-blue-100">
+            Custos por volume comercializado
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <NumericInput
+              label="Etanol"
+              unit="R$/m³"
+              value={data.productionCosts.salesExpenseEthanol}
+              onChange={(value) => handleInputChange('salesExpenseEthanol', value)}
+              placeholder="5.04"
+            />
+            <NumericInput
+              label="Açúcar"
+              unit="R$/ton"
+              value={data.productionCosts.salesExpenseSugar}
+              onChange={(value) => handleInputChange('salesExpenseSugar', value)}
+              placeholder="165.09"
             />
           </div>
         </CardContent>
@@ -190,7 +219,7 @@ const ProductionCosts: React.FC = () => {
             </div>
 
             <div className="text-center">
-              <div className="text-2xl font-bold text-secondary mb-2">
+              <div className="text-2xl font-bold text-yellow-700 mb-2">
                 R$ {formatNumber(totalCornCost)}
               </div>
               <div className="text-sm text-muted-foreground">Custo/ton Milho</div>

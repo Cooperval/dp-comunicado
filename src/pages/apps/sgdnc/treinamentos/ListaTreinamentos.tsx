@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Plus, Eye, CheckCircle, FileDown } from 'lucide-react';
-import { getTreinamentos, type Treinamento } from '@/services/sgdncMockData';
+import { getTreinamentos, type Treinamento } from '@/pages/apps/sgdnc/services/sgdncMockData';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from '@/hooks/use-toast';

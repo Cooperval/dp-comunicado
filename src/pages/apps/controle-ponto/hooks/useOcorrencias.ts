@@ -11,6 +11,8 @@ interface Ocorrencia {
   nome_motivo: string;
   data: string;
   horario: string;
+  data_fim: string;
+  horario_fim: string;
   status: "PE" | "AP" | "RE" | "AN";
   registradoPor: string;
   observacoes?: string;
@@ -89,7 +91,20 @@ export const useOcorrencias = ({
         const data = await response.json();
 
         const mapped: Ocorrencia[] = data.map((item: any) => {
+          // Data início - sempre vem preenchida
           const [day, month, year] = item.DATA_FORMATADA.split("/");
+
+          // Data fim - pode vir null!
+          let dataFimFormatada = "";
+          let horarioFim = "";
+
+          if (item.DATA_FORMATADA_FIM && item.DATA_FORMATADA_FIM.trim() !== "") {
+            const [day_f, month_f, year_f] = item.DATA_FORMATADA_FIM.split("/");
+            dataFimFormatada = `${year_f}-${month_f.padStart(2, "0")}-${day_f.padStart(2, "0")}`;
+            horarioFim = item.HORARIO_FIM || ""; // HORARIO_FIM pode ser null também
+          }
+          // Se não tem data_fim, deixamos como string vazia ou "0000-00-00" se preferir
+
           return {
             id: item.ID_OCORRENCIA,
             codigo: item.COD_FUNCIONARIO,
@@ -98,11 +113,13 @@ export const useOcorrencias = ({
             nome_tipo: item.NOME_TIPO,
             nome_motivo: item.NOME_MOTIVO,
             data: `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`,
-            horario: item.HORARIO,
+            horario: item.HORARIO || "",
+            data_fim: dataFimFormatada,
+            horario_fim: horarioFim,
             status: item.LAST_SITUACAO_CODE,
             registradoPor: item.DES_FUNC_REGISTROU || "Sistema",
-            observacoes: item.OBSERVACOES,
-            respostaOcorrencia: item.RESPOSTA_OCORRENCIA,
+            observacoes: item.OBSERVACOES || undefined,
+            respostaOcorrencia: item.RESPOSTA_OCORRENCIA || undefined,
           };
         });
 

@@ -31,7 +31,7 @@ import {
   ArrowDown,
   FolderPlus,
 } from 'lucide-react';
-import { getDocumentos, getPastas, deleteDocumento, type Documento } from '@/services/sgdncMockData';
+import { getDocumentos, getPastas, deleteDocumento, type Documento } from '@/pages/apps/sgdnc/services/sgdncMockData';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -43,13 +43,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { FolderTree } from '@/components/sgdnc/FolderTree';
-import { FolderDialog } from '@/components/sgdnc/FolderDialog';
-import { DocumentHistoryDialog } from '@/components/sgdnc/DocumentHistoryDialog';
-import { FilterAdvancedPopover } from '@/components/sgdnc/FilterAdvancedPopover';
+import { FolderTree } from '@/pages/apps/sgdnc/components/FolderTree';
+import { FolderDialog } from '@/pages/apps/sgdnc/components//FolderDialog';
+import { DocumentHistoryDialog } from '@/pages/apps/sgdnc/components/DocumentHistoryDialog';
+import { FilterAdvancedPopover } from '@/pages/apps/sgdnc/components/FilterAdvancedPopover';
 import { useAuth } from "@/contexts/AuthContext";
-import { useDocumentos } from '@/hooks/sgdnc/useDocumentos';
-import { usePastas, type Pasta } from '@/hooks/sgdnc/usePastas';
+import { useDocumentos } from '@/pages/apps/sgdnc/hooks/useDocumentos';
+import { usePastas, type Pasta } from '@/pages/apps/sgdnc/hooks/usePastas';
 
 export default function ListaDocumentos() {
   const navigate = useNavigate();

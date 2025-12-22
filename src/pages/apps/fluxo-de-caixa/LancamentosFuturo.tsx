@@ -10,15 +10,16 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/hooks/use-toast";
-import { ArrowDown, ArrowUp, TrendingDown, TrendingUp, Plus, Pencil, Trash2 } from "lucide-react";
-import { useMovimentacao } from "@/hooks/fluxo-de-caixa/use-lancamento";
-import { useMovimentacao2 } from "@/hooks/fluxo-de-caixa/use-contabacaria";
-import { enviarLancamento, atualizarLancamento, deletarLancamento } from "@/lib/fluxo-de-caixa/api";
+import { toast } from "@/pages/apps/fluxo-de-caixa/hooks/use-toast";
+import { ArrowDown, ArrowUp, Loader2, RotateCcw, Search, TrendingDown, TrendingUp, Plus, Pencil, Trash2, Filter, X, RefreshCw } from "lucide-react";
+import { useMovimentacao } from "@/pages/apps/fluxo-de-caixa/hooks/use-lancamento";
+import { useMovimentacao2 } from "@/pages/apps/fluxo-de-caixa/hooks/use-contabacaria";
+import { enviarLancamento, atualizarLancamento, deletarLancamento } from "@/pages/apps/fluxo-de-caixa/lib/api";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from "@/components/ui/alert-dialog";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Movimentacao = {
   id: string;
@@ -64,6 +65,7 @@ const toISOFromBR = (s?: string | null) => {
 };
 
 const Movimentacoes = () => {
+    const { token } = useAuth();
   const [dataInicio, setDataInicio] = useState<string>(() => {
     const y = new Date().getFullYear();
     return `${y}-01-01`;
@@ -309,7 +311,7 @@ const Movimentacoes = () => {
 
           data_sugerida: formData.data_sugerida,
           situacao: formData.situacao,
-        });
+        }, token);
         toast({ title: "Laçamentos Atualizados", description: "Alterações salvas com sucesso." });
       } else {
         await enviarLancamento({
@@ -324,7 +326,7 @@ const Movimentacoes = () => {
 
           data_sugerida: formData.data_sugerida,
           situacao: formData.situacao,
-        });
+        }, token);
         toast({ title: "Lançamento adicionado", description: "O lançamento foi salvo com sucesso." });
       }
 
@@ -382,7 +384,7 @@ const Movimentacoes = () => {
     if (!deleteTarget) return;
     try {
       setDeleting(true);
-      await deletarLancamento(deleteTarget.id);
+      await deletarLancamento(deleteTarget.id, token);
       toast({ title: "Lançamento excluído", description: "Removido com sucesso." });
       setDeleteTarget(null);
       // recarrega com o filtro atual, se existir
@@ -413,233 +415,196 @@ const Movimentacoes = () => {
   return (
     <div className="space-y-6">
       {/* Datas e carregar */}
-      <div className="flex flex-col items-center md:flex-row md:items-end gap-4 justify-between">
-        <div className="flex flex-col items-center md:flex-row md:items-end gap-4">
-          <div>
-            <span className="block text-sm font-medium mb-1">Data Início</span>
-            <input
-              type="date"
-              value={dataInicio}
-              onChange={(e) => setDataInicio(e.target.value)}
-              className="h-9 w-[180px] rounded-md border px-2 text-sm"
-            />
-          </div>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) resetForm();
+        }}
+      >
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Lançamento Futuro
+          </Button>
+        </DialogTrigger>
 
-          <div>
-            <span className="block text-sm font-medium mb-1">Data Fim</span>
-            <input
-              type="date"
-              value={dataFim}
-              onChange={(e) => setDataFim(e.target.value)}
-              className="h-9 w-[180px] rounded-md border px-2 text-sm"
-            />
-          </div>
+        <DialogContent className="sm:max-w-[525px]">
+          <form onSubmit={handleSubmit}>
+            <DialogHeader>
+              <DialogTitle>
+                {editingMovimentacao ? "Editar Lançamento Futuro" : "Novo Lançamento Futuro"}
+              </DialogTitle>
+              <DialogDescription>
+                {editingMovimentacao
+                  ? "Atualize as informações do lançamento."
+                  : "Adicione um novo lançamento à sua lista."}
+              </DialogDescription>
+            </DialogHeader>
 
-          <button
-            onClick={onCarregar}
-            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent"
-          >
-            Carregar
-          </button>
-        </div>
-
-
-        <Dialog
-          open={dialogOpen}
-          onOpenChange={(open) => {
-            setDialogOpen(open);
-            if (!open) resetForm();
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Lançamento Futuro
-            </Button>
-          </DialogTrigger>
-
-          <DialogContent className="sm:max-w-[525px]">
-            <form onSubmit={handleSubmit}>
-              <DialogHeader>
-                <DialogTitle>
-                  {editingMovimentacao ? "Editar Lançamento Futuro" : "Novo Lançamento Futuro"}
-                </DialogTitle>
-                <DialogDescription>
-                  {editingMovimentacao
-                    ? "Atualize as informações do lançamento."
-                    : "Adicione um novo lançamento à sua lista."}
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="descricao" className="text-right">Descrição *</Label>
-                  <Input
-                    id="descricao"
-                    value={formData.descricao}
-                    onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-                    className="col-span-3"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="valor" className="text-right">Valor *</Label>
-                  <Input
-                    id="valor"
-                    type="number"
-                    step="0.01"
-                    value={formData.valor}
-                    onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
-                    className="col-span-3"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="tipo" className="text-right">Tipo *</Label>
-                  <Select
-                    value={formData.tipo}
-                    onValueChange={(value: "pagar" | "receber") => setFormData({ ...formData, tipo: value })}
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pagar">A Pagar</SelectItem>
-                      <SelectItem value="receber">A Receber</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="documento" className="text-right">Documento</Label>
-                  <Input
-                    id="documento"
-                    value={formData.documento}
-                    onChange={(e) => setFormData({ ...formData, documento: e.target.value })}
-                    className="col-span-3"
-
-                  />
-                </div>
-
-                {/* Banco */}
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="cod_banco" className="text-right">Banco</Label>
-                  <Select
-                    value={formData.cod_banco}
-                    onValueChange={(value) => {
-                      setFormData({
-                        ...formData,
-                        cod_banco: value,
-                        cod_contabancaria: "",
-                        cod_agencia: "",
-                        digito: "",
-                      });
-                    }}
-                  >
-                    <SelectTrigger className="col-span-3" id="cod_banco">
-                      <SelectValue placeholder={loading3 ? "Carregando bancos..." : "Selecione um banco"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {error3 && (
-                        <div className="px-3 py-2 text-sm text-destructive">Falha ao carregar bancos</div>
-                      )}
-                      {!error3 && bancosOptions.length === 0 && !loading3 && (
-                        <div className="px-3 py-2 text-sm text-muted-foreground">Nenhum banco encontrado</div>
-                      )}
-                      {bancosOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Conta (filtrada pelo banco) */}
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="cod_contabancaria" className="text-right">Conta</Label>
-                  <Select
-                    value={formData.cod_contabancaria}
-                    onValueChange={(value) => {
-                      const conta = contaById.get(value);
-                      setFormData({
-                        ...formData,
-                        cod_contabancaria: value,
-                        cod_agencia: conta ? String(conta.COD_AGENCIA) : "",
-                        digito: conta ? String(conta.DIGITO) : "",
-                      });
-                    }}
-                  >
-                    <SelectTrigger
-                      className="col-span-3"
-                      id="cod_contabancaria"
-                      disabled={!formData.cod_banco}
-                    >
-                      <SelectValue
-                        placeholder={
-                          !formData.cod_banco
-                            ? "Selecione um banco primeiro"
-                            : (loading3 ? "Carregando contas..." : "Selecione a conta")
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {!formData.cod_banco && (
-                        <div className="px-3 py-2 text-sm text-muted-foreground">Selecione um banco primeiro</div>
-                      )}
-                      {formData.cod_banco && contasOptions.length === 0 && !loading3 && (
-                        <div className="px-3 py-2 text-sm text-muted-foreground">Nenhuma conta para este banco</div>
-                      )}
-                      {contasOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="data_sugerida" className="text-right">Data Sugerida *</Label>
-                  <Input
-                    id="data_sugerida"
-                    type="date"
-                    value={formData.data_sugerida}
-                    onChange={(e) => setFormData({ ...formData, data_sugerida: e.target.value })}
-                    className="col-span-3"
-                  />
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="situacao" className="text-right">Situação *</Label>
-                  <Select
-                    value={formData.situacao}
-                    onValueChange={(value: "pendente" | "realizado") => setFormData({ ...formData, situacao: value })}
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pendente">Pendente</SelectItem>
-                      <SelectItem value="realizado">Realizado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="descricao" className="text-right">Descrição *</Label>
+                <Input
+                  id="descricao"
+                  value={formData.descricao}
+                  onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+                  className="col-span-3"
+                  required
+                />
               </div>
 
-              <DialogFooter>
-                <Button type="submit">
-                  {editingMovimentacao ? "Atualizar" : "Salvar"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="valor" className="text-right">Valor *</Label>
+                <Input
+                  id="valor"
+                  type="number"
+                  step="0.01"
+                  value={formData.valor}
+                  onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="tipo" className="text-right">Tipo *</Label>
+                <Select
+                  value={formData.tipo}
+                  onValueChange={(value: "pagar" | "receber") => setFormData({ ...formData, tipo: value })}
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pagar">A Pagar</SelectItem>
+                    <SelectItem value="receber">A Receber</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+
+
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="data_sugerida" className="text-right">Data Sugerida *</Label>
+                <Input
+                  id="data_sugerida"
+                  type="date"
+                  value={formData.data_sugerida}
+                  onChange={(e) => setFormData({ ...formData, data_sugerida: e.target.value })}
+                  className="col-span-3"
+                />
+              </div>
+
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="situacao" className="text-right">Situação *</Label>
+                <Select
+                  value={formData.situacao}
+                  onValueChange={(value: "pendente" | "realizado") => setFormData({ ...formData, situacao: value })}
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="realizado">Realizado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="submit">
+                {editingMovimentacao ? "Atualizar" : "Salvar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <Card className="w-full">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg font-semibold flex items-center gap-4 items-end">
+            <Filter className="w-5 h-5" />
+            Filtros
+          </CardTitle>
+        </CardHeader>
+
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+
+            {/* Data Início */}
+            <div className="flex flex-col">
+              <label className="block text-sm font-medium mb-1" htmlFor="dataInicio">
+                Data Início
+              </label>
+              <Input
+                id="dataInicio"
+                type="date"
+                value={dataInicio}
+                onChange={(e) => setDataInicio(e.target.value)}
+                className="h-9 w-full rounded-md border px-2 text-sm"
+              />
+            </div>
+
+            {/* Data Fim */}
+            <div className="flex flex-col">
+              <label className="block text-sm font-medium mb-1" htmlFor="dataFim">
+                Data Fim
+              </label>
+              <Input
+                id="dataFim"
+                type="date"
+                value={dataFim}
+                onChange={(e) => setDataFim(e.target.value)}
+                className="h-9 w-full rounded-md border px-2 text-sm"
+              />
+            </div>
+
+            {/* Botão Carregar */}
+            <div className="flex">
+              <Button
+                onClick={onCarregar}
+                className="h-9 w-full font-medium"
+                disabled={loading2}
+              >
+                {loading2 ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Carregando...
+                  </>
+                ) : (
+                  <>
+                    <Search className="mr-2 h-4 w-4" />
+                    Carregar Saldos
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Botão Limpar */}
+            <div className="flex">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => {
+                  setDataInicio("");
+                  setDataFim("");
+                }}
+                className="h-9 w-full"
+                title="Limpar filtros"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Limpar
+              </Button>
+            </div>
+
+          </div>
+        </CardContent>
+
+
+      </Card>
+
 
       {/* Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

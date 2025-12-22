@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/pages/apps/controle-financeiro/auth/AuthProvider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -32,12 +33,13 @@ import {
   Filter,
   X,
   Loader2,
+  Building2,
 } from "lucide-react";
 import { startOfMonth, endOfMonth, format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { CommitmentHierarchy } from "@/components/CommitmentHierarchy";
+import { CommitmentHierarchy } from "@/pages/apps/controle-financeiro/components/CommitmentHierarchy";
 import { Progress } from "@/components/ui/progress";
 
 // Types
@@ -76,10 +78,35 @@ interface ClassificationRule {
   commitment_id?: string;
   commitment_type_id?: string;
   bank_id?: string;
+  branch_id?: string;
   is_active: boolean;
   company_id: string;
   created_at: string;
   updated_at: string;
+  companies?: {
+    id: string;
+    name: string;
+    segment: string | null;
+  };
+  branches?: {
+    id: string;
+    name: string;
+    city: string | null;
+    state: string | null;
+  };
+}
+
+interface Company {
+  id: string;
+  name: string;
+  segment: string | null;
+}
+
+interface Branch {
+  id: string;
+  name: string;
+  city: string | null;
+  state: string | null;
 }
 
 interface CommitmentGroup {
@@ -105,6 +132,9 @@ interface CommitmentType {
 }
 
 const TransactionClassification: React.FC = () => {
+  // Get auth context - avoid direct supabase.auth.getUser() calls
+  const { user, companyId, groupId, profile } = useAuth();
+  
   // State for transactions and data
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [rules, setRules] = useState<ClassificationRule[]>([]);
@@ -112,6 +142,12 @@ const TransactionClassification: React.FC = () => {
   const [commitments, setCommitments] = useState<Commitment[]>([]);
   const [types, setTypes] = useState<CommitmentType[]>([]);
   const [banks, setBanks] = useState<{ id: string; bank_name: string; bank_code: string }[]>([]);
+
+  // Organization hierarchy
+  const [companiesForGroup, setCompaniesForGroup] = useState<Company[]>([]);
+  const [branchesForCompany, setBranchesForCompany] = useState<Branch[]>([]);
+  const [userGroupName, setUserGroupName] = useState<string>("");
+  const [userCompanyId, setUserCompanyId] = useState<string>("");
 
   // Filtered options for cascading dropdowns
   const [filteredGroups, setFilteredGroups] = useState<CommitmentGroup[]>([]);
@@ -128,7 +164,11 @@ const TransactionClassification: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState("unclassified");
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
+  const [movimentacoesFilter, setMovimentacoesFilter] = useState("");
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
+
+  // Store ALL filtered transactions (before pagination) for local filtering
+  const [allFilteredTransactions, setAllFilteredTransactions] = useState<Transaction[]>([]);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -151,6 +191,8 @@ const TransactionClassification: React.FC = () => {
     commitment_id: "",
     commitment_type_id: "",
     bank_id: "",
+    company_id: "",
+    branch_id: "",
   });
 
   // Hierarchy state
@@ -160,8 +202,25 @@ const TransactionClassification: React.FC = () => {
   const [hasSearchedHierarchy, setHasSearchedHierarchy] = useState(false);
   const [hasSearchedRules, setHasSearchedRules] = useState(false);
 
+  // Estados para filtros de regras
+  const [rulesFilterType, setRulesFilterType] = useState("all");
+  const [rulesFilterGroup, setRulesFilterGroup] = useState("all");
+  const [rulesFilterCommitment, setRulesFilterCommitment] = useState("all");
+  const [rulesFilterBank, setRulesFilterBank] = useState("all");
+  const [rulesFilterCompany, setRulesFilterCompany] = useState("all");
+  const [rulesFilterBranch, setRulesFilterBranch] = useState("all");
+
+  // Listas filtradas para os selects em cascata de regras
+  const [rulesFilteredGroups, setRulesFilteredGroups] = useState<CommitmentGroup[]>([]);
+  const [rulesFilteredCommitments, setRulesFilteredCommitments] = useState<Commitment[]>([]);
+  const [rulesFilteredBranches, setRulesFilteredBranches] = useState<Branch[]>([]);
+
   // Estados para controle de progresso da aplicação de regras
   const [isApplyingRules, setIsApplyingRules] = useState(false);
+  
+  // Estado para controlar qual aba está ativa
+  const [activeTab, setActiveTab] = useState("movements");
+  
   const [progressStats, setProgressStats] = useState({
     total: 0,
     processed: 0,
@@ -192,12 +251,18 @@ const TransactionClassification: React.FC = () => {
     if (isRuleDialogOpen && types.length === 0) {
       fetchHierarchy();
     }
+    if (isRuleDialogOpen) {
+      fetchOrganizationData();
+    }
   }, [isRuleDialogOpen]);
 
   // Carregar hierarquia automaticamente ao abrir o modal de editar regra
   useEffect(() => {
     if (isEditRuleDialogOpen && types.length === 0) {
       fetchHierarchy();
+    }
+    if (isEditRuleDialogOpen) {
+      fetchOrganizationData();
     }
   }, [isEditRuleDialogOpen]);
 
@@ -271,6 +336,73 @@ const TransactionClassification: React.FC = () => {
       setBulkFilteredCommitments([]);
     }
   }, [bulkType, bulkGroup, commitments]);
+
+  // Filtrar grupos com base no tipo selecionado para regras
+  useEffect(() => {
+    if (rulesFilterType && rulesFilterType !== "all") {
+      const commitmentsOfType = commitments.filter((c) => c.commitment_type_id === rulesFilterType);
+      const groupIds = new Set(commitmentsOfType.map((c) => c.commitment_group_id));
+      const filtered = groups.filter((g) => groupIds.has(g.id));
+      setRulesFilteredGroups(filtered);
+    } else {
+      setRulesFilteredGroups(groups);
+    }
+    setRulesFilterGroup("all");
+    setRulesFilterCommitment("all");
+  }, [rulesFilterType, commitments, groups]);
+
+  // Filtrar naturezas com base no tipo E grupo selecionados para regras
+  useEffect(() => {
+    let filtered = commitments;
+    if (rulesFilterType && rulesFilterType !== "all") {
+      filtered = filtered.filter((c) => c.commitment_type_id === rulesFilterType);
+    }
+    if (rulesFilterGroup && rulesFilterGroup !== "all") {
+      filtered = filtered.filter((c) => c.commitment_group_id === rulesFilterGroup);
+    }
+    setRulesFilteredCommitments(filtered);
+    setRulesFilterCommitment("all");
+  }, [rulesFilterType, rulesFilterGroup, commitments]);
+
+  // Filtrar filiais com base na empresa selecionada para regras
+  useEffect(() => {
+    if (rulesFilterCompany && rulesFilterCompany !== "all") {
+      fetchBranchesForRulesFilter(rulesFilterCompany);
+    } else {
+      setRulesFilteredBranches([]);
+    }
+    setRulesFilterBranch("all");
+  }, [rulesFilterCompany]);
+
+  // Carregar dados organizacionais e hierarquia quando mudar para aba de regras ou hierarquia
+  useEffect(() => {
+    if (activeTab === "rules") {
+      // Carregar empresas e filiais se ainda não carregadas
+      if (companiesForGroup.length === 0) {
+        fetchOrganizationData();
+      }
+      // Carregar tipos, grupos e naturezas se ainda não carregados
+      if (types.length === 0) {
+        fetchHierarchy();
+      }
+    }
+    // Carregar hierarquia também quando abrir a aba de hierarquia
+    if (activeTab === "hierarchy") {
+      if (types.length === 0) {
+        fetchHierarchy();
+      }
+    }
+  }, [activeTab, companiesForGroup.length, types.length]);
+
+  // Fetch branches when company changes in new rule
+  useEffect(() => {
+    if (newRule.company_id) {
+      fetchBranchesForCompany(newRule.company_id);
+    } else {
+      setBranchesForCompany([]);
+      setNewRule((prev) => ({ ...prev, branch_id: "" }));
+    }
+  }, [newRule.company_id]);
 
   // Real-time updates for transactions and classifications
   useEffect(() => {
@@ -385,8 +517,8 @@ const TransactionClassification: React.FC = () => {
       .filter((type) => type.groups.length > 0); // Only show types that have groups/commitments
   };
 
-  const fetchData = async () => {
-    console.log("🚀 fetchData iniciado");
+  const fetchData = async (forceRefresh = false) => {
+    console.log("🚀 fetchData iniciado", forceRefresh ? "(forceRefresh)" : "");
     console.log("📋 Filtros atuais:", {
       ano: selectedYear,
       meses: selectedMonths,
@@ -397,46 +529,47 @@ const TransactionClassification: React.FC = () => {
       itensPorPagina: itemsPerPage,
     });
 
+    // Se forceRefresh, limpar estados antes de buscar para evitar inconsistências
+    if (forceRefresh) {
+      console.log("🔄 Force refresh: limpando estados...");
+      setTransactions([]);
+      setAllFilteredTransactions([]);
+      setSelectedTransactions([]);
+      // Pequeno delay para garantir que o banco refletiu as mudanças
+      await new Promise(resolve => setTimeout(resolve, 150));
+    }
+
     try {
       setLoading(true);
 
-      // Get user's company_id
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        console.error("❌ Usuário não autenticado");
+      // Use auth context instead of direct supabase.auth.getUser() call
+      if (!user || !companyId) {
+        console.error("❌ Usuário ou empresa não disponível");
         toast({
           title: "Erro de autenticação",
-          description: "Usuário não autenticado",
+          description: "Usuário não autenticado ou empresa não definida",
           variant: "destructive",
         });
         setLoading(false);
         return;
       }
 
-      const { data: profile } = await supabase.from("profiles").select("company_id").eq("user_id", user.id).single();
-
-      if (!profile?.company_id) {
-        console.error("❌ Empresa não encontrada");
-        toast({
-          title: "Erro",
-          description: "Empresa não encontrada para o usuário",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-
-      const companyId = profile.company_id;
       console.log("🏢 Company ID:", companyId);
 
       // Fetch all classifications for the company to use for filtering
       const { data: allClassifications } = await supabase
         .from("transaction_classifications")
-        .select("transaction_id, commitment_group_id");
+        .select(
+          `
+          transaction_id,
+          commitment_group_id,
+          transactions!inner(company_id)
+        `,
+        )
+        .eq("transactions.company_id", companyId);
 
-      const classifiedIdsSet = new Set(allClassifications?.map((c) => c.transaction_id) || []);
+      const classifiedIds = allClassifications?.map((c) => c.transaction_id) || [];
+      const classifiedIdsSet = new Set(classifiedIds);
 
       // Build base query for transactions
       let baseQuery = supabase.from("transactions").select(`
@@ -477,9 +610,27 @@ const TransactionClassification: React.FC = () => {
           .lte("transaction_date", format(yearEnd, "yyyy-MM-dd"));
       }
 
-      // Fetch ALL transactions matching the base filters (no pagination yet)
+      // Apply status filter directly in SQL when possible (optimization)
+      // This significantly reduces the number of records fetched
+      let applyStatusFilterInMemory = false;
+      
+      if (selectedStatus === "classified" && classifiedIds.length > 0 && classifiedIds.length <= 300) {
+        // For classified: fetch only transactions that are in classifiedIds
+        baseQuery = baseQuery.in("id", classifiedIds);
+        console.log(`🎯 Filtro SQL: buscando ${classifiedIds.length} transações classificadas`);
+      } else if (selectedStatus === "unclassified" && classifiedIds.length > 0 && classifiedIds.length <= 300) {
+        // For unclassified: exclude transactions that are classified
+        baseQuery = baseQuery.not("id", "in", `(${classifiedIds.join(",")})`);
+        console.log(`🎯 Filtro SQL: excluindo ${classifiedIds.length} transações classificadas`);
+      } else if (selectedStatus !== "all") {
+        // Too many IDs for SQL filter, will filter in memory
+        applyStatusFilterInMemory = true;
+        console.log(`⚠️ Muitos IDs (${classifiedIds.length}), filtro de status será aplicado em memória`);
+      }
+
+      // Fetch transactions with reduced limit (since we're filtering at SQL level when possible)
       const { data: allTransactionsData, error: allTransactionsError } = await baseQuery
-        .limit(10000)
+        .limit(applyStatusFilterInMemory ? 5000 : 2000)
         .order("transaction_date", {
           ascending: false,
         });
@@ -497,7 +648,7 @@ const TransactionClassification: React.FC = () => {
 
       console.log("📊 Transações brutas do banco:", allTransactionsData?.length || 0);
 
-      // Apply status and group filters in memory
+      // Apply status and group filters in memory (only when needed)
       let filteredTransactions = allTransactionsData || [];
 
       // Apply month filter (filtra pelos meses selecionados)
@@ -513,19 +664,21 @@ const TransactionClassification: React.FC = () => {
         );
       }
 
-      // Apply status filter
-      if (selectedStatus === "classified") {
-        const beforeFilter = filteredTransactions.length;
-        filteredTransactions = filteredTransactions.filter((t) => classifiedIdsSet.has(t.id));
-        console.log(
-          `🏷️ Após filtro de status (classificadas): ${beforeFilter} → ${filteredTransactions.length} transações`,
-        );
-      } else if (selectedStatus === "unclassified") {
-        const beforeFilter = filteredTransactions.length;
-        filteredTransactions = filteredTransactions.filter((t) => !classifiedIdsSet.has(t.id));
-        console.log(
-          `🏷️ Após filtro de status (não classificadas): ${beforeFilter} → ${filteredTransactions.length} transações`,
-        );
+      // Apply status filter in memory only if not applied in SQL
+      if (applyStatusFilterInMemory) {
+        if (selectedStatus === "classified") {
+          const beforeFilter = filteredTransactions.length;
+          filteredTransactions = filteredTransactions.filter((t) => classifiedIdsSet.has(t.id));
+          console.log(
+            `🏷️ Após filtro de status em memória (classificadas): ${beforeFilter} → ${filteredTransactions.length} transações`,
+          );
+        } else if (selectedStatus === "unclassified") {
+          const beforeFilter = filteredTransactions.length;
+          filteredTransactions = filteredTransactions.filter((t) => !classifiedIdsSet.has(t.id));
+          console.log(
+            `🏷️ Após filtro de status em memória (não classificadas): ${beforeFilter} → ${filteredTransactions.length} transações`,
+          );
+        }
       }
 
       // Apply group filter
@@ -548,16 +701,96 @@ const TransactionClassification: React.FC = () => {
       const to = from + itemsPerPage;
       const paginatedTransactions = filteredTransactions.slice(from, to);
 
-      // Fetch classifications for the paginated transactions
-      const transactionIds = paginatedTransactions.map((t) => t.id);
+      // Fetch classifications for ALL transactions using BATCHING to avoid URL length issues
+      const allTransactionIds = filteredTransactions.map((t) => t.id);
+      
+      // Batch classifications query to avoid NetworkError from long URLs
+      const BATCH_SIZE = 50;
+      let allClassificationsData: any[] = [];
+      
+      for (let i = 0; i < allTransactionIds.length; i += BATCH_SIZE) {
+        const batchIds = allTransactionIds.slice(i, i + BATCH_SIZE);
+        
+        if (batchIds.length === 0) continue;
+        
+        const { data: batchData, error: batchError } = await supabase
+          .from("transaction_classifications")
+          .select(
+            `
+            transaction_id,
+            commitment_group_id,
+            commitment_id,
+            commitment_type_id,
+            commitment_groups (
+              id,
+              name,
+              color
+            ),
+            commitments (
+              id,
+              name
+            ),
+            commitment_types (
+              id,
+              name
+            )
+          `,
+          )
+          .in("transaction_id", batchIds);
+
+        if (batchError) {
+          console.error(`Error fetching classifications batch ${i / BATCH_SIZE + 1}:`, batchError);
+          continue;
+        }
+        
+        if (batchData) {
+          allClassificationsData.push(...batchData);
+        }
+      }
+      
+      console.log(`📋 Classificações carregadas: ${allClassificationsData.length} em ${Math.ceil(allTransactionIds.length / BATCH_SIZE)} batches`);
+
+      // Create a map of all classifications by transaction_id
+      const allClassificationsMap = new Map();
+      allClassificationsData?.forEach((classification) => {
+        allClassificationsMap.set(classification.transaction_id, {
+          id: classification.transaction_id,
+          group_name: classification.commitment_groups?.name || "",
+          group_color: classification.commitment_groups?.color || "#6B7280",
+          commitment_name: classification.commitments?.name || "",
+          type_name: classification.commitment_types?.name || "",
+        });
+      });
+
+      // Transform ALL filtered transactions to include classification info
+      const allTransformedTransactions = filteredTransactions.map((transaction: any) => ({
+        ...transaction,
+        transaction_type: transaction.transaction_type as "credit" | "debit",
+        bank: transaction.banks || null,
+        classification: allClassificationsMap.get(transaction.id) || null,
+      }));
+
+      // Store ALL transformed transactions for local filtering
+      setAllFilteredTransactions(allTransformedTransactions);
+
+      // Get paginated transactions for initial display
+      const transformedPaginatedTransactions = paginatedTransactions.map((transaction: any) => ({
+        ...transaction,
+        transaction_type: transaction.transaction_type as "credit" | "debit",
+        bank: transaction.banks || null,
+        classification: allClassificationsMap.get(transaction.id) || null,
+      }));
+
+      setTransactions(transformedPaginatedTransactions);
 
       console.log(
-        `📄 Paginação: página ${currentPage}, exibindo ${transactionIds.length} de ${filteredTransactions.length} transações`,
+        `📄 Paginação: página ${currentPage}, exibindo ${transformedPaginatedTransactions.length} de ${filteredTransactions.length} transações`,
       );
 
-      if (transactionIds.length === 0) {
+      if (transformedPaginatedTransactions.length === 0) {
         console.log("⚠️ Nenhuma transação encontrada após filtros e paginação");
         setTransactions([]);
+        setAllFilteredTransactions([]);
         setLoading(false);
 
         // Mostrar mensagem informativa ao usuário
@@ -576,57 +809,12 @@ const TransactionClassification: React.FC = () => {
         return;
       }
 
-      const { data: classificationsData, error: classificationsError } = await supabase
-        .from("transaction_classifications")
-        .select(
-          `
-          transaction_id,
-          commitment_group_id,
-          commitment_id,
-          commitment_type_id,
-          commitment_groups (
-            id,
-            name,
-            color
-          ),
-          commitments (
-            id,
-            name
-          ),
-          commitment_types (
-            id,
-            name
-          )
-        `,
-        )
-        .in("transaction_id", transactionIds);
-
-      if (classificationsError) {
-        console.error("Error fetching classifications:", classificationsError);
-      }
-
-      // Create a map of classifications by transaction_id
-      const classificationsMap = new Map();
-      classificationsData?.forEach((classification) => {
-        classificationsMap.set(classification.transaction_id, {
-          id: classification.transaction_id,
-          group_name: classification.commitment_groups?.name || "",
-          group_color: classification.commitment_groups?.color || "#6B7280",
-          commitment_name: classification.commitments?.name || "",
-          type_name: classification.commitment_types?.name || "",
-        });
-      });
-
-      // Transform data to include classification info
-      const transformedTransactions = paginatedTransactions.map((transaction: any) => ({
-        ...transaction,
-        transaction_type: transaction.transaction_type as "credit" | "debit",
-        bank: transaction.banks || null,
-        classification: classificationsMap.get(transaction.id) || null,
-      }));
-
-      setTransactions(transformedTransactions);
-      console.log("✅ fetchData concluído com sucesso:", transformedTransactions.length, "transações carregadas");
+      console.log(
+        "✅ fetchData concluído com sucesso:",
+        transformedPaginatedTransactions.length,
+        "transações carregadas",
+      );
+      console.log("📦 Total de transações armazenadas para filtro local:", allTransformedTransactions.length);
     } catch (error) {
       console.error("❌ Erro inesperado em fetchData:", error);
       toast({
@@ -648,6 +836,9 @@ const TransactionClassification: React.FC = () => {
     console.log("📊 Grupo selecionado:", selectedGroup);
     console.log("🔎 Termo de busca:", searchTerm);
 
+    // Clear local filter when performing new search
+    setMovimentacoesFilter("");
+
     // Validar se há meses selecionados
     if (selectedMonths.length === 0) {
       console.log("⚠️ Nenhum mês selecionado - mostrando toast");
@@ -666,29 +857,35 @@ const TransactionClassification: React.FC = () => {
 
   const fetchHierarchy = async () => {
     try {
-      // Fetch commitment groups
+      // Use auth context instead of direct supabase.auth.getUser() call
+      if (!user || !companyId) return;
+
+      // Fetch commitment groups (universal OR company-specific)
       const { data: groupsData, error: groupsError } = await supabase
         .from("commitment_groups")
         .select("*")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .or(`company_id.is.null,company_id.eq.${companyId}`);
 
       if (groupsError) throw groupsError;
       setGroups(groupsData || []);
 
-      // Fetch commitments
+      // Fetch commitments (universal OR company-specific)
       const { data: commitmentsData, error: commitmentsError } = await supabase
         .from("commitments")
         .select("*")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .or(`company_id.is.null,company_id.eq.${companyId}`);
 
       if (commitmentsError) throw commitmentsError;
       setCommitments(commitmentsData || []);
 
-      // Fetch commitment types
+      // Fetch commitment types (universal OR company-specific)
       const { data: typesData, error: typesError } = await supabase
         .from("commitment_types")
         .select("*")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .or(`company_id.is.null,company_id.eq.${companyId}`);
 
       if (typesError) throw typesError;
       setTypes(typesData || []);
@@ -704,24 +901,20 @@ const TransactionClassification: React.FC = () => {
 
   const handleSearchRules = async () => {
     setHasSearchedRules(true);
+    await fetchOrganizationData(); // Carregar empresas e filiais
+    await fetchHierarchy(); // Carregar tipos, grupos e naturezas
     await fetchRules();
   };
 
   const fetchAvailableYears = async () => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: profile } = await supabase.from("profiles").select("company_id").eq("user_id", user.id).single();
-
-      if (!profile?.company_id) return;
+      // Use auth context instead of direct supabase.auth.getUser() call
+      if (!user || !companyId) return;
 
       const { data, error } = await supabase
         .from("transactions")
         .select("transaction_date")
-        .eq("company_id", profile.company_id)
+        .eq("company_id", companyId)
         .order("transaction_date", { ascending: false });
 
       if (error) {
@@ -754,19 +947,13 @@ const TransactionClassification: React.FC = () => {
 
   const fetchBanks = async () => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: profile } = await supabase.from("profiles").select("company_id").eq("user_id", user.id).single();
-
-      if (!profile?.company_id) return;
+      // Use auth context instead of direct supabase.auth.getUser() call
+      if (!user || !companyId) return;
 
       const { data, error } = await supabase
         .from("banks")
         .select("id, bank_name, bank_code")
-        .eq("company_id", profile.company_id)
+        .eq("company_id", companyId)
         .order("bank_name");
 
       if (error) throw error;
@@ -777,32 +964,112 @@ const TransactionClassification: React.FC = () => {
     }
   };
 
+  const fetchOrganizationData = async () => {
+    try {
+      // Use auth context instead of direct supabase.auth.getUser() call
+      if (!user || !groupId) return;
+
+      // Fetch group name
+      const { data: groupData } = await supabase.from("groups").select("name").eq("id", groupId).single();
+
+      if (groupData) {
+        setUserGroupName(groupData.name);
+      }
+
+      // Fetch companies for the group
+      const { data: companies } = await supabase
+        .from("companies")
+        .select("id, name, segment")
+        .eq("group_id", groupId)
+        .order("name");
+
+      setCompaniesForGroup(companies || []);
+
+      // Set user's current company
+      if (companyId) {
+        setUserCompanyId(companyId);
+        setNewRule((prev) => ({ ...prev, company_id: companyId }));
+      }
+    } catch (error) {
+      console.error("Error fetching organization data:", error);
+    }
+  };
+
+  const fetchBranchesForCompany = async (companyId: string) => {
+    try {
+      const { data: branches } = await supabase
+        .from("branches")
+        .select("id, name, city, state")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("name");
+
+      setBranchesForCompany(branches || []);
+    } catch (error) {
+      console.error("Error fetching branches:", error);
+    }
+  };
+
+  const fetchBranchesForRulesFilter = async (companyId: string) => {
+    try {
+      const { data: branches } = await supabase
+        .from("branches")
+        .select("id, name, city, state")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("name");
+
+      setRulesFilteredBranches(branches || []);
+    } catch (error) {
+      console.error("Error fetching branches for filter:", error);
+    }
+  };
+
   const fetchRules = async () => {
     try {
-      // Get user's company_id
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+      // Use auth context instead of direct supabase.auth.getUser() call
+      if (!user || !groupId) return;
 
-      const { data: profile } = await supabase.from("profiles").select("company_id").eq("user_id", user.id).single();
+      // Buscar todas as empresas do grupo
+      const { data: companiesData } = await supabase
+        .from("companies")
+        .select("id, name, segment")
+        .eq("group_id", groupId);
 
-      if (!profile?.company_id) return;
+      const companyIds = companiesData?.map((c) => c.id) || [];
 
-      const companyId = profile.company_id;
+      if (companyIds.length === 0) return;
 
-      // Fetch classification rules for the company
+      // Buscar todas as filiais das empresas do grupo
+      const { data: branchesData } = await supabase
+        .from("branches")
+        .select("id, name, city, state, company_id")
+        .in("company_id", companyIds);
+
+      // Buscar regras de todas as empresas do grupo
       const { data: rulesData, error: rulesError } = await supabase
         .from("classification_rules")
         .select("*")
-        .eq("company_id", companyId)
+        .in("company_id", companyIds)
         .eq("is_active", true)
         .order("created_at", { ascending: false });
 
       if (rulesError) {
         console.error("Error fetching rules:", rulesError);
       } else {
-        setRules(rulesData || []);
+        // Enriquecer as regras com dados de empresa e filial
+        const enrichedRules = (rulesData || []).map((rule) => {
+          const company = companiesData?.find((c) => c.id === rule.company_id);
+          const branch = rule.branch_id ? branchesData?.find((b) => b.id === rule.branch_id) : undefined;
+
+          return {
+            ...rule,
+            companies: company,
+            branches: branch,
+          };
+        });
+
+        setRules(enrichedRules);
       }
     } catch (error) {
       console.error("Error fetching rules:", error);
@@ -884,54 +1151,32 @@ const TransactionClassification: React.FC = () => {
     }
 
     try {
-      console.log("Starting bulk classification:", {
-        selectedTransactions,
-        bulkType,
-        bulkGroup,
-        bulkCommitment,
-      });
-
       const userId = (await supabase.auth.getUser()).data.user?.id;
 
-      // Process each selected transaction
-      for (const transactionId of selectedTransactions) {
-        // First, delete any existing classification
-        const { error: deleteError } = await supabase
-          .from("transaction_classifications")
-          .delete()
-          .eq("transaction_id", transactionId);
+      // Prepare all records for upsert
+      const classificationsToUpsert = selectedTransactions.map((transactionId) => ({
+        transaction_id: transactionId,
+        commitment_type_id: bulkType,
+        commitment_group_id: bulkGroup,
+        commitment_id: bulkCommitment,
+        classified_by: userId,
+      }));
 
-        if (deleteError) {
-          console.error("Error deleting existing classification:", deleteError);
-        }
+      // Upsert in a single operation
+      const { error } = await supabase.from("transaction_classifications").upsert(classificationsToUpsert, {
+        onConflict: "transaction_id",
+        ignoreDuplicates: false,
+      });
 
-        // Then insert the new classification
-        const { error: insertError } = await supabase.from("transaction_classifications").insert({
-          transaction_id: transactionId,
-          commitment_group_id: bulkGroup || null,
-          commitment_id: bulkCommitment || null,
-          commitment_type_id: bulkType || null,
-          classified_by: userId,
-        });
+      if (error) throw error;
 
-        if (insertError) {
-          console.error("Error inserting classification:", insertError);
-          throw insertError;
-        }
-      }
-
-      console.log("Bulk classification completed successfully");
-
-      // Clear selections and refresh data
+      // Clear selections
       setSelectedTransactions([]);
       setBulkType("");
       setBulkGroup("");
       setBulkCommitment("");
 
-      // Force refresh with a small delay to ensure data is updated
-      setTimeout(() => {
-        fetchData();
-      }, 500);
+      await fetchData();
 
       toast({
         title: "Classificação em lote concluída",
@@ -957,6 +1202,8 @@ const TransactionClassification: React.FC = () => {
       return;
     }
 
+    const removedCount = selectedTransactions.length;
+
     try {
       // Delete all classifications for selected transactions
       const { error } = await supabase
@@ -966,15 +1213,16 @@ const TransactionClassification: React.FC = () => {
 
       if (error) throw error;
 
-      // Clear selection
+      // Clear selection BEFORE refresh
       setSelectedTransactions([]);
 
-      // Refresh data
-      await fetchData();
+      // Force complete refresh para garantir consistência de dados
+      // Isso limpa os estados e rebusca tudo do banco
+      await fetchData(true);
 
       toast({
         title: "Classificações removidas",
-        description: `${selectedTransactions.length} classificações foram removidas com sucesso`,
+        description: `${removedCount} classificações foram removidas com sucesso`,
       });
     } catch (error) {
       console.error("Error removing bulk classifications:", error);
@@ -987,47 +1235,61 @@ const TransactionClassification: React.FC = () => {
   };
 
   const handleCreateRule = async () => {
-    if (!newRule.rule_name || !newRule.description_contains) {
+    if (!newRule.rule_name || !newRule.description_contains || !newRule.company_id) {
       toast({
         title: "Dados incompletos",
-        description: "Preencha o nome da regra e a descrição",
+        description: "Preencha o nome da regra, a descrição e selecione a empresa",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      // Get user's company_id from profile
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      // Verificar duplicatas por nome
+      const { data: existingByName } = await supabase
+        .from("classification_rules")
+        .select("id, rule_name")
+        .eq("company_id", newRule.company_id)
+        .eq("is_active", true)
+        .ilike("rule_name", newRule.rule_name.trim())
+        .maybeSingle();
 
-      if (!user) {
+      if (existingByName) {
         toast({
-          title: "Erro de autenticação",
-          description: "Usuário não autenticado",
+          title: "Nome de regra já existe",
+          description: `Já existe uma regra chamada "${existingByName.rule_name}" nesta empresa`,
           variant: "destructive",
         });
         return;
       }
 
-      const { data: profile } = await supabase.from("profiles").select("company_id").eq("user_id", user.id).single();
+      // Verificar duplicatas por descrição
+      const { data: existingByDescription } = await supabase
+        .from("classification_rules")
+        .select("id, rule_name, description_contains")
+        .eq("company_id", newRule.company_id)
+        .eq("is_active", true)
+        .ilike("description_contains", newRule.description_contains.trim())
+        .maybeSingle();
 
-      if (!profile?.company_id) {
+      if (existingByDescription) {
         toast({
-          title: "Erro",
-          description: "Empresa não encontrada",
+          title: "Descrição já cadastrada",
+          description: `A descrição "${newRule.description_contains}" já está sendo usada na regra "${existingByDescription.rule_name}"`,
           variant: "destructive",
         });
         return;
       }
 
       const { error } = await supabase.from("classification_rules").insert({
-        ...newRule,
-        company_id: profile.company_id,
+        rule_name: newRule.rule_name,
+        description_contains: newRule.description_contains,
+        company_id: newRule.company_id,
+        branch_id: newRule.branch_id || null,
         commitment_group_id: newRule.commitment_group_id || null,
         commitment_id: newRule.commitment_id || null,
         commitment_type_id: newRule.commitment_type_id || null,
+        bank_id: newRule.bank_id || null,
       });
 
       if (error) throw error;
@@ -1041,6 +1303,8 @@ const TransactionClassification: React.FC = () => {
         commitment_id: "",
         commitment_type_id: "",
         bank_id: "",
+        company_id: "",
+        branch_id: "",
       });
 
       toast({
@@ -1066,26 +1330,68 @@ const TransactionClassification: React.FC = () => {
       commitment_id: rule.commitment_id || "",
       commitment_type_id: rule.commitment_type_id || "",
       bank_id: rule.bank_id || "",
+      company_id: rule.company_id,
+      branch_id: rule.branch_id || "",
     });
     setIsEditRuleDialogOpen(true);
   };
 
   const handleUpdateRule = async () => {
-    if (!editingRule || !newRule.rule_name || !newRule.description_contains) {
+    if (!editingRule || !newRule.rule_name || !newRule.description_contains || !newRule.company_id) {
       toast({
         title: "Dados incompletos",
-        description: "Preencha o nome da regra e a descrição",
+        description: "Preencha o nome da regra, a descrição e selecione a empresa",
         variant: "destructive",
       });
       return;
     }
 
     try {
+      // Verificar duplicatas por nome (excluindo regra atual)
+      const { data: existingByName } = await supabase
+        .from("classification_rules")
+        .select("id, rule_name")
+        .eq("company_id", newRule.company_id)
+        .eq("is_active", true)
+        .ilike("rule_name", newRule.rule_name.trim())
+        .neq("id", editingRule.id)
+        .maybeSingle();
+
+      if (existingByName) {
+        toast({
+          title: "Nome de regra já existe",
+          description: `Já existe outra regra chamada "${existingByName.rule_name}" nesta empresa`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Verificar duplicatas por descrição (excluindo regra atual)
+      const { data: existingByDescription } = await supabase
+        .from("classification_rules")
+        .select("id, rule_name, description_contains")
+        .eq("company_id", newRule.company_id)
+        .eq("is_active", true)
+        .ilike("description_contains", newRule.description_contains.trim())
+        .neq("id", editingRule.id)
+        .maybeSingle();
+
+      if (existingByDescription) {
+        toast({
+          title: "Descrição já cadastrada",
+          description: `A descrição "${newRule.description_contains}" já está sendo usada na regra "${existingByDescription.rule_name}"`,
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from("classification_rules")
         .update({
           rule_name: newRule.rule_name,
           description_contains: newRule.description_contains,
+          company_id: newRule.company_id,
+          branch_id: newRule.branch_id || null,
           commitment_group_id: newRule.commitment_group_id || null,
           commitment_id: newRule.commitment_id || null,
           commitment_type_id: newRule.commitment_type_id || null,
@@ -1105,6 +1411,8 @@ const TransactionClassification: React.FC = () => {
         commitment_id: "",
         commitment_type_id: "",
         bank_id: "",
+        company_id: "",
+        branch_id: "",
       });
 
       toast({
@@ -1158,27 +1466,36 @@ const TransactionClassification: React.FC = () => {
       return;
     }
 
+    // Usar dados do AuthContext em vez de chamadas redundantes
+    if (!user) {
+      toast({
+        title: "Erro de autenticação",
+        description: "Usuário não autenticado",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!companyId) {
+      toast({
+        title: "Empresa não identificada",
+        description: "Selecione uma empresa para continuar",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsApplyingRules(true);
     setProgressStats({ total: 0, processed: 0, classified: 0, percentage: 0 });
 
     try {
-      const batchSize = 100;
-
-      // Get company_id first
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
-
-      const { data: profile } = await supabase.from("profiles").select("company_id").eq("user_id", user.id).single();
-
-      if (!profile?.company_id) throw new Error("Company not found");
+      const batchSize = 500; // Aumentado para reduzir chamadas ao banco
 
       // Get filtered transactions (same filters as fetchData)
       let query = supabase
         .from("transactions")
         .select("id, description, transaction_date")
-        .eq("company_id", profile.company_id);
+        .eq("company_id", companyId);
 
       // Apply the same filters as fetchData
       if (searchTerm) {
@@ -1187,7 +1504,6 @@ const TransactionClassification: React.FC = () => {
 
       // Apply date filters by year and months
       if (selectedYear && selectedMonths.length > 0) {
-        // Buscar todas as transações do ano selecionado
         const yearStart = new Date(selectedYear, 0, 1);
         const yearEnd = new Date(selectedYear, 11, 31);
         query = query
@@ -1223,7 +1539,13 @@ const TransactionClassification: React.FC = () => {
       // Get ALL existing classifications for this company
       const { data: existingClassifications, error: classificationsError } = await supabase
         .from("transaction_classifications")
-        .select("transaction_id");
+        .select(
+          `
+          transaction_id,
+          transactions!inner(company_id)
+        `,
+        )
+        .eq("transactions.company_id", companyId);
 
       if (classificationsError) {
         throw classificationsError;
@@ -1249,16 +1571,29 @@ const TransactionClassification: React.FC = () => {
         percentage: 0,
       });
 
+      // PRÉ-PROCESSAR: Normalizar regras uma única vez (evita toLowerCase() no loop)
+      const normalizedRules = rules.map(rule => ({
+        ...rule,
+        pattern: rule.description_contains.toLowerCase()
+      }));
+
+      // PRÉ-PROCESSAR: Normalizar descrições das transações uma única vez
+      const normalizedTransactions = unclassifiedTransactions.map((t: any) => ({
+        ...t,
+        normalizedDesc: t.description.toLowerCase()
+      }));
+
       let totalClassified = 0;
-      const classificationsToInsert = [];
+      let classificationsToInsert: any[] = [];
 
       // Process transactions in batches
-      for (let i = 0; i < unclassifiedTransactions.length; i += batchSize) {
-        const batch = unclassifiedTransactions.slice(i, i + batchSize);
+      for (let i = 0; i < normalizedTransactions.length; i += batchSize) {
+        const batch = normalizedTransactions.slice(i, i + batchSize);
 
         for (const transaction of batch) {
-          for (const rule of rules) {
-            if (transaction.description.toLowerCase().includes(rule.description_contains.toLowerCase())) {
+          for (const rule of normalizedRules) {
+            // Comparação otimizada: strings já normalizadas
+            if (transaction.normalizedDesc.includes(rule.pattern)) {
               // Pegar commitment_type_id do commitment
               let typeId = rule.commitment_type_id;
               if (rule.commitment_id && !typeId) {
@@ -1278,31 +1613,30 @@ const TransactionClassification: React.FC = () => {
               break; // Aplicar apenas a primeira regra que bater
             }
           }
-
-          // Atualizar progresso
-          const processed = i + batch.indexOf(transaction) + 1;
-          const percentage = Math.round((processed / unclassifiedTransactions.length) * 100);
-
-          setProgressStats({
-            total: unclassifiedTransactions.length,
-            processed,
-            classified: totalClassified,
-            percentage,
-          });
         }
+
+        // Atualizar progresso apenas a cada batch (não a cada transação)
+        const processed = Math.min(i + batchSize, normalizedTransactions.length);
+        const percentage = Math.round((processed / normalizedTransactions.length) * 100);
+
+        setProgressStats({
+          total: normalizedTransactions.length,
+          processed,
+          classified: totalClassified,
+          percentage,
+        });
 
         // Inserir classificações do batch
         if (classificationsToInsert.length > 0) {
-          const batchToInsert = classificationsToInsert.splice(0, classificationsToInsert.length);
+          const batchToInsert = [...classificationsToInsert];
+          classificationsToInsert = [];
+          
           const { error: insertError } = await supabase.from("transaction_classifications").insert(batchToInsert);
 
           if (insertError) {
             console.error("Error inserting classifications:", insertError);
           }
         }
-
-        // Pequeno delay para atualizar UI
-        await new Promise((resolve) => setTimeout(resolve, 50));
       }
 
       // Refresh data UMA ÚNICA VEZ no final
@@ -1657,16 +1991,58 @@ const TransactionClassification: React.FC = () => {
     totalTransactionsCount: 0,
   });
 
+  // Regras filtradas com base nos filtros selecionados
+  const filteredRules = useMemo(() => {
+    let result = rules;
+
+    // Filtro por Tipo
+    if (rulesFilterType !== "all") {
+      result = result.filter((r) => r.commitment_type_id === rulesFilterType);
+    }
+
+    // Filtro por Grupo
+    if (rulesFilterGroup !== "all") {
+      result = result.filter((r) => r.commitment_group_id === rulesFilterGroup);
+    }
+
+    // Filtro por Natureza
+    if (rulesFilterCommitment !== "all") {
+      result = result.filter((r) => r.commitment_id === rulesFilterCommitment);
+    }
+
+    // Filtro por Banco
+    if (rulesFilterBank !== "all") {
+      result = result.filter((r) => r.bank_id === rulesFilterBank);
+    }
+
+    // Filtro por Empresa
+    if (rulesFilterCompany !== "all") {
+      result = result.filter((r) => r.company_id === rulesFilterCompany);
+    }
+
+    // Filtro por Filial
+    if (rulesFilterBranch !== "all") {
+      result = result.filter((r) => r.branch_id === rulesFilterBranch);
+    }
+
+    return result;
+  }, [rules, rulesFilterType, rulesFilterGroup, rulesFilterCommitment, rulesFilterBank, rulesFilterCompany, rulesFilterBranch]);
+
   // Fetch summary statistics
   useEffect(() => {
     const fetchSummary = async () => {
       try {
-        // Get company ID first
-        const { data: companies } = await supabase.from("companies").select("id").limit(1);
+        // Get user's company_id via profile
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
 
-        if (!companies || companies.length === 0) return;
+        const { data: profile } = await supabase.from("profiles").select("company_id").eq("user_id", user.id).single();
 
-        const companyId = companies[0].id;
+        if (!profile?.company_id) return;
+
+        const companyId = profile.company_id;
 
         // Build query with same filters as main query
         let query = supabase
@@ -1742,16 +2118,68 @@ const TransactionClassification: React.FC = () => {
     fetchSummary();
   }, [searchTerm, selectedYear, selectedMonths]);
 
-  // Filter transactions - now just for display since server-side filtering is done
-  const filteredTransactions = transactions;
+  // Filter transactions with local real-time filter
+  const filteredTransactions = useMemo(() => {
+    // Use all filtered transactions as base when local filter is active
+    const baseTransactions = movimentacoesFilter.trim() ? allFilteredTransactions : transactions;
+
+    if (!movimentacoesFilter.trim()) {
+      return baseTransactions;
+    }
+
+    const filterLower = movimentacoesFilter.toLowerCase().trim();
+    return allFilteredTransactions.filter(
+      (transaction) =>
+        transaction.description?.toLowerCase().includes(filterLower) ||
+        (transaction.memo && transaction.memo.toLowerCase().includes(filterLower)) ||
+        transaction.bank?.bank_name?.toLowerCase().includes(filterLower),
+    );
+  }, [allFilteredTransactions, transactions, movimentacoesFilter]);
+
+  // Paginate locally when filter is active
+  const displayTransactions = useMemo(() => {
+    if (!movimentacoesFilter.trim()) {
+      return filteredTransactions; // Use server-side pagination
+    }
+
+    // When local filter is active, paginate locally
+    const from = (currentPage - 1) * itemsPerPage;
+    const to = from + itemsPerPage;
+    return filteredTransactions.slice(from, to);
+  }, [filteredTransactions, currentPage, itemsPerPage, movimentacoesFilter]);
+
+  // Reset page to 1 when local filter changes
+  useEffect(() => {
+    if (movimentacoesFilter) {
+      setCurrentPage(1);
+    }
+  }, [movimentacoesFilter]);
+
+  // Bloquear scroll do body durante aplicação de regras
+  useEffect(() => {
+    if (isApplyingRules) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isApplyingRules]);
 
   // Componente de Progress Overlay
   const ProgressOverlay = () => {
     if (!isApplyingRules) return null;
 
     return (
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-        <Card className="w-96 p-6 space-y-4">
+      <div
+        className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center animate-fade-in"
+        style={{ pointerEvents: "all" }}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        <Card className="w-96 p-6 space-y-4 animate-scale-in">
           <div className="text-center space-y-2">
             <Loader2 className="w-12 h-12 animate-spin mx-auto text-primary" />
             <h3 className="text-lg font-semibold">Aplicando Regras de Classificação</h3>
@@ -1795,13 +2223,13 @@ const TransactionClassification: React.FC = () => {
           <div className="flex gap-2">
             <Dialog open={isRuleDialogOpen} onOpenChange={setIsRuleDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" disabled={isApplyingRules}>
                   <Settings className="w-4 h-4 mr-2" />
                   Nova Regra
                 </Button>
               </DialogTrigger>
 
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Nova Regra de Classificação Automática</DialogTitle>
                   <DialogDescription>
@@ -1828,11 +2256,83 @@ const TransactionClassification: React.FC = () => {
                     />
                   </div>
 
+                  {/* Organization Scope */}
+                  <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
+                    <Label className="text-sm font-medium">Escopo da Regra</Label>
+
+                    {/* Group (read-only) */}
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Grupo</Label>
+                      <div className="flex items-center gap-2 p-2 border rounded bg-background">
+                        <Building2 className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium">{userGroupName || "Carregando..."}</span>
+                      </div>
+                    </div>
+
+                    {/* Company (selectable) */}
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Empresa *</Label>
+                      <Select
+                        value={newRule.company_id}
+                        onValueChange={(value) =>
+                          setNewRule((prev) => ({
+                            ...prev,
+                            company_id: value,
+                            branch_id: "",
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a empresa" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {companiesForGroup.map((company) => (
+                            <SelectItem key={company.id} value={company.id}>
+                              {company.name} {company.segment && `(${company.segment})`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Branch (optional) */}
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Filial (opcional)</Label>
+                      <Select
+                        value={newRule.branch_id || "all"}
+                        onValueChange={(value) =>
+                          setNewRule((prev) => ({
+                            ...prev,
+                            branch_id: value === "all" ? "" : value,
+                          }))
+                        }
+                        disabled={!newRule.company_id}
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={!newRule.company_id ? "Selecione primeiro a empresa" : "Todas as filiais"}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todas as filiais</SelectItem>
+                          {branchesForCompany.map((branch) => (
+                            <SelectItem key={branch.id} value={branch.id}>
+                              {branch.name} {branch.city && `(${branch.city}/${branch.state})`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Se não selecionada, a regra se aplica a todas as filiais da empresa
+                      </p>
+                    </div>
+                  </div>
+
                   <div>
                     <Label htmlFor="bank-select">Banco (opcional)</Label>
                     <Select
                       value={newRule.bank_id || "all"}
-                      onValueChange={(value) => 
+                      onValueChange={(value) =>
                         setNewRule((prev) => ({ ...prev, bank_id: value === "all" ? "" : value }))
                       }
                     >
@@ -1996,7 +2496,7 @@ const TransactionClassification: React.FC = () => {
               )}
             </Button>
 
-            <Button onClick={exportToCSV} variant="outline" size="sm">
+            <Button onClick={exportToCSV} variant="outline" size="sm" disabled={isApplyingRules}>
               <FileSpreadsheet className="w-4 h-4 mr-2" />
               Exportar
             </Button>
@@ -2011,7 +2511,7 @@ const TransactionClassification: React.FC = () => {
               }}
             >
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" disabled={isApplyingRules}>
                   <FileSpreadsheet className="h-4 w-4 mr-2" />
                   Integração
                 </Button>
@@ -2210,7 +2710,7 @@ const TransactionClassification: React.FC = () => {
           </div>
         </div>
 
-        <Tabs defaultValue="movements" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="movements">Movimentações</TabsTrigger>
             <TabsTrigger value="hierarchy">Hierarquia</TabsTrigger>
@@ -2277,36 +2777,20 @@ const TransactionClassification: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Linha 1: Busca, Grupo, Status */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-                  <div className="relative md:col-span-2 lg:col-span-3">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                     <Input
                       placeholder="Buscar por descrição..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10"
+                      disabled={isApplyingRules}
                     />
                   </div>
 
-                  <Select value={selectedGroup} onValueChange={setSelectedGroup}>
-                    <SelectTrigger className="lg:col-span-2">
-                      <SelectValue placeholder="Grupo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os grupos</SelectItem>
-                      {groups.map((group) => (
-                        <SelectItem key={group.id} value={group.id}>
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: group.color }} />
-                            {group.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                    <SelectTrigger className="lg:col-span-1">
+                  <Select value={selectedStatus} onValueChange={setSelectedStatus} disabled={isApplyingRules}>
+                    <SelectTrigger className="flex-1">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -2324,7 +2808,11 @@ const TransactionClassification: React.FC = () => {
                 <div className="space-y-4">
                   <div className="flex items-center gap-4">
                     <Label className="text-sm font-medium min-w-[60px]">Período:</Label>
-                    <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(Number(value))}>
+                    <Select
+                      value={selectedYear.toString()}
+                      onValueChange={(value) => setSelectedYear(Number(value))}
+                      disabled={isApplyingRules}
+                    >
                       <SelectTrigger className="w-[120px]">
                         <SelectValue placeholder="Ano" />
                       </SelectTrigger>
@@ -2374,6 +2862,7 @@ const TransactionClassification: React.FC = () => {
                             );
                           }}
                           className="h-9"
+                          disabled={isApplyingRules}
                         >
                           {month.label}
                         </Button>
@@ -2386,6 +2875,7 @@ const TransactionClassification: React.FC = () => {
                         size="sm"
                         onClick={() => setSelectedMonths([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])}
                         className="flex-1"
+                        disabled={isApplyingRules}
                       >
                         Selecionar Todos
                       </Button>
@@ -2395,6 +2885,7 @@ const TransactionClassification: React.FC = () => {
                         size="sm"
                         onClick={() => setSelectedMonths([])}
                         className="flex-1"
+                        disabled={isApplyingRules}
                       >
                         Limpar
                       </Button>
@@ -2409,7 +2900,7 @@ const TransactionClassification: React.FC = () => {
                 <div className="flex justify-end">
                   <Button
                     onClick={handleSearch}
-                    disabled={loading || selectedMonths.length === 0}
+                    disabled={loading || selectedMonths.length === 0 || isApplyingRules}
                     className="w-full sm:w-auto min-w-[140px]"
                   >
                     <Search className="mr-2 h-4 w-4" />
@@ -2439,6 +2930,7 @@ const TransactionClassification: React.FC = () => {
                             setBulkGroup("");
                             setBulkCommitment("");
                           }}
+                          disabled={isApplyingRules}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione o tipo de natureza" />
@@ -2461,7 +2953,7 @@ const TransactionClassification: React.FC = () => {
                             setBulkGroup(value);
                             setBulkCommitment("");
                           }}
-                          disabled={!bulkType}
+                          disabled={!bulkType || isApplyingRules}
                         >
                           <SelectTrigger>
                             <SelectValue
@@ -2495,7 +2987,11 @@ const TransactionClassification: React.FC = () => {
 
                       <div>
                         <Label className="text-sm font-medium mb-2 block">Natureza</Label>
-                        <Select value={bulkCommitment} onValueChange={setBulkCommitment} disabled={!bulkGroup}>
+                        <Select
+                          value={bulkCommitment}
+                          onValueChange={setBulkCommitment}
+                          disabled={!bulkGroup || isApplyingRules}
+                        >
                           <SelectTrigger>
                             <SelectValue
                               placeholder={
@@ -2527,16 +3023,21 @@ const TransactionClassification: React.FC = () => {
                       <Button
                         onClick={handleBulkClassify}
                         className="flex-1"
-                        disabled={!bulkType || !bulkGroup || !bulkCommitment}
+                        disabled={!bulkType || !bulkGroup || !bulkCommitment || isApplyingRules}
                       >
                         <Save className="w-4 h-4 mr-2" />
                         Classificar Selecionadas
                       </Button>
-                      <Button variant="destructive" onClick={handleBulkRemoveClassification} className="flex-1">
+                      <Button
+                        variant="destructive"
+                        onClick={handleBulkRemoveClassification}
+                        className="flex-1"
+                        disabled={isApplyingRules}
+                      >
                         <X className="w-4 h-4 mr-2" />
                         Remover Classificação
                       </Button>
-                      <Button variant="outline" onClick={() => setSelectedTransactions([])}>
+                      <Button variant="outline" onClick={() => setSelectedTransactions([])} disabled={isApplyingRules}>
                         Limpar Seleção
                       </Button>
                     </div>
@@ -2548,11 +3049,40 @@ const TransactionClassification: React.FC = () => {
             {/* Transactions List */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Movimentações</CardTitle>
+                <div className="flex items-center justify-between mb-4">
+                  <CardTitle className="text-lg">Movimentações</CardTitle>
+
+                  {/* Local real-time filter */}
+                  <div className="relative w-64">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Filtrar movimentações..."
+                      value={movimentacoesFilter}
+                      onChange={(e) => setMovimentacoesFilter(e.target.value)}
+                      className="pl-9 h-9"
+                      disabled={isApplyingRules || transactions.length === 0}
+                    />
+                    {movimentacoesFilter && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
+                        onClick={() => setMovimentacoesFilter("")}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">Itens por página:</span>
-                    <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+                    <Select
+                      value={itemsPerPage.toString()}
+                      onValueChange={(value) => setItemsPerPage(Number(value))}
+                      disabled={isApplyingRules}
+                    >
                       <SelectTrigger className="w-20">
                         <SelectValue />
                       </SelectTrigger>
@@ -2566,23 +3096,33 @@ const TransactionClassification: React.FC = () => {
                   </div>
 
                   <div className="text-sm text-muted-foreground">
-                    Exibindo {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, totalItems)}{" "}
-                    de {totalItems} movimentações
+                    {movimentacoesFilter ? (
+                      <>
+                        Exibindo {Math.min(displayTransactions.length, filteredTransactions.length)} de{" "}
+                        {filteredTransactions.length} movimentações (filtradas)
+                      </>
+                    ) : (
+                      <>
+                        Exibindo {(currentPage - 1) * itemsPerPage + 1} -{" "}
+                        {Math.min(currentPage * itemsPerPage, totalItems)} de {totalItems} movimentações
+                      </>
+                    )}
                   </div>
 
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const allIds = filteredTransactions.map((t) => t.id);
+                      const allIds = displayTransactions.map((t) => t.id);
                       if (selectedTransactions.length === allIds.length) {
                         setSelectedTransactions([]);
                       } else {
                         setSelectedTransactions(allIds);
                       }
                     }}
+                    disabled={isApplyingRules}
                   >
-                    {selectedTransactions.length === filteredTransactions.length && filteredTransactions.length > 0
+                    {selectedTransactions.length === displayTransactions.length && displayTransactions.length > 0
                       ? "Desmarcar Todos"
                       : "Selecionar Todos"}
                   </Button>
@@ -2603,7 +3143,7 @@ const TransactionClassification: React.FC = () => {
                     </div>
                   ) : (
                     <>
-                      {filteredTransactions.map((transaction) => (
+                      {displayTransactions.map((transaction) => (
                         <div key={transaction.id} className="border rounded-lg p-4 space-y-2">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
@@ -2618,6 +3158,7 @@ const TransactionClassification: React.FC = () => {
                                   }
                                 }}
                                 className="rounded"
+                                disabled={isApplyingRules}
                               />
                               <div>
                                 <div className="font-medium">{transaction.description}</div>
@@ -2673,6 +3214,7 @@ const TransactionClassification: React.FC = () => {
                                     // Reset classification
                                     handleClassifyTransaction(transaction.id, "", "");
                                   }}
+                                  disabled={isApplyingRules}
                                 >
                                   Remover
                                 </Button>
@@ -2702,41 +3244,60 @@ const TransactionClassification: React.FC = () => {
                               variant="outline"
                               size="sm"
                               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                              disabled={currentPage === 1}
+                              disabled={currentPage === 1 || isApplyingRules}
                             >
                               Anterior
                             </Button>
                             <div className="flex items-center gap-1">
-                              {Array.from({ length: Math.min(5, Math.ceil(totalItems / itemsPerPage)) }, (_, i) => {
-                                const totalPages = Math.ceil(totalItems / itemsPerPage);
-                                const page =
-                                  currentPage <= 3
-                                    ? i + 1
-                                    : currentPage >= totalPages - 2
-                                      ? totalPages - 4 + i
-                                      : currentPage - 2 + i;
+                              {(() => {
+                                // Use filtered length when local filter is active, otherwise use server total
+                                const effectiveTotalItems = movimentacoesFilter.trim()
+                                  ? filteredTransactions.length
+                                  : totalItems;
+                                const totalPages = Math.ceil(effectiveTotalItems / itemsPerPage);
 
-                                if (page < 1 || page > totalPages) return null;
+                                return Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                  const page =
+                                    currentPage <= 3
+                                      ? i + 1
+                                      : currentPage >= totalPages - 2
+                                        ? totalPages - 4 + i
+                                        : currentPage - 2 + i;
 
-                                return (
-                                  <Button
-                                    key={page}
-                                    variant={currentPage === page ? "default" : "outline"}
-                                    size="sm"
-                                    onClick={() => setCurrentPage(page)}
-                                  >
-                                    {page}
-                                  </Button>
-                                );
-                              })}
+                                  if (page < 1 || page > totalPages) return null;
+
+                                  return (
+                                    <Button
+                                      key={page}
+                                      variant={currentPage === page ? "default" : "outline"}
+                                      size="sm"
+                                      onClick={() => setCurrentPage(page)}
+                                      disabled={isApplyingRules}
+                                    >
+                                      {page}
+                                    </Button>
+                                  );
+                                });
+                              })()}
                             </div>
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() =>
-                                setCurrentPage(Math.min(Math.ceil(totalItems / itemsPerPage), currentPage + 1))
+                              onClick={() => {
+                                const effectiveTotalItems = movimentacoesFilter.trim()
+                                  ? filteredTransactions.length
+                                  : totalItems;
+                                setCurrentPage(
+                                  Math.min(Math.ceil(effectiveTotalItems / itemsPerPage), currentPage + 1),
+                                );
+                              }}
+                              disabled={
+                                currentPage ===
+                                  Math.ceil(
+                                    (movimentacoesFilter.trim() ? filteredTransactions.length : totalItems) /
+                                      itemsPerPage,
+                                  ) || isApplyingRules
                               }
-                              disabled={currentPage === Math.ceil(totalItems / itemsPerPage)}
                             >
                               Próxima
                             </Button>
@@ -2759,7 +3320,7 @@ const TransactionClassification: React.FC = () => {
               <CardContent>
                 <div className="flex gap-4">
                   <div className="flex-1">
-                    <Select value={selectedTypeFilter} onValueChange={setSelectedTypeFilter}>
+                    <Select value={selectedTypeFilter} onValueChange={setSelectedTypeFilter} disabled={isApplyingRules}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Todos os tipos de natureza" />
                       </SelectTrigger>
@@ -2773,7 +3334,11 @@ const TransactionClassification: React.FC = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button onClick={handleSearchHierarchy} className="whitespace-nowrap" disabled={loading}>
+                  <Button
+                    onClick={handleSearchHierarchy}
+                    className="whitespace-nowrap"
+                    disabled={loading || isApplyingRules}
+                  >
                     <Search className="w-4 h-4 mr-2" />
                     Buscar
                   </Button>
@@ -2926,16 +3491,167 @@ const TransactionClassification: React.FC = () => {
           </TabsContent>
 
           <TabsContent value="rules" className="space-y-6">
-            {/* Filtro para Regras */}
+            {/* Filtros para Regras */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-medium">Carregar Regras</CardTitle>
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Filter className="w-4 h-4" />
+                  Filtros de Regras
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <Button onClick={handleSearchRules} className="w-full" disabled={loading}>
-                  <Search className="w-4 h-4 mr-2" />
-                  Buscar Regras
-                </Button>
+              <CardContent className="space-y-4">
+                {/* Linha 1: Empresa e Filial */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Empresa</Label>
+                    <Select value={rulesFilterCompany} onValueChange={setRulesFilterCompany}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todas as empresas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as empresas</SelectItem>
+                        {companiesForGroup.map((company) => (
+                          <SelectItem key={company.id} value={company.id}>
+                            {company.name} {company.segment && `(${company.segment})`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Filial</Label>
+                    <Select 
+                      value={rulesFilterBranch} 
+                      onValueChange={setRulesFilterBranch}
+                      disabled={rulesFilterCompany === "all"}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={rulesFilterCompany === "all" ? "Selecione uma empresa primeiro" : "Todas as filiais"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as filiais</SelectItem>
+                        {rulesFilteredBranches.map((branch) => (
+                          <SelectItem key={branch.id} value={branch.id}>
+                            {branch.name} {branch.city && `- ${branch.city}/${branch.state}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Linha 2: Tipo, Grupo, Natureza */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Tipo</Label>
+                    <Select value={rulesFilterType} onValueChange={setRulesFilterType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos os tipos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os tipos</SelectItem>
+                        {types.map((type) => (
+                          <SelectItem key={type.id} value={type.id}>
+                            {type.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Grupo</Label>
+                    <Select 
+                      value={rulesFilterGroup} 
+                      onValueChange={setRulesFilterGroup}
+                      disabled={rulesFilterType === "all"}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={rulesFilterType === "all" ? "Selecione um tipo primeiro" : "Todos os grupos"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os grupos</SelectItem>
+                        {rulesFilteredGroups.map((group) => (
+                          <SelectItem key={group.id} value={group.id}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: group.color }} />
+                              {group.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Natureza</Label>
+                    <Select 
+                      value={rulesFilterCommitment} 
+                      onValueChange={setRulesFilterCommitment}
+                      disabled={rulesFilterGroup === "all"}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={rulesFilterGroup === "all" ? "Selecione um grupo primeiro" : "Todas as naturezas"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as naturezas</SelectItem>
+                        {rulesFilteredCommitments.map((commitment) => (
+                          <SelectItem key={commitment.id} value={commitment.id}>
+                            {commitment.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Linha 3: Banco e Botão de Buscar */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Banco</Label>
+                    <Select value={rulesFilterBank} onValueChange={setRulesFilterBank}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos os bancos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os bancos</SelectItem>
+                        {banks.map((bank) => (
+                          <SelectItem key={bank.id} value={bank.id}>
+                            {bank.bank_name} ({bank.bank_code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-end gap-2">
+                    <Button onClick={handleSearchRules} className="flex-1" disabled={loading || isApplyingRules}>
+                      <Search className="w-4 h-4 mr-2" />
+                      Buscar Regras
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setRulesFilterType("all");
+                        setRulesFilterGroup("all");
+                        setRulesFilterCommitment("all");
+                        setRulesFilterBank("all");
+                        setRulesFilterCompany("all");
+                        setRulesFilterBranch("all");
+                      }}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Contador de resultados */}
+                {hasSearchedRules && (
+                  <div className="text-sm text-muted-foreground">
+                    Exibindo {filteredRules.length} de {rules.length} regras
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -2965,7 +3681,7 @@ const TransactionClassification: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {rules.map((rule) => (
+                    {filteredRules.map((rule) => (
                       <div
                         key={rule.id}
                         className="flex items-center justify-between p-4 border rounded-lg bg-background hover:bg-accent/50 transition-colors"
@@ -2976,6 +3692,30 @@ const TransactionClassification: React.FC = () => {
                             <Badge variant="outline" className="text-xs">
                               Contém: "{rule.description_contains}"
                             </Badge>
+                          </div>
+
+                          {/* Empresa e Filial */}
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                            <Building2 className="w-4 h-4" />
+                            <span>
+                              {rule.companies?.name || "Empresa não encontrada"}
+                              {rule.companies?.segment && ` (${rule.companies.segment})`}
+                            </span>
+                            {rule.branches && (
+                              <>
+                                <span className="text-muted-foreground/50">•</span>
+                                <span>
+                                  {rule.branches.name}
+                                  {rule.branches.city && ` - ${rule.branches.city}/${rule.branches.state}`}
+                                </span>
+                              </>
+                            )}
+                            {!rule.branches && (
+                              <>
+                                <span className="text-muted-foreground/50">•</span>
+                                <span className="text-muted-foreground/70">Todas as filiais</span>
+                              </>
+                            )}
                           </div>
 
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -2998,10 +3738,13 @@ const TransactionClassification: React.FC = () => {
                               )}
                               {rule.bank_id ? (
                                 <Badge variant="outline" className="text-xs bg-blue-50 border-blue-200 text-blue-700">
-                                  Banco: {banks.find(b => b.id === rule.bank_id)?.bank_name || 'Desconhecido'}
+                                  Banco: {banks.find((b) => b.id === rule.bank_id)?.bank_name || "Desconhecido"}
                                 </Badge>
                               ) : (
-                                <Badge variant="outline" className="text-xs bg-slate-50 border-slate-200 text-slate-600">
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs bg-slate-50 border-slate-200 text-slate-600"
+                                >
                                   Todos os bancos
                                 </Badge>
                               )}
@@ -3010,10 +3753,20 @@ const TransactionClassification: React.FC = () => {
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <Button variant="outline" size="sm" onClick={() => handleEditRule(rule)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditRule(rule)}
+                            disabled={isApplyingRules}
+                          >
                             Editar
                           </Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleDeleteRule(rule.id)}>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteRule(rule.id)}
+                            disabled={isApplyingRules}
+                          >
                             Excluir
                           </Button>
                         </div>
@@ -3028,7 +3781,7 @@ const TransactionClassification: React.FC = () => {
 
         {/* Edit Rule Dialog */}
         <Dialog open={isEditRuleDialogOpen} onOpenChange={setIsEditRuleDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Editar Regra de Classificação</DialogTitle>
               <DialogDescription>Modifique a regra de classificação automática</DialogDescription>
@@ -3053,13 +3806,83 @@ const TransactionClassification: React.FC = () => {
                 />
               </div>
 
+              {/* Organization Scope */}
+              <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
+                <Label className="text-sm font-medium">Escopo da Regra</Label>
+
+                {/* Group (read-only) */}
+                <div>
+                  <Label className="text-xs text-muted-foreground">Grupo</Label>
+                  <div className="flex items-center gap-2 p-2 border rounded bg-background">
+                    <Building2 className="w-4 h-4 text-muted-foreground" />
+                    <span className="font-medium">{userGroupName || "Carregando..."}</span>
+                  </div>
+                </div>
+
+                {/* Company (selectable) */}
+                <div>
+                  <Label className="text-xs text-muted-foreground">Empresa *</Label>
+                  <Select
+                    value={newRule.company_id}
+                    onValueChange={(value) =>
+                      setNewRule((prev) => ({
+                        ...prev,
+                        company_id: value,
+                        branch_id: "",
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a empresa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companiesForGroup.map((company) => (
+                        <SelectItem key={company.id} value={company.id}>
+                          {company.name} {company.segment && `(${company.segment})`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Branch (optional) */}
+                <div>
+                  <Label className="text-xs text-muted-foreground">Filial (opcional)</Label>
+                  <Select
+                    value={newRule.branch_id || "all"}
+                    onValueChange={(value) =>
+                      setNewRule((prev) => ({
+                        ...prev,
+                        branch_id: value === "all" ? "" : value,
+                      }))
+                    }
+                    disabled={!newRule.company_id}
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={!newRule.company_id ? "Selecione primeiro a empresa" : "Todas as filiais"}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as filiais</SelectItem>
+                      {branchesForCompany.map((branch) => (
+                        <SelectItem key={branch.id} value={branch.id}>
+                          {branch.name} {branch.city && `(${branch.city}/${branch.state})`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Se não selecionada, a regra se aplica a todas as filiais da empresa
+                  </p>
+                </div>
+              </div>
+
               <div>
                 <Label htmlFor="edit-bank-select">Banco (opcional)</Label>
                 <Select
                   value={newRule.bank_id || "all"}
-                  onValueChange={(value) => 
-                    setNewRule((prev) => ({ ...prev, bank_id: value === "all" ? "" : value }))
-                  }
+                  onValueChange={(value) => setNewRule((prev) => ({ ...prev, bank_id: value === "all" ? "" : value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Todos os bancos" />
@@ -3209,6 +4032,8 @@ const TransactionClassification: React.FC = () => {
                       commitment_id: "",
                       commitment_type_id: "",
                       bank_id: "",
+                      company_id: "",
+                      branch_id: "",
                     });
                   }}
                   className="flex-1"

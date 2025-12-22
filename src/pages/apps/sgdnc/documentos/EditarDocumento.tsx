@@ -19,14 +19,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 
-import { ParagrafoEditor } from '@/components/sgdnc/editor/ParagrafoEditor';
-import { SelecionarTipoParagrafo } from '@/components/sgdnc/editor/SelecionarTipoParagrafo';
-import { usePastas } from '@/hooks/sgdnc/usePastas';
+import { ParagrafoEditor } from '@/pages/apps/sgdnc/components/editor/ParagrafoEditor';
+import { SelecionarTipoParagrafo } from '@/pages/apps/sgdnc/components/editor/SelecionarTipoParagrafo';
+import { usePastas } from '@/pages/apps/sgdnc/hooks/usePastas';
 
-import { useDocumentos } from '@/hooks/sgdnc/useDocumentos';
+import { useDocumentos } from '@/pages/apps/sgdnc/hooks/useDocumentos';
 import { useAuth } from '@/contexts/AuthContext';
-import { Paragrafo } from '@/types/paragrafo';
-import { mockAprovadores } from '@/services/sgdncMockData';
+import { Paragrafo } from '@/pages/apps/sgdnc/types/paragrafo';
+import { mockAprovadores } from '@/pages/apps/sgdnc/services/sgdncMockData';
 
 const documentoSchema = z.object({
   titulo: z.string().min(3).max(200),

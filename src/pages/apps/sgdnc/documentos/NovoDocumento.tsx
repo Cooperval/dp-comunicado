@@ -4,9 +4,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useDropzone } from 'react-dropzone';
-import { Paragrafo, ImagemConteudo, TabelaConteudo } from '@/types/paragrafo';
-import { ParagrafoEditor } from '@/components/sgdnc/editor/ParagrafoEditor';
-import { SelecionarTipoParagrafo } from '@/components/sgdnc/editor/SelecionarTipoParagrafo';
+import { Paragrafo, ImagemConteudo, TabelaConteudo } from '@/pages/apps/sgdnc/types/paragrafo';
+import { ParagrafoEditor } from '@/pages/apps/sgdnc/components/editor/ParagrafoEditor';
+import { SelecionarTipoParagrafo } from '@/pages/apps/sgdnc/components/editor/SelecionarTipoParagrafo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -37,9 +37,9 @@ import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-import { createDocumento, mockAprovadores, type Pasta } from '@/services/sgdncMockData';
+import { createDocumento, mockAprovadores, type Pasta } from '@/pages/apps/sgdnc/services/sgdncMockData';
 import { useAuth } from "@/contexts/AuthContext";
-import { usePastas } from '@/hooks/sgdnc/usePastas';
+import { usePastas } from '@/pages/apps/sgdnc/hooks/usePastas';
 
 
 

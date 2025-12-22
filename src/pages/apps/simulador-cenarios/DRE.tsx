@@ -1,4 +1,5 @@
-import { useSimulator } from '@/contexts/SimulatorContext';
+import { useState, useMemo } from 'react';
+import { useSimulator } from '@/pages/apps/simulador-cenarios/contexts/SimulatorContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,11 +24,37 @@ import { toast } from 'sonner';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 // import marcaDagua from '@/assets/logo-1.png'
-import { calcularDRE, calcularResumoFinanceiro } from '@/utils/simulatorCalculations';
+import { calcularDRE, calcularResumoFinanceiro, calculateConsolidatedData, getConsolidatedDREData, ConsolidatedDREData } from '@/pages/apps/simulador-cenarios/utils/simulatorCalculations';
+import { ScenarioSelector } from '@/pages/apps/simulador-cenarios/components/ScenarioSelector';
 
 const DRE = () => {
-  const { data, updateDRE } = useSimulator();
+  const { data, updateDRE, savedScenarios } = useSimulator();
+  const [selectedScenario, setSelectedScenario] = useState<string>('current');
 
+  // Para visão consolidada, usar dados pré-calculados de scenario.data
+  const consolidatedData = useMemo((): ConsolidatedDREData | null => {
+    if (selectedScenario === 'consolidated') {
+      return getConsolidatedDREData(savedScenarios);
+    }
+    return null;
+  }, [selectedScenario, savedScenarios]);
+
+  // Para cenário atual ou cenário específico, usa o cálculo normal
+  const effectiveData = useMemo(() => {
+    if (selectedScenario === 'current') return data;
+    if (selectedScenario === 'consolidated') return data; // Será ignorado quando consolidatedData existe
+    const scenario = savedScenarios.find(s => s.id === selectedScenario);
+    return scenario?.originalData || data;
+  }, [selectedScenario, data, savedScenarios]);
+
+  // Verifica se está visualizando cenário salvo (não permite edição)
+  const isViewingOnly = selectedScenario !== 'current';
+
+  // Calcula valores do DRE (será usado quando não é consolidado)
+  const dreCalculated = useMemo(() => calcularDRE(effectiveData), [effectiveData]);
+  const resumoCalculated = useMemo(() => calcularResumoFinanceiro(effectiveData), [effectiveData]);
+
+  // Usa dados consolidados diretamente OU calcula a partir de effectiveData
   const {
     prodVHP,
     receitaAcucarCana,
@@ -55,15 +82,76 @@ const DRE = () => {
     icmsTotal,
     pisCofinsTotal,
     despesasAdm,
-    ebitda,
-    ebitdaPerc,
-  } = calcularDRE(data);
+  } = useMemo(() => {
+    if (consolidatedData) {
+      // Usa os valores consolidados diretamente de scenario.data
+      return {
+        prodVHP: consolidatedData.sugarProduction,
+        receitaAcucarCana: consolidatedData.receitaAcucarVHP,
+        receitaEtanolHidratadoCana: consolidatedData.receitaEtanolHidratadoCana,
+        receitaEtanolAnidrocana: consolidatedData.receitaEtanolAnidroCana,
+        receitaCO2Cana: consolidatedData.receitaCO2,
+        receitaEtanolMilho: consolidatedData.receitaEtanolHidratadoMilho + consolidatedData.receitaEtanolAnidroMilho,
+        receitaDDG: consolidatedData.receitaDDG,
+        receitaWDG: consolidatedData.receitaWDG,
+        receitaCO2Milho: 0, // CO2 Milho separado não está no consolidado
+        receitaCBIO: consolidatedData.receitaCBIO,
+        totalReceitaBruta: consolidatedData.totalRevenue,
+        totalDerivativosCambio: consolidatedData.derivativosCambio,
+        totalImpostos: consolidatedData.impostos,
+        receitaLiquida: consolidatedData.receitaLiquida,
+        cpvCana: consolidatedData.custoCanaTotal,
+        cpvMilho: consolidatedData.custoMilhoTotal,
+        cpvTotal: consolidatedData.cpvTotal,
+        despesasComercializacaoEtanol: consolidatedData.despesasVendas,
+        totalEthanol: consolidatedData.hydratedEthanolCane + consolidatedData.anhydrousEthanolCane + consolidatedData.hydratedEthanolCorn + consolidatedData.anhydrousEthanolCorn,
+        despesasComercializacaoAcucar: 0,
+        totalDespesasVendas: consolidatedData.despesasVendas,
+        lucroBruto: consolidatedData.margemContribuicao,
+        resultadoOp: consolidatedData.resultadoOperacional,
+        icmsTotal: 0,
+        pisCofinsTotal: 0,
+        despesasAdm: consolidatedData.administracao,
+      };
+    }
+    return dreCalculated;
+  }, [consolidatedData, dreCalculated]);
 
   const {
     totalProduction,
     prodEAC,
     prodEHC,
-  } = calcularResumoFinanceiro(data);
+  } = useMemo(() => {
+    if (consolidatedData) {
+      return {
+        totalProduction: {
+          sugarCane: consolidatedData.caneProcessed,
+          corn: consolidatedData.cornProcessed,
+          sugar: consolidatedData.sugarProduction,
+          totalEthanol: consolidatedData.hydratedEthanolCane + consolidatedData.anhydrousEthanolCane + consolidatedData.hydratedEthanolCorn + consolidatedData.anhydrousEthanolCorn,
+          hydratedEthanol: consolidatedData.hydratedEthanolCane + consolidatedData.hydratedEthanolCorn,
+          anhydrousEthanol: consolidatedData.anhydrousEthanolCane + consolidatedData.anhydrousEthanolCorn,
+          ethanolCane: consolidatedData.hydratedEthanolCane + consolidatedData.anhydrousEthanolCane,
+          ethanolCorn: consolidatedData.hydratedEthanolCorn + consolidatedData.anhydrousEthanolCorn,
+          ddg: consolidatedData.ddgProduction,
+          wdg: consolidatedData.wdgProduction,
+          co2: consolidatedData.co2Production,
+          cbio: consolidatedData.cbioProduction,
+        },
+        prodEAC: consolidatedData.anhydrousEthanolCane,
+        prodEHC: consolidatedData.hydratedEthanolCane,
+      };
+    }
+    return resumoCalculated;
+  }, [consolidatedData, resumoCalculated]);
+
+  // Label do cenário selecionado
+  const scenarioLabel = useMemo(() => {
+    if (selectedScenario === 'current') return 'Cenário Atual';
+    if (selectedScenario === 'consolidated') return 'Visão Consolidada';
+    const scenario = savedScenarios.find(s => s.id === selectedScenario);
+    return scenario?.name || 'Cenário';
+  }, [selectedScenario, savedScenarios]);
 
 
 
@@ -151,7 +239,7 @@ const DRE = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold text-primary flex items-center gap-2">
 
@@ -161,10 +249,17 @@ const DRE = () => {
             Resultado da operação baseados nas produções, receitas, impostos e custos
           </p>
         </div>
-        <Button onClick={handleExport} variant="outline" size="sm">
-          <Download className="w-4 h-4 mr-2" />
-          Exportar PDF
-        </Button>
+        <div className="flex gap-2 items-center flex-wrap">
+          <ScenarioSelector
+            selectedScenario={selectedScenario}
+            onScenarioChange={setSelectedScenario}
+            savedScenarios={savedScenarios}
+          />
+          <Button onClick={handleExport} variant="outline" size="sm">
+            <Download className="w-4 h-4 mr-2" />
+            Exportar PDF
+          </Button>
+        </div>
       </div>
 
       <div id="dre-content">
@@ -530,16 +625,8 @@ const DRE = () => {
                   <p className="font-semibold">{formatCurrency(despesasComercializacaoEtanol)}</p>
                 </div>
                 <div className="flex justify-between">
-                  <p className="text-muted-foreground">Volume Etanol (m³):</p>
-                  <p className="font-mono text-xs">{formatNumber(totalEthanol)} × R$ 5,04</p>
-                </div>
-                <div className="flex justify-between">
                   <p className="text-muted-foreground">Comercialização Açúcar:</p>
                   <p className="font-semibold">{formatCurrency(despesasComercializacaoAcucar)}</p>
-                </div>
-                <div className="flex justify-between">
-                  <p className="text-muted-foreground">Volume Açúcar (ton):</p>
-                  <p className="font-mono text-xs">{formatNumber(prodVHP)} × R$ 165,00</p>
                 </div>
               </div>
 
@@ -649,6 +736,10 @@ const DRE = () => {
                 <span>Despesas com Vendas:</span>
                 <span className="font-semibold text-red-600">-{formatCurrency(totalDespesasVendas)}</span>
               </div>
+              <div className="flex justify-between text-lg">
+                <span>Administrativo:</span>
+                <span className="font-semibold text-red-600">-{formatCurrency(despesasAdm)}</span>
+              </div>
               <Separator />
               <div className="flex justify-between text-xl font-bold">
                 <span>Resultado Operacional:</span>
@@ -656,24 +747,6 @@ const DRE = () => {
                   {formatCurrency(resultadoOp)}
                 </span>
               </div>
-              <div className="flex justify-between text-lg">
-                <span>Administrativo:</span>
-                <span className="font-semibold text-red-600">-{formatCurrency(despesasAdm)}</span>
-              </div>
-              <Separator />
-              <div className="flex justify-between text-xl font-bold">
-                <span>EBITDA:</span>
-                <span className={resultadoOp >= 0 ? 'text-green-600' : 'text-red-600'}>
-                  {formatCurrency(ebitda)}
-                </span>
-              </div>
-
-              <div className="flex justify-between text-lg">
-                <span>% EBTIDA:</span>
-                <span className="font-normal text-black-600">{formatNumber(ebitdaPerc)}%</span>
-
-              </div>
-
             </div>
           </CardContent>
         </Card>

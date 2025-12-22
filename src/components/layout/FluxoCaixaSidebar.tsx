@@ -6,7 +6,7 @@ import {
   Grid3X3,
   ArrowDownUp,
   LayoutList,
-  LayoutDashboard,
+  ListChecks,
   Plus,
   List,
   Settings,
@@ -31,11 +31,12 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from "@/contexts/AuthContext";
 
 const items = [
-  { title: 'Dashboard', url: '/apps/fluxo-de-caixa/', icon: Home },
+  //{ title: 'Dashboard', url: '/apps/fluxo-de-caixa/', icon: Home },
   { title: 'Saldos Bancários', url: '/apps/fluxo-de-caixa/saldos', icon: CreditCard },
   { title: 'Movimentações', url: '/apps/fluxo-de-caixa/movimentacoes', icon: ArrowDownUp },
   { title: 'Pendências', url: '/apps/fluxo-de-caixa/pendencias', icon: LayoutList },
   { title: 'Lançamentos Futuros', url: '/apps/fluxo-de-caixa/lancamento-futuro', icon: TrendingUp },
+  { title: 'Projeção DP', url: '/apps/fluxo-de-caixa/projecao-dp', icon: ListChecks },
   { title: 'Fluxo de caixa', url: '/apps/fluxo-de-caixa/fluxo-de-caixa', icon: Grid3X3 },
   { title: 'Configurações', url: '/apps/fluxo-de-caixa/configuracoes', icon: Settings },
 ];

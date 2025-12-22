@@ -1,38 +1,47 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/components/auth/controle-financeiro/AuthProvider';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Plus, TrendingUp, TrendingDown } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
-
-interface NFeItem {
-  id: string;
-  product_code: string;
-  product_description: string;
-  ncm: string;
-  quantity: number;
-  cost_price: number;
-  sale_price: number;
-  total_value: number;
-  margin: number;
-}
+import React, { useState } from "react";
+import { useAuth } from "@/pages/apps/controle-financeiro/auth/AuthProvider";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { TrendingUp, TrendingDown } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { formatCurrency } from "@/pages/apps/controle-financeiro/utils/formatters";
+import {
+  MARGIN_THRESHOLDS,
+  DEFAULT_COST_RATIO,
+  CFOP_CLASSIFICATIONS,
+  MARGIN_STATUS_STYLES,
+} from "@/pages/apps/controle-financeiro/constants/marginConstants";
+import type { NFeItem, NFeItemRaw, NCMGroup, CFOPClassification, MarginStatus } from "@/pages/apps/controle-financeiro/types/margin";
+import { CompanyBranchFilter } from "@/pages/apps/controle-financeiro/components/filters/CompanyBranchFilter";
+import { useCompanyBranchFilter } from "@/pages/apps/controle-financeiro/hooks/useCompanyBranchFilter";
 
 const MarginAnalysis = () => {
-  const { user } = useAuth();
+  const { companyId } = useAuth();
   const [nfeItems, setNfeItems] = useState<NFeItem[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Company and Branch filter
+  const companyBranchFilter = useCompanyBranchFilter();
+
   const fetchNFeItems = async () => {
+    if (!companyId) {
+      toast({
+        title: "Erro",
+        description: "Empresa não identificada.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
     try {
-      // First get NFe items with their document info
-      const { data, error } = await supabase
-        .from('nfe_items')
-        .select(`
+      // Buscar itens de NFe com filtro de empresa e filial
+      let query = supabase
+        .from("nfe_items")
+        .select(
+          `
           id,
           product_code,
           product_description,
@@ -42,154 +51,167 @@ const MarginAnalysis = () => {
           total_value,
           nfe_documents!inner(
             company_id,
+            branch_id,
             cfop
           )
-        `)
-        .order('unit_value', { ascending: false });
+        `,
+        )
+        .eq("nfe_documents.company_id", companyBranchFilter.selectedCompanyId || companyId);
+
+      if (companyBranchFilter.selectedBranchId) {
+        query = query.eq("nfe_documents.branch_id", companyBranchFilter.selectedBranchId);
+      }
+
+      const { data, error } = await query.order("unit_value", { ascending: false });
 
       if (error) throw error;
 
-      // Get CFOP classifications separately
+      // Buscar classificações CFOP da empresa
       const { data: classificationsData, error: classError } = await supabase
-        .from('cfop_classifications')
-        .select('cfop, classification');
+        .from("cfop_classifications")
+        .select("cfop, classification")
+        .eq("company_id", companyId);
 
       if (classError) throw classError;
 
-      // Create classification map
-      const classificationMap = (classificationsData || []).reduce((acc, item) => {
-        acc[item.cfop] = item.classification;
-        return acc;
-      }, {} as Record<string, string>);
+      // Criar mapa de classificações
+      const classificationMap = (classificationsData || []).reduce(
+        (acc, item: CFOPClassification) => {
+          acc[item.cfop] = item.classification;
+          return acc;
+        },
+        {} as Record<string, string>,
+      );
 
-      // Group items by NCM to calculate cost and selling prices
-      const ncmGroups = (data || []).reduce((acc, item) => {
-        const ncm = item.ncm;
-        if (!acc[ncm]) {
-          acc[ncm] = {
-            items: [],
-            costItems: [],
-            saleItems: []
-          };
-        }
-        
-        acc[ncm].items.push(item);
-        
-        // Check CFOP classification
-        const classification = classificationMap[item.nfe_documents.cfop];
-        if (classification === 'custo') {
-          acc[ncm].costItems.push(item);
-        } else if (classification === 'venda') {
-          acc[ncm].saleItems.push(item);
-        }
-        
-        return acc;
-      }, {} as Record<string, any>);
+      // Agrupar itens por NCM para calcular preços de custo e venda
+      const ncmGroups = (data || []).reduce(
+        (acc, item: NFeItemRaw) => {
+          const ncm = item.ncm;
+          if (!acc[ncm]) {
+            acc[ncm] = {
+              items: [],
+              costItems: [],
+              saleItems: [],
+            };
+          }
 
-      // Calculate margins for each NCM
-      const itemsWithMargin: NFeItem[] = [];
-      
-      Object.values(ncmGroups).forEach((group: any) => {
-        const avgCostPrice = group.costItems.length > 0 
-          ? group.costItems.reduce((sum: number, item: any) => sum + item.unit_value, 0) / group.costItems.length
-          : 0;
-          
-        const avgSalePrice = group.saleItems.length > 0
-          ? group.saleItems.reduce((sum: number, item: any) => sum + item.unit_value, 0) / group.saleItems.length
-          : 0;
+          acc[ncm].items.push(item);
 
-        // Use the first item as representative for this NCM
+          // Verificar classificação CFOP
+          const classification = classificationMap[item.nfe_documents.cfop];
+          if (classification === CFOP_CLASSIFICATIONS.COST) {
+            acc[ncm].costItems.push(item);
+          } else if (classification === CFOP_CLASSIFICATIONS.SALE) {
+            acc[ncm].saleItems.push(item);
+          }
+
+          return acc;
+        },
+        {} as Record<string, NCMGroup>,
+      );
+
+      // Calcular margens para cada NCM
+      const itemsWithMargin: NFeItem[] = Object.values(ncmGroups).map((group: NCMGroup) => {
+        const avgCostPrice =
+          group.costItems.length > 0
+            ? group.costItems.reduce((sum, item) => sum + item.unit_value, 0) / group.costItems.length
+            : 0;
+
+        const avgSalePrice =
+          group.saleItems.length > 0
+            ? group.saleItems.reduce((sum, item) => sum + item.unit_value, 0) / group.saleItems.length
+            : 0;
+
+        // Usar o primeiro item como representante deste NCM
         const representativeItem = group.items[0];
-        
-        // Set cost and sale prices based on CFOP classifications
-        let costPrice = 0;
-        let salePrice = 0;
 
-        if (avgCostPrice > 0) {
-          costPrice = avgCostPrice;
-        }
-        
-        if (avgSalePrice > 0) {
-          salePrice = avgSalePrice;
-        }
+        // Definir preços de custo e venda baseado nas classificações CFOP
+        let costPrice = avgCostPrice > 0 ? avgCostPrice : 0;
+        let salePrice = avgSalePrice > 0 ? avgSalePrice : 0;
 
-        // If no classification, use original estimation
+        // Se não houver classificação, usar estimativa original
         if (costPrice === 0 && salePrice === 0) {
           salePrice = representativeItem.unit_value;
-          costPrice = representativeItem.unit_value * 0.7; // Estimate 70% cost
+          costPrice = representativeItem.unit_value * DEFAULT_COST_RATIO;
         }
 
         const margin = salePrice - costPrice;
 
-        itemsWithMargin.push({
+        return {
           id: representativeItem.id,
           product_code: representativeItem.product_code,
           product_description: representativeItem.product_description,
           ncm: representativeItem.ncm,
-          quantity: group.items.reduce((sum: number, item: any) => sum + item.quantity, 0),
+          quantity: group.items.reduce((sum, item) => sum + item.quantity, 0),
           cost_price: costPrice,
           sale_price: salePrice,
           total_value: representativeItem.total_value,
-          margin: margin
-        });
+          margin: margin,
+        };
       });
 
       setNfeItems(itemsWithMargin);
     } catch (error) {
-      console.error('Error fetching NFe items:', error);
       toast({
         title: "Erro",
         description: "Não foi possível carregar os itens das notas fiscais.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const getMarginPercentage = (margin: number, sellingPrice: number) => {
+  const getMarginPercentage = (margin: number, sellingPrice: number): number => {
     return sellingPrice > 0 ? (margin / sellingPrice) * 100 : 0;
   };
 
-  const getMarginColor = (margin: number) => {
-    if (margin >= 30) return 'bg-success text-success-foreground';
-    if (margin >= 15) return 'bg-warning text-warning-foreground';
-    return 'bg-destructive text-destructive-foreground';
+  const getMarginStatus = (marginPercentage: number): MarginStatus => {
+    if (marginPercentage >= MARGIN_THRESHOLDS.EXCELLENT) return "excellent";
+    if (marginPercentage >= MARGIN_THRESHOLDS.GOOD) return "good";
+    return "poor";
   };
 
-  const getMarginIcon = (margin: number) => {
-    return margin >= 20 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />;
+  const getMarginIcon = (marginPercentage: number) => {
+    return marginPercentage >= MARGIN_THRESHOLDS.ICON_THRESHOLD ? (
+      <TrendingUp className="w-4 h-4" />
+    ) : (
+      <TrendingDown className="w-4 h-4" />
+    );
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Análise de Margens</h1>
-          <p className="text-muted-foreground mt-2">
-            Visualize as margens de lucro dos produtos baseadas nas classificações CFOP das notas fiscais
-          </p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <CompanyBranchFilter
+            companies={companyBranchFilter.companies}
+            branches={companyBranchFilter.branches}
+            selectedCompanyId={companyBranchFilter.selectedCompanyId}
+            selectedBranchId={companyBranchFilter.selectedBranchId}
+            onCompanyChange={companyBranchFilter.handleCompanyChange}
+            onBranchChange={companyBranchFilter.handleBranchChange}
+            loading={companyBranchFilter.loading}
+          />
+
+          <Button onClick={fetchNFeItems} disabled={loading} className="gap-2">
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Buscando...
+              </>
+            ) : (
+              "Buscar Margens"
+            )}
+          </Button>
         </div>
-        <Button 
-          onClick={fetchNFeItems} 
-          disabled={loading}
-          className="gap-2"
-        >
-          {loading ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              Buscando...
-            </>
-          ) : (
-            'Buscar Margens'
-          )}
-        </Button>
       </div>
 
       <div className="grid gap-4">
         {nfeItems.map((item) => {
           const marginPercentage = getMarginPercentage(item.margin, item.sale_price);
-          
+          const status = getMarginStatus(marginPercentage);
+
           return (
             <Card key={item.id} className="hover:shadow-elevated transition-all">
               <CardContent className="p-6">
@@ -203,15 +225,15 @@ const MarginAnalysis = () => {
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <span className="text-muted-foreground">Preço de Custo:</span>
-                        <p className="font-medium">R$ {item.cost_price.toFixed(2)}</p>
+                        <p className="font-medium">{formatCurrency(item.cost_price)}</p>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Preço de Venda:</span>
-                        <p className="font-medium">R$ {item.sale_price.toFixed(2)}</p>
+                        <p className="font-medium">{formatCurrency(item.sale_price)}</p>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Margem Unitária:</span>
-                        <p className="font-medium">R$ {item.margin.toFixed(2)}</p>
+                        <p className="font-medium">{formatCurrency(item.margin)}</p>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Quantidade:</span>
@@ -221,9 +243,7 @@ const MarginAnalysis = () => {
                   </div>
                   <div className="flex items-center gap-3">
                     {getMarginIcon(marginPercentage)}
-                    <Badge className={getMarginColor(marginPercentage)}>
-                      {marginPercentage.toFixed(1)}%
-                    </Badge>
+                    <Badge className={MARGIN_STATUS_STYLES[status].className}>{marginPercentage.toFixed(1)}%</Badge>
                   </div>
                 </div>
               </CardContent>

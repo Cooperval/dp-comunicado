@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useSimulator } from '@/contexts/SimulatorContext';
-import { calcularCpvPorProduto } from '@/utils/simulatorCalculations';
+import { useSimulator } from '@/pages/apps/simulador-cenarios/contexts/SimulatorContext';
+import { calcularCpvPorProduto } from '@/pages/apps/simulador-cenarios/utils/simulatorCalculations';
 
 
 
@@ -45,9 +45,13 @@ const CPV: React.FC = () => {
         </CardHeader>
         <CardContent className="text-blue-700">
           <div className="space-y-2 text-sm">
-            <p><strong>Produtos da Cana:</strong> CPV = (Custo Total da Cana ÷ Cana Moída) × Rendimento por Tonelada</p>
-            <p><strong>Produtos do Milho:</strong> CPV = (Custo Total do Milho ÷ Milho Moído) × Rendimento por Tonelada</p>
-            <p><strong>Observação:</strong> Os valores são calculados considerando os custos de produção e os rendimentos específicos de cada produto.</p>
+            <p><strong>Fórmula:</strong> CPV = ((Custo Total × % Proporção) ÷ Rendimento) × 1000</p>
+            <p><strong>Onde:</strong></p>
+            <ul className="list-disc list-inside ml-2">
+              <li>Custo Total = Matéria Prima + CCT + Indústria + Dispêndios (R$/ton)</li>
+              <li>% Proporção = Proporção do produto exibida na tela de Produções (VHP%, EHC%, EAC%)</li>
+              <li>Rendimento = Rendimento específico do produto (kg/ton ou L/ton)</li>
+            </ul>
           </div>
         </CardContent>
       </Card>

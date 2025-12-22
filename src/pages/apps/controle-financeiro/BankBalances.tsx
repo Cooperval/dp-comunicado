@@ -18,7 +18,7 @@ import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/components/auth/controle-financeiro/AuthProvider';
+import { useAuth } from '@/pages/apps/controle-financeiro/auth/AuthProvider';
 
 interface BankBalance {
   id: string;

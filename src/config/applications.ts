@@ -27,7 +27,7 @@ export const applications: Application[] = [
     name: 'Fluxo de Caixa',
     description: 'Acompanhe as entradas e saídas financeiras',
     icon: ArrowUpDown,
-    route: '/apps/fluxo-de-caixa',
+    route: '/apps/fluxo-de-caixa/saldos',
     color: 'hsl(200 80% 40%)',
     status: 'active',
     cod_modulo: 12,
@@ -60,7 +60,7 @@ export const applications: Application[] = [
     icon: DollarSign,
     route: '/apps/fechamento',
     color: 'hsla(32, 70%, 50%, 1.00)',
-    status: 'coming-soon',
+    status: 'active',
     cod_modulo: 17,
   },
   {

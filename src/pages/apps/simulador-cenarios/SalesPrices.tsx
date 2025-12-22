@@ -1,10 +1,10 @@
 import React,{useMemo} from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { NumericInput } from '@/components/ui/numeric-input';
-import { useSimulator } from '@/contexts/SimulatorContext';
+import { useSimulator } from '@/pages/apps/simulador-cenarios/contexts/SimulatorContext';
 import { Badge } from '@/components/ui/badge';
 
-import { calcularPrecosLiquidos } from '@/utils/simulatorCalculations';
+import { calcularPrecosLiquidos } from '@/pages/apps/simulador-cenarios/utils/simulatorCalculations';
 
 const SalesPrices: React.FC = () => {
   const { data, updatePrices } = useSimulator();

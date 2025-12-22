@@ -10,29 +10,26 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   useSidebar,
+  SidebarFooter,
 } from '@/components/ui/sidebar';
+
 import {
-  Settings,
-  BarChart3,
-  Wheat,
-  Flower2,
   Factory,
-  ShoppingCart,
   DollarSign,
   Calculator,
   FileText,
-  TrendingUp,
   LineChart,
-  SquareMinus,
-  ListFilter,
-  Blocks,
   ArrowLeft,
+  LogOut,
+  User
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GiCorn } from "react-icons/gi";
 import { PiShieldCheckBold } from "react-icons/pi";
 import { PiMathOperationsBold } from "react-icons/pi";
 import { GiSugarCane } from "react-icons/gi";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from '@/components/ui/button';
 
 const menuItems = [
   {
@@ -103,6 +100,10 @@ const menuItems = [
 ];
 
 export function SimuladorCenariosSidebar() {
+
+  const { user, logout } = useAuth();
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
   const location = useLocation();
 
   const isActive = (path: string) => {
@@ -110,6 +111,14 @@ export function SimuladorCenariosSidebar() {
       return location.pathname === '/';
     }
     return location.pathname === path;
+
+
+
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
   return (
@@ -174,6 +183,44 @@ export function SimuladorCenariosSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      <SidebarFooter className="border-t border-sidebar-border">
+        {!isCollapsed && user && (
+          <div className="px-3 py-2">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                <User className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-medium text-sidebar-foreground truncate">
+                  {user.name}
+                </span>
+
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sair
+            </Button>
+          </div>
+        )}
+        {isCollapsed && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-full"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        )}
+      </SidebarFooter>
+
     </Sidebar>
   );
 }

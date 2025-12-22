@@ -17,12 +17,12 @@ import {
   Clock,
   FileText
 } from 'lucide-react';
-import { getDocumentoByVersao, type Documento } from '@/services/sgdncMockData';
+import { getDocumentoByVersao, type Documento } from '@/pages/apps/sgdnc/services/sgdncMockData';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
-import { gerarPDFVersao } from '@/utils/pdfGenerator';
+import { gerarPDFVersao } from '@/pages/apps/sgdnc/utils/pdfGenerator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import type { Paragrafo, ImagemConteudo, TabelaConteudo } from '@/types/paragrafo';
+import type { Paragrafo, ImagemConteudo, TabelaConteudo } from '@/pages/apps/sgdnc/types/paragrafo';
 
 export default function VisualizarVersao() {
   const { id, versaoNumero } = useParams();

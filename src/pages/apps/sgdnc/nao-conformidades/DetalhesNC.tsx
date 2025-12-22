@@ -12,7 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from '@/hooks/use-toast';
-import { getNaoConformidadeById, addAcaoCorretiva, type NaoConformidade, type AcaoCorretiva, type LogAlteracao } from '@/services/sgdncMockData';
+import { getNaoConformidadeById, addAcaoCorretiva, type NaoConformidade, type AcaoCorretiva, type LogAlteracao } from '@/pages/apps/sgdnc/services/sgdncMockData';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';

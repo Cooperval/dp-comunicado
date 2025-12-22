@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,7 +31,8 @@ import {
 } from "@/components/ui/pagination";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { parseOFX, validateOFXFile, OFXData, OFXTransaction } from "@/utils/controle-financeiro/ofxParser";
+import { parseOFX, validateOFXFile, OFXData, OFXTransaction } from "@/pages/apps/controle-financeiro/utils/ofxParser";
+import { formatCurrency, formatDate, formatDateTime } from "@/pages/apps/controle-financeiro/utils/formatters";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -45,7 +46,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useAuth } from "@/components/auth/controle-financeiro/AuthProvider";
+import { useAuth } from "@/pages/apps/controle-financeiro/auth/AuthProvider";
+import { OFXUpload, ClassificationRule, UploadStatus } from "@/pages/apps/controle-financeiro/types/ofx";
+import { MAX_FILE_SIZE_BYTES, ITEMS_PER_PAGE_OPTIONS, DEFAULT_ITEMS_PER_PAGE } from "@/pages/apps/controle-financeiro/constants/ofxConstants";
 
 const UploadOFX = () => {
   const { companyId } = useAuth();
@@ -54,47 +57,87 @@ const UploadOFX = () => {
   const [processingFiles, setProcessingFiles] = useState<Set<string>>(new Set());
   const [parsedData, setParsedData] = useState<{ [key: string]: OFXData }>({});
   const [showPreview, setShowPreview] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<"idle" | "success" | "error">("idle");
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus>("idle");
   const [error, setError] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   // OFX uploads management state
-  const [uploads, setUploads] = useState<any[]>([]);
+  const [uploads, setUploads] = useState<OFXUpload[]>([]);
   const [loadingUploads, setLoadingUploads] = useState(false);
 
   // Classification rules state
   const [applyClassificationRules, setApplyClassificationRules] = useState(false);
-  const [classificationRules, setClassificationRules] = useState<any[]>([]);
+  const [classificationRules, setClassificationRules] = useState<ClassificationRule[]>([]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
 
-  const loadUploads = async () => {
+  const loadUploads = useCallback(async () => {
     if (!companyId) return;
 
     setLoadingUploads(true);
-    const { data, error } = await supabase
-      .from("ofx_uploads")
-      .select("id, filename, file_size, transactions_count, upload_date, bank_id, status")
-      .eq("company_id", companyId)
-      .order("upload_date", { ascending: false });
-    if (!error) setUploads(data || []);
-    setLoadingUploads(false);
-  };
+    try {
+      const { data, error } = await supabase
+        .from("ofx_uploads")
+        .select("id, filename, file_size, transactions_count, upload_date, bank_id, status")
+        .eq("company_id", companyId)
+        .order("upload_date", { ascending: false });
+      
+      if (error) {
+        toast({
+          title: "Erro ao carregar uploads",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        setUploads((data as OFXUpload[]) || []);
+      }
+    } finally {
+      setLoadingUploads(false);
+    }
+  }, [companyId, toast]);
+
+  const fetchClassificationRules = useCallback(async () => {
+    if (!companyId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("classification_rules")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("is_active", true);
+
+      if (error) {
+        toast({
+          title: "Erro ao carregar regras",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else if (data) {
+        setClassificationRules(data as ClassificationRule[]);
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao carregar regras",
+        description: "Não foi possível carregar as regras de classificação",
+        variant: "destructive",
+      });
+    }
+  }, [companyId, toast]);
 
   useEffect(() => {
     fetchClassificationRules();
-  }, [companyId]);
+  }, [fetchClassificationRules]);
 
-  const handleDeleteUpload = async (id: string, filename: string) => {
+  const handleDeleteUpload = useCallback(async (id: string, filename: string) => {
     const { error } = await supabase.from("ofx_uploads").delete().eq("id", id);
     if (error) {
       toast({
         title: "Erro ao deletar",
-        description: "Não foi possível deletar o upload.",
+        description: error.message,
         variant: "destructive",
       });
     } else {
@@ -107,35 +150,24 @@ const UploadOFX = () => {
       });
       loadUploads();
     }
-  };
+  }, [loadUploads, toast]);
 
   const cleanupOrphanedBanks = async () => {
     try {
-      // Call the SQL function to cleanup orphaned banks
       const { error } = await supabase.rpc("cleanup_orphaned_banks");
       if (error) {
-        console.error("Error cleaning up orphaned banks:", error);
+        toast({
+          title: "Erro ao limpar bancos",
+          description: error.message,
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error("Error cleaning up orphaned banks:", error);
-    }
-  };
-
-  const fetchClassificationRules = async () => {
-    if (!companyId) return;
-
-    try {
-      const { data, error } = await supabase
-        .from("classification_rules")
-        .select("*")
-        .eq("company_id", companyId)
-        .eq("is_active", true);
-
-      if (!error && data) {
-        setClassificationRules(data);
-      }
-    } catch (error) {
-      console.error("Error fetching classification rules:", error);
+      toast({
+        title: "Erro ao limpar bancos",
+        description: "Não foi possível limpar bancos órfãos",
+        variant: "destructive",
+      });
     }
   };
 
@@ -156,8 +188,8 @@ const UploadOFX = () => {
         continue;
       }
 
-      // Validate file size (max 10MB)
-      if (selectedFile.size > 10 * 1024 * 1024) {
+      // Validate file size
+      if (selectedFile.size > MAX_FILE_SIZE_BYTES) {
         toast({
           title: "Arquivo muito grande",
           description: `${selectedFile.name} deve ter no máximo 10MB.`,
@@ -201,26 +233,28 @@ const UploadOFX = () => {
     fileInputRef.current?.click();
   };
 
-  const handlePreview = async (fileToProcess: File) => {
+  const handlePreview = useCallback(async (fileToProcess: File) => {
     const fileName = fileToProcess.name;
     setProcessingFiles((prev) => new Set([...prev, fileName]));
 
     try {
-      const isValid = await validateOFXFile(fileToProcess);
-      if (!isValid) {
-        toast({
-          title: "Arquivo OFX inválido",
-          description: `${fileName} está corrompido ou não é um arquivo OFX válido.`,
-          variant: "destructive",
-        });
-        return;
-      }
-
+      // Read file once and validate + parse in one go
       const reader = new FileReader();
 
       reader.onload = async (e) => {
         try {
           const content = e.target?.result as string;
+          
+          // Validate content format
+          if (!content.includes('OFX') && !content.includes('OFXHEADER')) {
+            toast({
+              title: "Arquivo OFX inválido",
+              description: `${fileName} não é um arquivo OFX válido.`,
+              variant: "destructive",
+            });
+            return;
+          }
+
           const data = await parseOFX(content);
           setParsedData((prev) => ({ ...prev, [fileName]: data }));
           setUploadStatus("success");
@@ -243,10 +277,23 @@ const UploadOFX = () => {
         }
       };
 
+      reader.onerror = () => {
+        toast({
+          title: "Erro ao ler arquivo",
+          description: `Não foi possível ler o arquivo ${fileName}`,
+          variant: "destructive",
+        });
+        setProcessingFiles((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(fileName);
+          return newSet;
+        });
+      };
+
       reader.readAsText(fileToProcess);
     } catch (error) {
       toast({
-        title: "Erro ao validar arquivo",
+        title: "Erro ao processar arquivo",
         description: `${fileName}: ${error}`,
         variant: "destructive",
       });
@@ -256,7 +303,7 @@ const UploadOFX = () => {
         return newSet;
       });
     }
-  };
+  }, [toast]);
 
   const checkForDuplicates = async (transactions: OFXTransaction[]) => {
     if (!companyId) return [];
@@ -408,11 +455,11 @@ const UploadOFX = () => {
       // Navigate to transactions page
       navigate("/transactions");
     } catch (error) {
-      console.error("Import error:", error);
-      setError(`Erro na importação: ${error}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setError(`Erro na importação: ${errorMessage}`);
       toast({
         title: "Erro na importação",
-        description: "Não foi possível importar os arquivos OFX",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -429,11 +476,15 @@ const UploadOFX = () => {
       // Buscar as transações recém-importadas
       const { data: transactions, error: transError } = await supabase
         .from("transactions")
-        .select("id, description")
+        .select("id, description, bank_id")
         .in("id", transactionIds);
 
       if (transError || !transactions) {
-        console.error("Error fetching transactions for classification:", transError);
+        toast({
+          title: "Erro ao buscar transações",
+          description: transError?.message || "Não foi possível buscar as transações",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -446,7 +497,15 @@ const UploadOFX = () => {
       // Aplicar regras a cada transação
       for (const transaction of transactions) {
         for (const rule of classificationRules) {
-          if (transaction.description.toLowerCase().includes(rule.description_contains.toLowerCase())) {
+          // Verificar descrição
+          const descriptionMatches = transaction.description
+            .toLowerCase()
+            .includes(rule.description_contains.toLowerCase());
+          
+          // Verificar banco (se a regra tem bank_id, transaction precisa ser do mesmo banco)
+          const bankMatches = !rule.bank_id || transaction.bank_id === rule.bank_id;
+          
+          if (descriptionMatches && bankMatches) {
             // Inserir classificação
             const { error: classError } = await supabase.from("transaction_classifications").insert({
               transaction_id: transaction.id,
@@ -471,7 +530,11 @@ const UploadOFX = () => {
         });
       }
     } catch (error) {
-      console.error("Error applying classifications:", error);
+      toast({
+        title: "Erro ao aplicar classificações",
+        description: "Não foi possível aplicar as classificações automáticas",
+        variant: "destructive",
+      });
     }
   };
 
@@ -505,14 +568,14 @@ const UploadOFX = () => {
     }
   }, [totalPages, currentPage]);
 
-  const handlePageChange = (page: number) => {
+  const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
-  };
+  }, []);
 
-  const handleItemsPerPageChange = (value: string) => {
+  const handleItemsPerPageChange = useCallback((value: string) => {
     setItemsPerPage(Number(value));
     setCurrentPage(1);
-  };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-background p-6">
@@ -756,9 +819,9 @@ const UploadOFX = () => {
                             </p>
                           </div>
                           <div className="text-right">
-                            <Badge variant={transaction.transactionType === "credit" ? "default" : "destructive"}>
+                           <Badge variant={transaction.transactionType === "credit" ? "default" : "destructive"}>
                               {transaction.transactionType === "credit" ? "+" : "-"}
-                              R$ {transaction.amount.toFixed(2)}
+                              {formatCurrency(transaction.amount)}
                             </Badge>
                           </div>
                         </div>
@@ -823,11 +886,9 @@ const UploadOFX = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="5">5</SelectItem>
-                        <SelectItem value="10">10</SelectItem>
-                        <SelectItem value="25">25</SelectItem>
-                        <SelectItem value="50">50</SelectItem>
-                        <SelectItem value="100">100</SelectItem>
+                        {ITEMS_PER_PAGE_OPTIONS.map(option => (
+                          <SelectItem key={option} value={String(option)}>{option}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -839,11 +900,7 @@ const UploadOFX = () => {
                       <div className="min-w-0">
                         <p className="font-medium truncate">{u.filename}</p>
                         <p className="text-xs text-muted-foreground">
-                          {u.upload_date
-                            ? `${format(new Date(u.upload_date), "dd/MM/yyyy HH:mm", { locale: ptBR })}`
-                            : "Sem data"}{" "}
-                          • {(u.file_size / 1024).toFixed(1)} KB • {u.transactions_count} transações • Status:{" "}
-                          {u.status}
+                          {u.upload_date ? formatDateTime(u.upload_date) : "Sem data"} • {(u.file_size / 1024).toFixed(1)} KB • {u.transactions_count} transações • Status: {u.status}
                         </p>
                       </div>
                       <AlertDialog>

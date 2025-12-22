@@ -2,13 +2,13 @@ import React, { useEffect } from 'react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { NumericInput } from '@/components/ui/numeric-input';
-import { useSimulator } from '@/contexts/SimulatorContext';
+import { useSimulator } from '@/pages/apps/simulador-cenarios/contexts/SimulatorContext';
 import { Badge } from '@/components/ui/badge';
-import { calcularProducoesMilho } from '@/utils/simulatorCalculations';
+import { calcularProducoesMilho } from '@/pages/apps/simulador-cenarios//utils/simulatorCalculations';
 const CornProduction: React.FC = () => {
   const { updateCorn } = useSimulator();
   const { updateData } = useSimulator();
-    const { data } = useSimulator();
+  const { data } = useSimulator();
 
   // Função utilitária que atualiza um campo específico de data (que vem do contexto)
   const handleInputChange2 = (field: keyof typeof data, value: number) => {
@@ -37,7 +37,7 @@ const CornProduction: React.FC = () => {
     totalDdgWdg,
     ddgProportion,
     wdgProportion
-  } = calcularProducoesMilho(data.corn, data.cornTotalConvertedYield);
+  } = calcularProducoesMilho(data.corn, data.cornTotalConvertedYield, data.ddgYieldPerTon, data.wdgYieldPerTon);
 
   const formatNumber = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -89,31 +89,22 @@ const CornProduction: React.FC = () => {
             />
 
             <NumericInput
-              label="Eficiência de Tempo Industrial"
-              unit="%"
-              value={data.industrialTimeEfficiency}
-              onChange={(value) => handleInputChange2('industrialTimeEfficiency', value)}
-              placeholder="0.00"
-              max={100}
-            />
-
-            <NumericInput
-              label="Milho Processado por Dia"
-              unit="ton/dia"
-              value={data.cornProcessedPerDay}
-              onChange={(value) => handleInputChange2('cornProcessedPerDay', value)}
-              placeholder="0.00"
-            />
-
-            <NumericInput
-              label="Rendimento WDG Total"
+              label="Rendimento DDG"
               unit="kg/ton"
-              value={data.totalWdgYield}
-              onChange={(value) => handleInputChange2('totalWdgYield', value)}
+              value={data.ddgYieldPerTon}
+              onChange={(value) => handleInputChange2('ddgYieldPerTon', value)}
               placeholder="0.00"
             />
 
-            
+            <NumericInput
+              label="Rendimento WDG"
+              unit="kg/ton"
+              value={data.wdgYieldPerTon}
+              onChange={(value) => handleInputChange2('wdgYieldPerTon', value)}
+              placeholder="0.00"
+            />
+
+
           </CardContent>
         </Card>
 
@@ -154,15 +145,12 @@ const CornProduction: React.FC = () => {
                 <Badge variant="outline">{anhydrousPerTonCorn.toFixed(2)} L/ton</Badge>
               </div>
 
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Kg DDG / ton milho:</span>
-                <Badge variant="outline">{ddgPerTonCorn.toFixed(0)} kg/ton</Badge>
+              <div className="flex justify-between items-center pt-2">
+                <span className="text-sm text-muted-foreground">Rendimento WDG Total:</span>
+                <Badge variant="outline">{((data.ddgYieldPerTon / 0.4) + data.wdgYieldPerTon).toFixed(1)} kg/ton</Badge>
               </div>
 
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Kg WDG / ton milho:</span>
-                <Badge variant="outline">{wdgPerTonCorn.toFixed(1)} kg/ton</Badge>
-              </div>
+
             </div>
 
             <div className="border-t pt-4 space-y-3">

@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useSimulator } from '@/contexts/SimulatorContext';
+import { useSimulator } from '@/pages/apps/simulador-cenarios/contexts/SimulatorContext';
 import { Badge } from '@/components/ui/badge';
 
-import { calcularProducoesCana } from '@/utils/simulatorCalculations';
-import { calcularProducoesMilho } from '@/utils/simulatorCalculations';
+import { calcularProducoesCana } from '@/pages/apps/simulador-cenarios/utils/simulatorCalculations';
+import { calcularProducoesMilho } from '@/pages/apps/simulador-cenarios/utils/simulatorCalculations';
 
 const OtherProductions: React.FC = () => {
   const { data, calculateDerivedValues } = useSimulator();
@@ -30,7 +30,7 @@ const OtherProductions: React.FC = () => {
 
       const {
         prodEAM,
-      } = calcularProducoesMilho(data.corn, data.cornTotalConvertedYield);
+      } = calcularProducoesMilho(data.corn, data.cornTotalConvertedYield, data.ddgYieldPerTon, data.wdgYieldPerTon);
 
 
 
@@ -86,7 +86,7 @@ const OtherProductions: React.FC = () => {
           </CardHeader>
           <CardContent className="p-6">
             <div className="text-center">
-              <div className="text-3xl font-bold text-secondary mb-2">
+              <div className="text-3xl font-bold text-yellow-700 mb-2">
                 {formatNumber(data.otherProductions.co2Corn)}
               </div>
               <div className="text-sm text-muted-foreground">toneladas</div>

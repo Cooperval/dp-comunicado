@@ -15,7 +15,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Search, Eye, FileText } from 'lucide-react';
-import { getDocumentos, mockAprovadores, type Documento } from '@/services/sgdncMockData';
+import { getDocumentos, mockAprovadores, type Documento } from '@/pages/apps/sgdnc/services/sgdncMockData';
 
 export default function AprovacoesDocumentos() {
   const navigate = useNavigate();

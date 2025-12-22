@@ -4,32 +4,41 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DollarSign, Pencil, Trash2 } from "lucide-react";
-import { useMovimentacao } from "@/hooks/fluxo-de-caixa/use-saldo";
-import { useTipoContas } from "@/hooks/fluxo-de-caixa/use-contabacaria";
-import { useMovimentacaoLogs } from "@/hooks/fluxo-de-caixa/use-logs";
+import { DollarSign, Pencil, Trash2, Loader2, Filter, ChevronsUpDown, FileSpreadsheet, Search, RotateCcw } from "lucide-react";
+import { useMovimentacao } from "@/pages/apps/fluxo-de-caixa/hooks/use-saldo";
+import { useTipoContas } from "@/pages/apps/fluxo-de-caixa/hooks/use-contabacaria";
+import { useMovimentacaoLogs } from "@/pages/apps/fluxo-de-caixa/hooks/use-logs";
+import { useGef } from "@/pages/apps/fluxo-de-caixa/hooks/use-gef";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import {
-  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
-} from "@/components/ui/select";
 import * as XLSX from "xlsx";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { toast } from "@/hooks/use-toast";
-import { enviarContaParaEdicao, atualizarContaSaldo, deletarContaSaldo } from "@/lib/fluxo-de-caixa/api";
+import { toast } from "@/pages/apps/fluxo-de-caixa/hooks/use-toast";
+import { enviarContaParaEdicao, atualizarContaSaldo, deletarContaSaldo } from "@/pages/apps/fluxo-de-caixa/lib/api";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
+// se você tem o componente exportado em src/components/ui/dropdown-menu.tsx (shadcn)
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuSeparator
+} from "@/components/ui/dropdown-menu";
+
+import { useAuth } from '@/contexts/AuthContext';
 
 /* ============================================================================
  * TIPOS
@@ -48,13 +57,9 @@ type MovOracle = {
   NOVO_SALDO?: number | null;    // 👈 do LEFT JOIN novos
   DATA_LANCAMENTO?: string | null;
   MOTIVO?: string | null;
+  SALDO_NAO_BAIXADO?: number | null;
 };
 
-/** Tipo mínimo para o hook de tipos de conta (ajuste se tiver interface oficial) */
-type TipoConta = {
-  COD_TIPOCONTABANCARIA: number;
-  DESCRICAO: string;
-};
 
 /* ============================================================================
  * HELPERS (formatação / utilidades)
@@ -111,35 +116,61 @@ const parseBRL = (s: string | undefined | null) => {
  * ========================================================================== */
 
 const SaldosBancarios = () => {
+
+  const { token } = useAuth();
   // -----------------------------
   // ESTADO LOCAL
   // -----------------------------
   const [dataFim, setDataFim] = useState<string>("");            // data referência (YYYY-MM-DD)
-  const [codTipo, setCodTipo] = useState<string>("all");         // filtro por tipo de conta
-  const [novoSaldo, setNovoSaldo] = useState<string>("");
+  const [codTipo, setCodTipo] = useState<string[]>(["all"]);      // filtro por tipo de conta
+
 
   // -----------------------------
   // HOOKS DE DADOS
   // -----------------------------
-  const { movimentacoes2, loading2, error, fetchData } = useMovimentacao();           // saldos
-  const { tipos, loadingTipos, errorTipos, fetchDataTipos } = useTipoContas();        // tipos de conta
+  const { saldos, loading2, error, fetchData } = useMovimentacao();           // saldos
+  const { tipos, errorTipos, fetchDataTipos } = useTipoContas();        // tipos de conta
   const { movimentacoesLogs, loadingLogs, errorLogs, fetchDataLogs } = useMovimentacaoLogs();
+  const { gef, loadingGef, errorGef, fetchDataGef } = useGef();
+  const [gefSelecionado, setGefSelecionado] = useState<any>(null);
 
 
 
   // Carrega os tipos de conta ao montar a página
   useEffect(() => { fetchDataTipos(); }, [fetchDataTipos]);
+  useEffect(() => { fetchDataGef(); }, [fetchDataGef]);
 
   // -----------------------------
   // AÇÕES DE TELA
   // -----------------------------
 
   /** Dispara a busca de saldos com os filtros atuais */
-  const onCarregar = useCallback(() => {
-    const ref = dataFim || todayISO();                         // se vazio, usa hoje
-    const tipo = codTipo === "all" ? undefined : Number(codTipo);
-    fetchData({ dataFim: ref, codTipo: tipo });
-  }, [dataFim, codTipo, fetchData]);
+  const onCarregar = () => {
+    const ref = dataFim || todayISO();
+    const tiposSelecionados = codTipo.includes("all") ? undefined : codTipo;
+
+    // Se não tiver GEF selecionado, avisa ou bloqueia
+    if (!gefSelecionado) {
+      toast({
+        title: "Selecione uma empresa",
+        description: "Escolha uma empresa/filial para continuar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    fetchData({
+      dataFim: ref,
+      codTipo: tiposSelecionados,
+
+      // Envia os 3 códigos do GEF
+      codGrupoEmpresa: gefSelecionado.COD_GRUPOEMPRESA,
+      codEmpresa: gefSelecionado.COD_EMPRESA,
+      codFilial: gefSelecionado.COD_FILIAL,
+    });
+  };
+
+
 
 
   // ====== ESTADO E AÇÕES DE EDIÇÃO ======
@@ -211,8 +242,7 @@ const SaldosBancarios = () => {
     setMotivo(selectedConta.motivo ?? "");
   }, [selectedConta]);
 
-  // validação simples: parseBRL (você já usa) -> retorna number | null
-  const parseBRLOrNull = (s: string) => parseBRL(s); // sua função parseBRL
+
 
 
 
@@ -248,9 +278,10 @@ const SaldosBancarios = () => {
       const dataRef = dataFim || todayISO(); // mesma data do POST/PUT
 
       if (selectedConta.jaAjustada) {
-        await atualizarContaSaldo({ ...basePayload, data: dataRef });
+        // passe token COMO SEGUNDO ARGUMENTO (não dentro do objeto)
+        await atualizarContaSaldo({ ...basePayload, data: dataRef }, token);
       } else {
-        await enviarContaParaEdicao({ ...basePayload, data: dataRef });
+        await enviarContaParaEdicao({ ...basePayload, data: dataRef }, token);
       }
 
       toast({ title: "Conta salva", description: "Saldo ajustado com sucesso." });
@@ -265,7 +296,7 @@ const SaldosBancarios = () => {
     } finally {
       setSaving(false);
     }
-  }, [selectedConta, novoSaldoInput, motivo, dataFim, onCarregar]);
+  }, [selectedConta, novoSaldoInput, motivo, dataFim]);
 
 
   // -----------------------------
@@ -278,26 +309,46 @@ const SaldosBancarios = () => {
    * Também calcula totais por banco e por tipo.
    */
   const grouped = useMemo(() => {
-    const rowsAll = (movimentacoes2 as MovOracle[]) || [];
+    const rowsAll = (saldos as MovOracle[]) || [];
 
-    // Aplica filtro por tipo (se selecionado)
-    const rows = rowsAll.filter(r =>
-      codTipo === "all" ? true : r.COD_TIPO === Number(codTipo)
-    );
+    const normalizeCodTipoToSet = (ct: any): Set<number> | null => {
+      if (ct === undefined || ct === null) return null;
+      if (Array.isArray(ct)) {
+        const s = new Set(ct.map((x) => Number(x)).filter((n) => Number.isInteger(n)));
+        return s.size ? s : null;
+      }
+      const raw = String(ct).trim();
+      if (raw === "" || /^all$/i.test(raw)) return null;
+      if (raw.includes(",")) {
+        const parts = raw.split(",").map((p) => p.trim()).filter(Boolean);
+        const s = new Set(parts.map((p) => Number(p)).filter((n) => Number.isInteger(n)));
+        return s.size ? s : null;
+      }
+      const n = Number(raw);
+      return Number.isInteger(n) ? new Set([n]) : null;
+    };
 
-    // Mapa principal por banco
+    const codTipoSet = normalizeCodTipoToSet(codTipo);
+
+    // Mapa principal por banco (adicionado campos de 'nao baixado')
     const byBank = new Map<
       number,
       {
         codBanco: number;
         descBanco: string;
         totalBanco: number;
+        totalBancoOriginal: number;
+        totalBancoEfetivo: number;
+        totalBancoNaoBaixado: number; // novo
         tipos: Map<
           number,
           {
             codTipo: number;
             descTipo: string;
             totalTipo: number;
+            totalTipoOriginal: number;
+            totalTipoEfetivo: number;
+            totalTipoNaoBaixado: number; // novo
             contas: Array<{
               agencia: number;
               conta: number;
@@ -305,6 +356,8 @@ const SaldosBancarios = () => {
               saldo: number;
               saldoOracle: number;
               novo_saldo: number | null;
+              motivo: string | null;
+              saldo_nao_baixado: number; // novo
             }>;
           }
         >;
@@ -312,44 +365,64 @@ const SaldosBancarios = () => {
     >();
 
     // Agregação
-    for (const r of rows) {
-      const saldoEfetivo = Number(r.NOVO_SALDO ?? r.SALDO) || 0; // 👈
+    for (const r of rowsAll) {
+      const saldoOriginal = Number(r.SALDO) || 0;
+      const saldoNovo = r.NOVO_SALDO == null ? null : Number(r.NOVO_SALDO);
+      const saldoEfetivo = saldoNovo ?? saldoOriginal;
 
-      if (!byBank.has(r.COD_BANCO)) {
-        byBank.set(r.COD_BANCO, {
-          codBanco: r.COD_BANCO,
-          descBanco: r.DESC_BANCO,
+      // novo: saldo não baixado vindo do Oracle
+      const saldoNaoBaixado = Number(r.SALDO_NAO_BAIXADO) || 0;
+
+      const codBanco = Number(r.COD_BANCO);
+      const codTipoNum = Number(r.COD_TIPO);
+
+      if (!byBank.has(codBanco)) {
+        byBank.set(codBanco, {
+          codBanco,
+          descBanco: r.DESC_BANCO ?? "",
           totalBanco: 0,
+          totalBancoOriginal: 0,
+          totalBancoEfetivo: 0,
+          totalBancoNaoBaixado: 0,
           tipos: new Map(),
         });
       }
-      const bank = byBank.get(r.COD_BANCO)!;
-      bank.totalBanco += saldoEfetivo; // 👈 soma com o efetivo
+      const bank = byBank.get(codBanco)!;
+      bank.totalBanco += saldoEfetivo;
+      bank.totalBancoOriginal += saldoOriginal;
+      bank.totalBancoEfetivo += saldoEfetivo;
+      bank.totalBancoNaoBaixado += saldoNaoBaixado; // acumula não baixado
 
-      if (!bank.tipos.has(r.COD_TIPO)) {
-        bank.tipos.set(r.COD_TIPO, {
-          codTipo: r.COD_TIPO,
-          descTipo: r.DESC_TIPOCONTA,
+      if (!bank.tipos.has(codTipoNum)) {
+        bank.tipos.set(codTipoNum, {
+          codTipo: codTipoNum,
+          descTipo: r.DESC_TIPOCONTA ?? "",
           totalTipo: 0,
+          totalTipoOriginal: 0,
+          totalTipoEfetivo: 0,
+          totalTipoNaoBaixado: 0,
           contas: [],
         });
       }
 
-      const tipo = bank.tipos.get(r.COD_TIPO)!;
-      tipo.totalTipo += saldoEfetivo; // 👈 idem
+      const tipo = bank.tipos.get(codTipoNum)!;
+      tipo.totalTipo += saldoEfetivo;
+      tipo.totalTipoOriginal += saldoOriginal;
+      tipo.totalTipoEfetivo += saldoEfetivo;
+      tipo.totalTipoNaoBaixado += saldoNaoBaixado;
 
       tipo.contas.push({
-        agencia: r.COD_AGENCIA,
-        conta: r.COD_CONTABANCARIA,
-        digito: r.DIGITO,
+        agencia: Number(r.COD_AGENCIA),
+        conta: Number(r.COD_CONTABANCARIA),
+        digito: String(r.DIGITO ?? ""),
         // mantenha ambos os valores:
-        saldoOracle: Number(r.SALDO) || 0,                          // “original”
-        novo_saldo: r.NOVO_SALDO == null ? null : Number(r.NOVO_SALDO), // “novo”, se houver
-        saldo: saldoEfetivo,
-        motivo: r.MOTIVO ?? null, // <<< aqui                                        // “efetivo” (o que aparece no total)
+        saldoOracle: saldoOriginal,                          // “original”
+        novo_saldo: saldoNovo,                               // “novo”, se houver
+        saldo: saldoEfetivo,                                 // “efetivo”
+        motivo: r.MOTIVO ?? null,
+        saldo_nao_baixado: saldoNaoBaixado,                  // novo campo
       });
     }
-
 
     // Converte Maps em arrays e ordena
     const banksArr = Array.from(byBank.values())
@@ -362,95 +435,29 @@ const SaldosBancarios = () => {
       .sort((a, b) => a.descBanco.localeCompare(b.descBanco));
 
     return banksArr;
-  }, [movimentacoes2, codTipo]);
+  }, [saldos, codTipo]);
+
+
 
   /** Soma final para o card de resumo */
-  const totalOracle = useMemo(
-    () => grouped.reduce((sum, b) => sum + b.totalBanco, 0),
+  const totalOriginal = useMemo(
+    () => grouped.reduce((sum, b) => sum + b.totalBancoOriginal, 0),
     [grouped]
   );
 
+  const totalEfetivo = useMemo(
+    () => grouped.reduce((sum, b) => sum + b.totalBancoEfetivo, 0),
+    [grouped]
+  );
+
+  const totalNaoBaixado = useMemo(
+    () => grouped.reduce((sum, b) => sum + (b.totalBancoNaoBaixado || 0), 0),
+    [grouped]
+  );
+
+  const totalProjetado = totalEfetivo + totalNaoBaixado;
 
 
-
-  const exportToExcel = useCallback(() => {
-    if (!grouped.length) return;
-
-    const wb = XLSX.utils.book_new();
-
-    // --- Aba 1: Por conta (linha-a-linha) com colunas de ajuste ---
-    const sheet1 = grouped.flatMap((bank) =>
-      bank.tipos.flatMap((tipo) =>
-        tipo.contas.map((c) => ({
-          Banco: bank.descBanco,
-          "Cód. Banco": bank.codBanco,
-          Agência: c.agencia,
-          Conta: `${c.conta}-${c.digito}`,
-          "Tipo de Conta": tipo.descTipo,
-          "Cód. Tipo": tipo.codTipo,
-          // saldo vindo do Oracle (valor original)
-          "Saldo Oracle": Number(c.saldoOracle ?? c.saldo ?? 0),
-          // saldo que você estava usando atualmente (caso tenha diferença de campo)
-          "Saldo Atual": Number(c.saldo ?? c.saldoOracle ?? 0),
-          // novo saldo lançado manualmente (quando existir)
-          "Novo Saldo": c.novo_saldo != null ? Number(c.novo_saldo) : "",
-          // indicador claro se houve ajuste
-          Ajustado: c.novo_saldo != null ? "Sim" : "Não",
-          // motivo do ajuste (se houver)
-          Motivo: c.motivo ?? "",
-        }))
-      )
-    );
-
-    // Forçar ordem das colunas no sheet (opcional, garante layout previsível)
-    const headers = [
-      "Banco",
-      "Cód. Banco",
-      "Agência",
-      "Conta",
-      "Tipo de Conta",
-      "Cód. Tipo",
-      "Saldo Oracle",
-      "Saldo Atual",
-      "Novo Saldo",
-      "Ajustado",
-      "Motivo",
-    ];
-
-    const ws1 = XLSX.utils.json_to_sheet(sheet1, { header: headers, skipHeader: false });
-    ws1["!cols"] = fitToColumn(sheet1);
-    XLSX.utils.book_append_sheet(wb, ws1, "Por conta");
-
-    // --- Aba 2: Totais por Tipo dentro do Banco ---
-    const sheet2 = grouped.flatMap((bank) =>
-      bank.tipos.map((tipo) => ({
-        Banco: bank.descBanco,
-        "Cód. Banco": bank.codBanco,
-        "Tipo de Conta": tipo.descTipo,
-        "Cód. Tipo": tipo.codTipo,
-        "Saldo do Tipo":
-          Number(tipo.totalTipo ?? tipo.contas.reduce((s, c) => s + (Number(c.novo_saldo ?? c.saldo ?? 0) || 0), 0)),
-      }))
-    );
-    const ws2 = XLSX.utils.json_to_sheet(sheet2);
-    ws2["!cols"] = fitToColumn(sheet2);
-    XLSX.utils.book_append_sheet(wb, ws2, "Por tipo");
-
-    // --- Aba 3: Totais por Banco ---
-    const sheet3 = grouped.map((bank) => ({
-      Banco: bank.descBanco,
-      "Cód. Banco": bank.codBanco,
-      // preferir o totalBanco já ajustado se existir
-      "Saldo do Banco": Number(bank.totalBanco || bank.tipos.reduce((s, t) => s + (Number(t.totalTipo ?? 0) || 0), 0)),
-    }));
-    const ws3 = XLSX.utils.json_to_sheet(sheet3);
-    ws3["!cols"] = fitToColumn(sheet3);
-    XLSX.utils.book_append_sheet(wb, ws3, "Por banco");
-
-    // Nome do arquivo inclui a data de referência (ou hoje)
-    const ref = dataFim || todayISO();
-    XLSX.writeFile(wb, `saldos_${ref}.xlsx`);
-  }, [grouped, dataFim]);
 
 
 
@@ -545,7 +552,7 @@ const SaldosBancarios = () => {
       }
 
       // chamada
-      const resp = await deletarContaSaldo(payload);
+      const resp = await deletarContaSaldo(payload, token);
       console.log("[Saldos] resposta deletarContaSaldo:", resp);
 
       toast({ title: "Ajuste removido", description: "O lançamento do dia foi excluído." });
@@ -559,131 +566,282 @@ const SaldosBancarios = () => {
       const msg = e?.message ?? String(e);
       toast({ title: "Erro ao remover", description: msg, variant: "destructive" });
     }
-  }, [handleReload, onCarregar, dataFim]);
+  }, [handleReload, dataFim]);
 
 
 
-  // -----------------------------
-  // RENDER
-  // -----------------------------
+
+  function toggleTipo(tipo: string) {
+    if (tipo === "all") {
+      setCodTipo(["all"]);
+      return;
+    }
+
+    setCodTipo(prev => {
+      const current = prev.includes("all") ? [] : [...prev];
+      const has = current.includes(tipo);
+      const next = has ? current.filter(t => t !== tipo) : [...current, tipo];
+      return next.length === 0 ? ["all"] : next;
+    });
+  }
+
+  // Gera uma chave única para o Select (recomendado)
+  const getGefKey = (item: any) =>
+    `${item.COD_GRUPOEMPRESA}-${item.COD_EMPRESA}-${item.COD_FILIAL}`;
   return (
     <div className="space-y-6">
 
       {/* ===================== Filtros ===================== */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filtros</CardTitle>
+      <Card className="w-full">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg font-semibold flex items-center gap-4 items-end">
+            <Filter className="w-5 h-5" />
+            Filtros
+          </CardTitle>
         </CardHeader>
+
         <CardContent>
-          <div className="flex flex-wrap items-end gap-3">
-            {/* Data de referência */}
-            <div className="space-y-2">
-              <Label htmlFor="date-filter">Data de Referência</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 items-end">
+            {/* Empresa/Filial */}
+            <div className="lg:col-span-1 space-y-1">
+              <Label className="text-sm font-medium">Empresa/Filial</Label>
+              {loadingGef ? (
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Carregando empresas...
+                </div>
+              ) : errorGef ? (
+                <p className="text-xs text-red-600">Erro ao carregar empresas</p>
+              ) : (
+                <Select
+                  value={gefSelecionado ? getGefKey(gefSelecionado) : ""}
+                  onValueChange={(value) => {
+                    const selecionado = gef.find((g) => getGefKey(g) === value);
+                    setGefSelecionado(selecionado || null);
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione uma empresa/filial" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {gef.map((item) => (
+                      <SelectItem key={getGefKey(item)} value={getGefKey(item)}>
+                        {item.NOMEFANTASIA}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            {/* Tipo de Conta */}
+            <div className="lg:col-span-1 space-y-1">
+              <Label className="text-sm font-medium">Tipo de Conta</Label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    <span className="truncate">
+                      {codTipo.includes("all")
+                        ? "Todos os tipos"
+                        : codTipo.length === 0
+                          ? "Selecione..."
+                          : `${codTipo.length} selecionado(s)`}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-full min-w-[240px]" align="start">
+                  <DropdownMenuCheckboxItem
+                    checked={codTipo.includes("all")}
+                    onCheckedChange={() => toggleTipo("all")}
+                  >
+                    Todos os tipos
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuSeparator />
+                  {(tipos ?? [])
+                    .sort((a, b) => a.DESCRICAO.localeCompare(b.DESCRICAO))
+                    .map((t) => (
+                      <DropdownMenuCheckboxItem
+                        key={t.COD_TIPOCONTABANCARIA}
+                        checked={codTipo.includes(String(t.COD_TIPOCONTABANCARIA))}
+                        onCheckedChange={() => toggleTipo(String(t.COD_TIPOCONTABANCARIA))}
+                      >
+                        {t.DESCRICAO}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {errorTipos && <p className="text-xs text-red-500 mt-1">Erro ao carregar tipos</p>}
+            </div>
+
+            {/* Data de Referência */}
+            <div className="lg:col-span-1 space-y-1">
+              <Label htmlFor="date-filter" className="text-sm font-medium">
+                Data de Referência
+              </Label>
               <Input
                 id="date-filter"
                 type="date"
                 value={dataFim}
                 onChange={(e) => setDataFim(e.target.value)}
-                className="h-9 w-[180px] rounded-md border px-2 text-sm"
+                className="w-full"
               />
             </div>
 
-            {/* Tipo de conta */}
-            <div className="space-y-2">
-              <Label htmlFor="tipo-conta">Tipo de Conta</Label>
-              <Select
-                value={codTipo}
-                onValueChange={setCodTipo}
-                disabled={loadingTipos || !!errorTipos}
-              >
-                <SelectTrigger id="tipo-conta" className="h-9 w-[240px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  <SelectItem value="all">Todos os tipos</SelectItem>
-                  {(tipos as TipoConta[] ?? [])
-                    .sort((a, b) => a.DESCRICAO.localeCompare(b.DESCRICAO))
-                    .map((t) => (
-                      <SelectItem
-                        key={t.COD_TIPOCONTABANCARIA}
-                        value={String(t.COD_TIPOCONTABANCARIA)}
-                      >
-                        {t.DESCRICAO}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-              {errorTipos && (
-                <p className="text-xs text-red-500">Erro ao carregar tipos.</p>
-              )}
+            {/* Botão Carregar + Status */}
+            <div className="flex flex-col justify-end gap-3">
             </div>
-
-            {/* Botão Carregar */}
-            <Button onClick={onCarregar} variant="outline">
-              Carregar
-            </Button>
-
-            {/* Feedback de loading/erro da consulta de saldos */}
-            {loading2 && (
-              <div className="text-sm text-muted-foreground basis-full">
-                Carregando saldos...
-              </div>
-            )}
-            {error && (
-              <div className="text-sm text-red-500 basis-full">
-                Erro: {String(error)}
-              </div>
-            )}
           </div>
+
+          <div className="flex gap-3 justify-end">
+            <Button
+              onClick={onCarregar}
+              className="h-9 px-6 font-medium"
+              disabled={loading2}
+            >
+              {loading2 ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Carregando...
+                </>
+              ) : (
+                <>
+                  <Search className="mr-2 h-4 w-4" />
+                  Carregar Saldos
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDataFim("");
+                setCodTipo(["all"]);
+                setGefSelecionado(null);
+              }}
+              className="h-9 px-5"
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Limpar
+            </Button>
+          </div>
+
+
         </CardContent>
       </Card>
 
       {/* ===================== Card de Resumo ===================== */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Saldo Total</CardTitle>
-          <DollarSign className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-primary">
-            {currencyBRL(totalOracle)}
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Referência {dataFim ? new Date(dataFim + "T12:00:00").toLocaleDateString("pt-BR") : "—"}
-          </p>
-          <p className="text-xs text-muted-foreground mt-2">
-            Esse é o saldo da CS, não considera o as alterações realizadas nessa tela.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+
+        {/* Card – Saldo Original */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Saldo Original CS</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+
+          <CardContent>
+            <div className="text-2xl font-bold text-muted-foreground">
+              {totalOriginal != null && !Number.isNaN(totalOriginal)
+                ? currencyBRL(totalOriginal)
+                : "-"}
+            </div>
+
+            <p className="text-xs text-muted-foreground mt-2">
+              Referência{" "}
+              {dataFim
+                ? new Date(dataFim + "T12:00:00").toLocaleDateString("pt-BR")
+                : "—"}
+            </p>
+          </CardContent>
+
+        </Card>
+
+        {/* Card – Saldo Atualizado */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Saldo Atualizado</CardTitle>
+            <DollarSign className="h-4 w-4 text-primary" />
+          </CardHeader>
+
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">
+              {currencyBRL(totalEfetivo)}
+            </div>
+
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Conciliação Bancária</CardTitle>
+            {/* ícone em amarelo: destaque, mas sinta-se livre pra trocar */}
+            <DollarSign className="h-4 w-4 text-amber-600" />
+          </CardHeader>
+
+          <CardContent>
+            <div className="text-2xl font-bold text-amber-600">
+              {currencyBRL(totalNaoBaixado)}
+            </div>
+
+            <p className="text-xs text-muted-foreground mt-2">
+              Valores pendentes {dataFim ? new Date(dataFim + "T12:00:00").toLocaleDateString("pt-BR") : "—"}
+            </p>
+
+
+          </CardContent>
+
+
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Saldo Original CS + Atualizado + Conciliação Bancária</CardTitle>
+            {/* ícone em amarelo: destaque, mas sinta-se livre pra trocar */}
+            <DollarSign className="h-4 w-4 text-amber-600" />
+          </CardHeader>
+
+
+
+          <CardContent>
+            <div className="text-2xl font-bold text-emerald-600">
+              {currencyBRL(totalProjetado)}
+            </div>
+
+
+          </CardContent>
+        </Card>
+
+
+      </div>
+
+
 
       {/* ===================== Accordion por Banco -> Tipos -> Contas ===================== */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 gap-2">
           <CardTitle>Saldos por Banco</CardTitle>
 
-          <Button
-            variant="outline"
-            className="w-[160px]"
-            onClick={exportToExcel}
-            disabled={grouped.length === 0}
-            title={grouped.length === 0 ? "Nenhum dado para exportar" : "Exportar Excel"}
-          >
-            Exportar Excel
-          </Button>
+
 
           <Button
             variant="default"
-            className="w-[180px] bg-green-600 hover:bg-green-700 text-white font-semibold"
+            className="w-[200px] bg-green-600 hover:bg-green-700 text-white font-semibold"
             onClick={() => setLogsOpen(true)}
-            title="Ver Alterações de Saldos"
+            title="Ver Alterações de Manuais"
           >
-            Ver Alterações de Saldos
+            Ver Alterações de Manuais
           </Button>
-
         </CardHeader>
 
         <CardContent>
+
+          {/* Loading global discreto (aparece abaixo da linha) */}
+          {loading2 && !error && (
+            <div className="mt-4 flex items-center justify-center text-sm text-muted-foreground">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Consultando saldos...
+            </div>
+          )}
+
           {!loading2 && !error && grouped.length === 0 && (
             <div className="text-sm text-muted-foreground">
               Nenhum saldo encontrado para a data selecionada.
@@ -695,7 +853,7 @@ const SaldosBancarios = () => {
               {grouped.map((bank) => {
                 const ajustadoBanco =
                   bank.tipos.some(t => t.contas.some(c => c.novo_saldo != null));
-
+                const naoBaixadoBanco = bank.totalBancoNaoBaixado;
                 return (
                   <AccordionItem key={bank.codBanco} value={`bank-${bank.codBanco}`}>
                     <AccordionTrigger className="w-full">
@@ -705,14 +863,27 @@ const SaldosBancarios = () => {
                         </div>
 
                         <div className="flex items-center">
-                          <div className={`text-right font-semibold tabular-nums ${moneyColor(bank.totalBanco)}`}>
-                            {currencyBRL(bank.totalBanco)}
-                          </div>
+
+                          {naoBaixadoBanco != null && naoBaixadoBanco !== 0 && (
+                            <span
+                              className={`ml-2 inline-flex items-center rounded px-2 mr-2 py-1 text-xs font-medium ${naoBaixadoBanco > 0
+                                ? "bg-green-100 text-green-900"   // positivo → amarelo (crédito pendente)
+                                : "bg-red-100 text-red-900"         // negativo → vermelho (débito pendente)
+                                }`}
+                              title={`Total não baixado: ${currencyBRL(naoBaixadoBanco)}`}
+                            >
+                              Conciliação Bancária {currencyBRL(naoBaixadoBanco)}
+                            </span>
+                          )}
                           {ajustadoBanco && (
-                            <span className="ml-2 inline-flex items-center rounded bg-muted px-2 py-0.5 text-xs">
+                            <span className="ml-2 inline-flex items-center rounded bg-muted px-2 mr-2 py-1 text-xs">
                               ajustado
                             </span>
                           )}
+                          <div className={`text-right font-semibold tabular-nums ${moneyColor(bank.totalBanco)}`}>
+                            {currencyBRL(bank.totalBanco)}
+                          </div>
+
                         </div>
                       </div>
                     </AccordionTrigger>
@@ -725,7 +896,7 @@ const SaldosBancarios = () => {
                             <TableRow key={`${bank.codBanco}-${tipo.codTipo}`}>
                               <TableCell className="py-4">
                                 <div className="font-medium">
-                                  {tipo.descTipo} ({tipo.codTipo})
+                                  {tipo.descTipo}
                                 </div>
 
                                 {/* Contas desse tipo */}
@@ -739,6 +910,19 @@ const SaldosBancarios = () => {
                                         Agência {c.agencia} — Conta {c.conta}-{c.digito}
                                       </span>
                                       <div>
+                                        {/* NOVO: badge de saldo não baixado (quando > 0) */}
+                                        {c.saldo_nao_baixado != 0 && (
+                                          <span
+                                            className={`ml-2 inline-flex items-center rounded px-2 mr-2 py-1 text-xs font-medium ${naoBaixadoBanco > 0
+                                              ? "bg-green-100 text-green-900"   // positivo → amarelo (crédito pendente)
+                                              : "bg-red-100 text-red-900"         // negativo → vermelho (débito pendente)
+                                              }`}
+                                            title={`Saldo não baixado: ${currencyBRL(c.saldo_nao_baixado)}`}
+                                          >
+                                            Conciliação Bancária {currencyBRL(c.saldo_nao_baixado)}
+                                          </span>
+                                        )}
+
                                         {c.novo_saldo != null ? (
                                           <>
                                             <span className="line-through text-muted-foreground mr-2">
@@ -756,6 +940,8 @@ const SaldosBancarios = () => {
                                             {currencyBRL(c.saldo)}
                                           </span>
                                         )}
+
+
 
                                         <Button
                                           variant="ghost"
@@ -815,7 +1001,7 @@ const SaldosBancarios = () => {
                                                         cod_tipo: tipo.codTipo,
                                                         digito: c.digito,
                                                         data: dataRef,
-                                                      });
+                                                      }, token);
                                                       toast({ title: "Ajuste removido", description: "O lançamento do dia foi excluído." });
                                                       // recarrega a lista para refletir a remoção
                                                       onCarregar();
@@ -1021,9 +1207,7 @@ const SaldosBancarios = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-
-    </div >
+    </div>
   );
 };
 

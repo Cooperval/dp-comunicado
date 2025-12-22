@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/components/auth/controle-financeiro/AuthProvider';
+import { useAuth } from '@/pages/apps/controle-financeiro/auth/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,19 +8,15 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TrendingUp, BarChart3, PieChart } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import authBackground from '@/assets/auth-background-17.jpg';
+import authBackground from '@/assets/auth-background-19.jpg';
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { signIn, signUp, user } = useAuth();
+  const [resetEmail, setResetEmail] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
   const navigate = useNavigate();
 
-  // Redirect if already authenticated
-  // React.useEffect(() => {
-  //   if (user) {
-  //     navigate('/apps/controle-financeiro/dashboard');
-  //   }
-  // }, [user, navigate]);
 
   const [signInData, setSignInData] = useState({
     email: '',
@@ -94,6 +90,38 @@ const Auth = () => {
     }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const { error } = await resetPassword(resetEmail);
+
+      if (error) {
+        toast({
+          title: "Erro ao enviar email",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Email enviado!",
+          description: "Verifique sua caixa de entrada para redefinir sua senha.",
+        });
+        setShowResetPassword(false);
+        setResetEmail('');
+      }
+    } catch (error) {
+      toast({
+        title: "Erro inesperado",
+        description: "Tente novamente em alguns instantes",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div
       className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-success/10 flex items-center justify-center relative overflow-hidden"
@@ -119,9 +147,7 @@ const Auth = () => {
 
             <div className="flex items-center gap-6">
               {/* Ícone */}
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-green-700 rounded-3xl shadow-2xl">
-                <TrendingUp className="w-10 h-10 text-primary-foreground" />
-              </div>
+
 
               {/* Título e subtítulo */}
               <div className="space-y-2">
@@ -143,10 +169,10 @@ const Auth = () => {
 
 
 
-            {/* <div className="grid grid-cols-1 gap-6 max-w-lg">
-              <div className="flex items-start gap-4 p-4 rounded-lg bg-primary/5 border border-primary/10">
-                <div className="flex-shrink-0 w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
-                  <BarChart3 className="w-5 h-5 text-primary" />
+            <div className="grid grid-cols-1 gap-6 max-w-lg">
+              <div className="flex items-start gap-4 p-4 rounded-lg bg-success/5 border border-success/10">
+                <div className="flex-shrink-0 w-10 h-10 bg-success/20 rounded-lg flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-success" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-white">Dashboard Intuitivo</h3>
@@ -163,7 +189,7 @@ const Auth = () => {
                   <p className="text-sm text-white">Relatórios detalhados e insights</p>
                 </div>
               </div>
-            </div> */}
+            </div>
           </div>
 
           {/* Right side - Login form */}
@@ -181,55 +207,105 @@ const Auth = () => {
               <Tabs defaultValue="signin" className="w-full">
 
                 <TabsContent value="signin">
-                  <form onSubmit={handleSignIn}>
-                    <CardHeader className="text-center pb-4">
-                      <CardTitle className="flex items-center justify-center gap-2 text-xl">
-                        <BarChart3 className="w-5 h-5 text-primary" />
-                        Fazer Login
-                      </CardTitle>
-                      <CardDescription>
-                        Entre com sua conta para acessar o dashboard
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-5">
-                      <div className="space-y-2">
-                        <Label htmlFor="signin-email" className="text-sm font-medium">Email</Label>
-                        <Input
-                          id="signin-email"
-                          type="email"
-                          placeholder="seu@email.com"
-                          value={signInData.email}
-                          onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
-                          required
-                          className="h-11 bg-background/50 border-border/50 focus:bg-background transition-colors"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="signin-password" className="text-sm font-medium">Senha</Label>
-                        <Input
-                          id="signin-password"
-                          type="password"
-                          placeholder="Sua senha"
-                          value={signInData.password}
-                          onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
-                          required
-                          className="h-11 bg-background/50 border-border/50 focus:bg-background transition-colors"
-                        />
-                      </div>
-                    </CardContent>
-                    <CardFooter className="pt-2">
-                      <Button
-                        type="submit"
-                        className="w-full h-11 bg-green-700 hover:opacity-90 transition-all duration-300 shadow-lg hover:shadow-xl font-semibold"
-                        disabled={isLoading}
-                      >
-                        {isLoading ? "Entrando..." : "Entrar"}
-                      </Button>
-                    </CardFooter>
-                  </form>
+                  {!showResetPassword ? (
+                    <form onSubmit={handleSignIn}>
+                      <CardHeader className="text-center pb-4">
+                        <CardTitle className="flex items-center justify-center gap-2 text-xl">
+                          <BarChart3 className="w-5 h-5 text-primary" />
+                          Fazer Login
+                        </CardTitle>
+                        <CardDescription>
+                          Entre com sua conta para acessar o dashboard
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-5">
+                        <div className="space-y-2">
+                          <Label htmlFor="signin-email" className="text-sm font-medium">Email</Label>
+                          <Input
+                            id="signin-email"
+                            type="email"
+                            placeholder="seu@email.com"
+                            value={signInData.email}
+                            onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
+                            required
+                            className="h-11 bg-background/50 border-border/50 focus:bg-background transition-colors"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="signin-password" className="text-sm font-medium">Senha</Label>
+                          <Input
+                            id="signin-password"
+                            type="password"
+                            placeholder="Sua senha"
+                            value={signInData.password}
+                            onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
+                            required
+                            className="h-11 bg-background/50 border-border/50 focus:bg-background transition-colors"
+                          />
+                          <div className="text-right">
+                            <button
+                              type="button"
+                              onClick={() => setShowResetPassword(true)}
+                              className="text-sm text-primary hover:underline"
+                            >
+                              Esqueci minha senha
+                            </button>
+                          </div>
+                        </div>
+                      </CardContent>
+                      <CardFooter className="pt-2">
+                        <Button
+                          type="submit"
+                          className="w-full h-11 bg-gradient-primary hover:opacity-90 transition-all duration-300 shadow-lg hover:shadow-xl font-semibold"
+                          disabled={isLoading}
+                        >
+                          {isLoading ? "Entrando..." : "Entrar"}
+                        </Button>
+                      </CardFooter>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleResetPassword}>
+                      <CardHeader className="text-center pb-4">
+                        <CardTitle className="text-xl">Recuperar Senha</CardTitle>
+                        <CardDescription>
+                          Informe seu email para receber o link de recuperação
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-5">
+                        <div className="space-y-2">
+                          <Label htmlFor="reset-email">Email</Label>
+                          <Input
+                            id="reset-email"
+                            type="email"
+                            placeholder="seu@email.com"
+                            value={resetEmail}
+                            onChange={(e) => setResetEmail(e.target.value)}
+                            required
+                            className="h-11 bg-background/50 border-border/50 focus:bg-background transition-colors"
+                          />
+                        </div>
+                      </CardContent>
+                      <CardFooter className="flex flex-col gap-3 pt-2">
+                        <Button
+                          type="submit"
+                          className="w-full h-11 bg-gradient-primary hover:opacity-90 transition-all duration-300 shadow-lg hover:shadow-xl font-semibold"
+                          disabled={isLoading}
+                        >
+                          {isLoading ? "Enviando..." : "Enviar Link de Recuperação"}
+                        </Button>
+                        <button
+                          type="button"
+                          onClick={() => setShowResetPassword(false)}
+                          className="text-sm text-muted-foreground hover:underline"
+                        >
+                          Voltar para login
+                        </button>
+                      </CardFooter>
+                    </form>
+                  )}
                 </TabsContent>
 
-                {/* <TabsContent value="signup">
+                <TabsContent value="signup">
                   <form onSubmit={handleSignUp}>
                     <CardHeader className="text-center pb-4">
                       <CardTitle className="flex items-center justify-center gap-2 text-xl">
@@ -288,7 +364,7 @@ const Auth = () => {
                       </Button>
                     </CardFooter>
                   </form>
-                </TabsContent> */}
+                </TabsContent>
               </Tabs>
             </Card>
 

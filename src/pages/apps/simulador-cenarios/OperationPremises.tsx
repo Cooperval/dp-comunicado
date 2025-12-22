@@ -14,7 +14,7 @@ import {
 import { NumericInput } from '@/components/ui/numeric-input';
 
 // Importa o hook personalizado que fornece acesso ao contexto global do simulador
-import { useSimulator } from '@/contexts/SimulatorContext';
+import { useSimulator } from '@/pages/apps/simulador-cenarios/contexts/SimulatorContext';
 
 // Define o componente funcional chamado OperationPremises
 const OperationPremises: React.FC = () => {
@@ -60,31 +60,6 @@ const OperationPremises: React.FC = () => {
               placeholder="0.00"
             />
 
-            <NumericInput
-              label="Extração ART"
-              unit="%"
-              value={data.extractionArt}
-              onChange={(value) => handleInputChange('extractionArt', value)}
-              placeholder="0.00"
-              max={100}
-            />
-
-            <NumericInput
-              label="Horas Efetivas no mês"
-              unit="h"
-              value={data.effectiveHours}
-              onChange={(value) => handleInputChange('effectiveHours', value)}
-              placeholder="0.00"
-            />
-
-            <NumericInput
-              label="Eficiência de Tempo Geral"
-              unit="%"
-              value={data.generalTimeEfficiency}
-              onChange={(value) => handleInputChange('generalTimeEfficiency', value)}
-              placeholder="0.00"
-              max={100}
-            />
 
             <NumericInput
               label="Rendimento Total Convertido"
@@ -134,10 +109,18 @@ const OperationPremises: React.FC = () => {
             />
 
             <NumericInput
-              label="Rendimento WDG Total"
+              label="Rendimento DDG"
               unit="kg/ton"
-              value={data.totalWdgYield}
-              onChange={(value) => handleInputChange('totalWdgYield', value)}
+              value={data.ddgYieldPerTon}
+              onChange={(value) => handleInputChange('ddgYieldPerTon', value)}
+              placeholder="0.00"
+            />
+
+            <NumericInput
+              label="Rendimento WDG"
+              unit="kg/ton"
+              value={data.wdgYieldPerTon}
+              onChange={(value) => handleInputChange('wdgYieldPerTon', value)}
               placeholder="0.00"
             />
           </CardContent>

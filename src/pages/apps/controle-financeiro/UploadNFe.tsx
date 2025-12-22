@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,9 +9,12 @@ import { Separator } from "@/components/ui/separator";
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2, Trash2, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { parseNFeXML, validateXMLFile, NFeParsedData } from "@/utils/controle-financeiro/nfeParser";
+import { parseNFeXML, validateXMLFile, NFeParsedData } from "@/pages/apps/controle-financeiro/utils/nfeParser";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { useAuth } from '@/components/auth/controle-financeiro/AuthProvider';
+import { useAuth } from '@/pages/apps/controle-financeiro/auth/AuthProvider';
+import { formatCurrency, formatDate } from '@/pages/apps/controle-financeiro/utils/formatters';
+import { NFeUploadListItem } from '@/pages/apps/controle-financeiro/types/nfe';
+import { MAX_FILE_SIZE_BYTES, ALLOWED_EXTENSIONS, NFE_UPLOAD_MESSAGES } from '@/pages/apps/controle-financeiro/constants/nfeConstants';
 
 export default function UploadNFe() {
   const { companyId } = useAuth();
@@ -23,10 +26,10 @@ export default function UploadNFe() {
   const { toast } = useToast();
 
   // NFe uploads management state
-  const [uploads, setUploads] = useState<any[]>([]);
+  const [uploads, setUploads] = useState<NFeUploadListItem[]>([]);
   const [loadingUploads, setLoadingUploads] = useState(false);
 
-  const loadUploads = async () => {
+  const loadUploads = useCallback(async () => {
     if (!companyId) return;
     
     setLoadingUploads(true);
@@ -48,49 +51,58 @@ export default function UploadNFe() {
       
       if (!error) setUploads(data || []);
     } catch (error) {
-      console.error('Error loading NFe uploads:', error);
+      toast({
+        title: 'Erro ao carregar',
+        description: NFE_UPLOAD_MESSAGES.LOAD_ERROR,
+        variant: 'destructive',
+      });
     } finally {
       setLoadingUploads(false);
     }
-  };
+  }, [companyId, toast]);
 
 
-  const handleDeleteUpload = async (id: string, nfeNumber: string) => {
+  // Auto-load uploads on mount
+  useEffect(() => {
+    loadUploads();
+  }, [loadUploads]);
+
+  const handleDeleteUpload = useCallback(async (id: string, nfeNumber: string) => {
     try {
       const { error } = await supabase.from('nfe_documents').delete().eq('id', id);
       if (error) throw error;
       
       toast({
         title: 'NFe deletada',
-        description: `NFe ${nfeNumber} foi removida com sucesso.`,
+        description: NFE_UPLOAD_MESSAGES.DELETE_SUCCESS,
       });
       loadUploads();
     } catch (error) {
       toast({
         title: 'Erro ao deletar',
-        description: 'Não foi possível deletar a NFe.',
+        description: NFE_UPLOAD_MESSAGES.DELETE_ERROR,
         variant: 'destructive',
       });
     }
-  };
+  }, [toast, loadUploads]);
 
-  const handleFileSelect = async (files: File[]) => {
+  const handleFileSelect = useCallback(async (files: File[]) => {
     const validFiles: File[] = [];
     
     for (const file of files) {
       if (!validateXMLFile(file)) {
         toast({
           title: "Arquivo inválido",
-          description: `${file.name} não é um arquivo XML válido.`,
+          description: NFE_UPLOAD_MESSAGES.INVALID_FORMAT,
           variant: "destructive",
         });
         continue;
       }
 
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      if (file.size > MAX_FILE_SIZE_BYTES) {
         toast({
           title: "Arquivo muito grande",
-          description: `${file.name} deve ter no máximo 10MB.`,
+          description: NFE_UPLOAD_MESSAGES.FILE_TOO_LARGE,
           variant: "destructive",
         });
         continue;
@@ -107,9 +119,9 @@ export default function UploadNFe() {
         await processFile(file);
       }
     }
-  };
+  }, [toast]);
 
-  const processFile = async (file: File) => {
+  const processFile = useCallback(async (file: File) => {
     const fileName = file.name;
     setProcessingFiles(prev => new Set([...prev, fileName]));
     
@@ -119,13 +131,12 @@ export default function UploadNFe() {
       setParsedData(prev => ({ ...prev, [fileName]: parsed }));
       toast({
         title: "XML processado com sucesso",
-        description: `${fileName} foi processado e está pronto para revisão.`,
+        description: NFE_UPLOAD_MESSAGES.UPLOAD_SUCCESS,
       });
     } catch (error) {
-      console.error('Error parsing XML:', error);
       toast({
         title: "Erro ao processar XML",
-        description: `${fileName}: ${error instanceof Error ? error.message : "Erro desconhecido ao processar o arquivo XML."}`,
+        description: `${fileName}: ${error instanceof Error ? error.message : NFE_UPLOAD_MESSAGES.UPLOAD_ERROR}`,
         variant: "destructive",
       });
     } finally {
@@ -135,24 +146,24 @@ export default function UploadNFe() {
         return newSet;
       });
     }
-  };
+  }, [toast]);
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
       handleFileSelect(files);
     }
-  };
+  }, [handleFileSelect]);
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
       handleFileSelect(Array.from(files));
     }
-  };
+  }, [handleFileSelect]);
 
-  const saveToDatabase = async () => {
+  const saveToDatabase = useCallback(async () => {
     const parsedDataEntries = Object.entries(parsedData);
     if (parsedDataEntries.length === 0) return;
 
@@ -288,27 +299,15 @@ export default function UploadNFe() {
       loadUploads();
 
     } catch (error) {
-      console.error('Error saving NFe:', error);
       toast({
         title: "Erro ao salvar NFe",
-        description: "Ocorreu um erro ao salvar os dados da Nota Fiscal.",
+        description: NFE_UPLOAD_MESSAGES.UPLOAD_ERROR,
         variant: "destructive",
       });
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
-
-  const formatPercentage = (value: number) => {
-    return `${(value * 100).toFixed(2)}%`;
-  };
+  }, [parsedData, companyId, toast, loadUploads]);
 
   return (
     <div className="space-y-6">
@@ -431,7 +430,7 @@ export default function UploadNFe() {
                   </div>
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Data de Emissão</Label>
-                    <p className="font-medium">{new Date(data.emissionDate).toLocaleDateString('pt-BR')}</p>
+                    <p className="font-medium">{formatDate(data.emissionDate)}</p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Natureza da Operação</Label>
@@ -614,7 +613,7 @@ export default function UploadNFe() {
                             {data.duplicatas.map((dup, idx) => (
                               <TableRow key={idx}>
                                 <TableCell className="font-medium">{dup.numeroParcela}</TableCell>
-                                <TableCell>{new Date(dup.dataVencimento).toLocaleDateString('pt-BR')}</TableCell>
+                                <TableCell>{formatDate(dup.dataVencimento)}</TableCell>
                                 <TableCell>{formatCurrency(dup.valorParcela)}</TableCell>
                               </TableRow>
                             ))}
@@ -686,13 +685,13 @@ export default function UploadNFe() {
                         {upload.nfe_emitters?.[0]?.razao_social || '-'}
                       </TableCell>
                       <TableCell>
-                        {new Date(upload.emission_date).toLocaleDateString('pt-BR')}
+                        {formatDate(upload.emission_date)}
                       </TableCell>
                       <TableCell className="font-medium">
                         {formatCurrency(upload.total_nfe_value)}
                       </TableCell>
                       <TableCell>
-                        {new Date(upload.created_at).toLocaleDateString('pt-BR')}
+                        {formatDate(upload.created_at)}
                       </TableCell>
                       <TableCell>
                         <AlertDialog>

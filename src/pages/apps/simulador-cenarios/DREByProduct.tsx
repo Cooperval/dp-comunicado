@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useSimulator } from '@/contexts/SimulatorContext';
+import { useSimulator } from '@/pages/apps/simulador-cenarios/contexts/SimulatorContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -10,13 +10,36 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { calcularDREPorProduto, ProductData } from '@/utils/simulatorCalculations';
+import { calcularDREPorProduto, ProductData, calculateConsolidatedData, getConsolidatedDREData, ConsolidatedDREData } from '@/pages/apps/simulador-cenarios/utils/simulatorCalculations';
+import { ScenarioSelector } from '@/pages/apps/simulador-cenarios/components/ScenarioSelector';
 
 const DREByProduct: React.FC = () => {
+  const { data, saveScenario, savedScenarios } = useSimulator();
+  const [selectedScenario, setSelectedScenario] = useState<string>('current');
 
-  const { data, saveScenario } = useSimulator();
+  // Para visão consolidada, usar dados pré-calculados de scenario.data
+  const consolidatedData = useMemo((): ConsolidatedDREData | null => {
+    if (selectedScenario === 'consolidated') {
+      return getConsolidatedDREData(savedScenarios);
+    }
+    return null;
+  }, [selectedScenario, savedScenarios]);
 
+  // Para cenário atual ou cenário específico, usa o cálculo normal
+  const effectiveData = useMemo(() => {
+    if (selectedScenario === 'current') return data;
+    if (selectedScenario === 'consolidated') return data; // Será ignorado quando consolidatedData existe
+    const scenario = savedScenarios.find(s => s.id === selectedScenario);
+    return scenario?.originalData || data;
+  }, [selectedScenario, data, savedScenarios]);
 
+  // Verifica se está visualizando cenário salvo (não permite edição)
+  const isViewingOnly = selectedScenario !== 'current';
+
+  // Valores calculados (será usado quando não é consolidado)
+  const dreCalculated = useMemo(() => calcularDREPorProduto(effectiveData), [effectiveData]);
+
+  // Usa dados consolidados diretamente OU calcula a partir de effectiveData
   const {
     productMatrixData,
     caneProcessed,
@@ -54,8 +77,93 @@ const DREByProduct: React.FC = () => {
     resulMilho,
     rolEHC, 
     rolEAC,
-  } = calcularDREPorProduto(data);
+  } = useMemo(() => {
+    if (consolidatedData) {
+      // Para visão consolidada, usar os valores totais de scenario.data
+      const cane = consolidatedData.caneProcessed || 1; // Evita divisão por zero
+      const corn = consolidatedData.cornProcessed || 1;
+      
+      // Receitas totais
+      const receitaCanaTotal = consolidatedData.receitaCanaTotal || 0;
+      const receitaMilhoTotal = consolidatedData.receitaMilhoTotal || 0;
+      
+      // Custos totais
+      const custoCanaTotal = consolidatedData.custoCanaTotal || 0;
+      const custoMilhoTotal = consolidatedData.custoMilhoTotal || 0;
+      
+      // Margens totais
+      const margemCana = consolidatedData.margemCana || 0;
+      const margemMilho = consolidatedData.margemMilho || 0;
+      
+      // Resultado operacional por tonelada
+      const resulCanaPerTon = consolidatedData.caneProcessed > 0 
+        ? (margemCana - (consolidatedData.despesasVendas * (consolidatedData.caneProcessed / (consolidatedData.caneProcessed + consolidatedData.cornProcessed))) - (consolidatedData.administracao * (consolidatedData.caneProcessed / (consolidatedData.caneProcessed + consolidatedData.cornProcessed)))) / consolidatedData.caneProcessed
+        : 0;
+      const resulMilhoPerTon = consolidatedData.cornProcessed > 0 
+        ? (margemMilho - (consolidatedData.despesasVendas * (consolidatedData.cornProcessed / (consolidatedData.caneProcessed + consolidatedData.cornProcessed))) - (consolidatedData.administracao * (consolidatedData.cornProcessed / (consolidatedData.caneProcessed + consolidatedData.cornProcessed)))) / consolidatedData.cornProcessed
+        : 0;
 
+      return {
+        productMatrixData: dreCalculated.productMatrixData,
+        caneProcessed: consolidatedData.caneProcessed,
+        cornProcessed: consolidatedData.cornProcessed,
+        caneMarginPerTon: consolidatedData.caneProcessed > 0 ? margemCana / consolidatedData.caneProcessed : 0,
+        cornMarginPerTon: consolidatedData.cornProcessed > 0 ? margemMilho / consolidatedData.cornProcessed : 0,
+        receitasCana: {
+          sugarRevenue: consolidatedData.receitaAcucarVHP,
+          hydratedEthanolRevenue: consolidatedData.receitaEtanolHidratadoCana,
+          anhydrousEthanolRevenue: consolidatedData.receitaEtanolAnidroCana,
+        },
+        receitasMilho: {
+          hydratedEthanolCornRevenue: consolidatedData.receitaEtanolHidratadoMilho,
+          anhydrousEthanolCornRevenue: consolidatedData.receitaEtanolAnidroMilho,
+          ddgRevenue: consolidatedData.receitaDDG,
+          wdgRevenue: consolidatedData.receitaWDG,
+        },
+        totalCornRevenuePerTon: consolidatedData.cornProcessed > 0 ? receitaMilhoTotal / consolidatedData.cornProcessed : 0,
+        caneTotalCost: consolidatedData.caneProcessed > 0 ? custoCanaTotal / consolidatedData.caneProcessed : 0,
+        sugarRevenuePerTon: consolidatedData.caneProcessed > 0 ? consolidatedData.receitaAcucarVHP / consolidatedData.caneProcessed : 0,
+        hydratedEthanolCaneRevenuePerTon: consolidatedData.caneProcessed > 0 ? consolidatedData.receitaEtanolHidratadoCana / consolidatedData.caneProcessed : 0,
+        anhydrousEthanolCaneRevenuePerTon: consolidatedData.caneProcessed > 0 ? consolidatedData.receitaEtanolAnidroCana / consolidatedData.caneProcessed : 0,
+        totalCaneRevenuePerTon: consolidatedData.caneProcessed > 0 ? receitaCanaTotal / consolidatedData.caneProcessed : 0,
+        cornTotalCost: consolidatedData.cornProcessed > 0 ? custoMilhoTotal / consolidatedData.cornProcessed : 0,
+        hydratedEthanolCornRevenuePerTon: consolidatedData.cornProcessed > 0 ? consolidatedData.receitaEtanolHidratadoMilho / consolidatedData.cornProcessed : 0,
+        anhydrousEthanolCornRevenuePerTon: consolidatedData.cornProcessed > 0 ? consolidatedData.receitaEtanolAnidroMilho / consolidatedData.cornProcessed : 0,
+        ddgRevenuePerTon: consolidatedData.cornProcessed > 0 ? consolidatedData.receitaDDG / consolidatedData.cornProcessed : 0,
+        wdgRevenuePerTon: consolidatedData.cornProcessed > 0 ? consolidatedData.receitaWDG / consolidatedData.cornProcessed : 0,
+        unitCO2Cana: consolidatedData.caneProcessed > 0 ? consolidatedData.receitaCO2 / consolidatedData.caneProcessed : 0,
+        unitCBIOCana: consolidatedData.caneProcessed > 0 ? consolidatedData.receitaCBIO / consolidatedData.caneProcessed : 0,
+        receitaCO2Cana: consolidatedData.receitaCO2,
+        receitaCBIOCana: consolidatedData.receitaCBIO,
+        unitCO2Milho: 0,
+        receitaCO2Milho: 0,
+        receitaCBIOMilho: 0, 
+        unitCBIOMilho: 0,
+        unitAdm: (consolidatedData.caneProcessed + consolidatedData.cornProcessed) > 0 
+          ? consolidatedData.administracao / (consolidatedData.caneProcessed + consolidatedData.cornProcessed) : 0,
+        custoAdm: consolidatedData.administracao,
+        despesasVCana: consolidatedData.despesasVendas * (consolidatedData.caneProcessed / (consolidatedData.caneProcessed + consolidatedData.cornProcessed || 1)),
+        unitVCana: consolidatedData.caneProcessed > 0 
+          ? (consolidatedData.despesasVendas * (consolidatedData.caneProcessed / (consolidatedData.caneProcessed + consolidatedData.cornProcessed || 1))) / consolidatedData.caneProcessed : 0,
+        unitVMilho: consolidatedData.cornProcessed > 0 
+          ? (consolidatedData.despesasVendas * (consolidatedData.cornProcessed / (consolidatedData.caneProcessed + consolidatedData.cornProcessed || 1))) / consolidatedData.cornProcessed : 0,
+        despesasVEtanolMilho: consolidatedData.despesasVendas * (consolidatedData.cornProcessed / (consolidatedData.caneProcessed + consolidatedData.cornProcessed || 1)),
+        resulCana: resulCanaPerTon,
+        resulMilho: resulMilhoPerTon,
+        rolEHC: consolidatedData.receitaEtanolHidratadoCana - (consolidatedData.impostosCana * (consolidatedData.receitaEtanolHidratadoCana / (consolidatedData.receitaCanaTotal || 1))),
+        rolEAC: consolidatedData.receitaEtanolAnidroCana - (consolidatedData.impostosCana * (consolidatedData.receitaEtanolAnidroCana / (consolidatedData.receitaCanaTotal || 1))),
+      };
+    }
+    return dreCalculated;
+  }, [consolidatedData, dreCalculated]);
+
+  // Label do cenário selecionado
+  const scenarioLabel = useMemo(() => {
+    if (selectedScenario === 'current') return 'Cenário Atual';
+    if (selectedScenario === 'consolidated') return 'Visão Consolidada';
+    const scenario = savedScenarios.find(s => s.id === selectedScenario);
+    return scenario?.name || 'Cenário';
+  }, [selectedScenario, savedScenarios]);
 
   const [scenarioName, setScenarioName] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -68,11 +176,11 @@ const DREByProduct: React.FC = () => {
   };
 
 
-  // Calcular margem bruta e EBITDA para cada produto
+  // Calcular margem bruta e resultado operacional para cada produto
   Object.keys(productMatrixData).forEach(product => {
     const prod = productMatrixData[product];
     prod.margemBruta = prod.receitaLiquida - prod.custoMateriaPrima - prod.custoCCT - prod.custoIndustria - prod.custoBiomassa;
-    prod.ebitda = prod.margemBruta - prod.administracao - prod.comercializacao; 
+    prod.resultadoOp = prod.margemBruta - prod.comercializacao - prod.administracao; 
   });
 
   // Nomes dos produtos para exibição
@@ -98,7 +206,7 @@ const DREByProduct: React.FC = () => {
     { key: 'margemBruta', label: 'Margem Bruta' },
     { key: 'comercializacao', label: 'Comercialização' },
     { key: 'administracao', label: 'Administração' },
-    { key: 'ebitda', label: 'EBITDA' },
+    { key: 'resultadoOp', label: 'Resultado Operacional' },
   ];
 
   const handleSaveScenario = () => {
@@ -155,7 +263,7 @@ const DREByProduct: React.FC = () => {
 
   return (
     <div className="space-y-6" >
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
             DSP por Produto (R$/tonelada)
@@ -164,40 +272,47 @@ const DREByProduct: React.FC = () => {
             Demonstrativo de resultado separado entre Cana e Milho em valores por tonelada
           </p>
         </div>
-        <div className="flex gap-2">
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
-                <Save className="h-4 w-4" />
-                Salvar Cenário
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Salvar Cenário</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="scenarioName">Nome do Cenário</Label>
-                  <Input
-                    id="scenarioName"
-                    value={scenarioName}
-                    onChange={(e) => setScenarioName(e.target.value)}
-                    placeholder="Ex: Cenário Q1 2024"
-                  />
+        <div className="flex gap-2 items-center flex-wrap">
+          <ScenarioSelector
+            selectedScenario={selectedScenario}
+            onScenarioChange={setSelectedScenario}
+            savedScenarios={savedScenarios}
+          />
+          {!isViewingOnly && (
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <Save className="h-4 w-4" />
+                  Salvar Cenário
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-background">
+                <DialogHeader>
+                  <DialogTitle>Salvar Cenário</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="scenarioName">Nome do Cenário</Label>
+                    <Input
+                      id="scenarioName"
+                      value={scenarioName}
+                      onChange={(e) => setScenarioName(e.target.value)}
+                      placeholder="Ex: Cenário Q1 2024"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleSaveScenario}>
+                      <Save className="h-4 w-4 mr-2" />
+                      Salvar
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button onClick={handleSaveScenario}>
-                    <Save className="h-4 w-4 mr-2" />
-                    Salvar
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          )}
 
           <Button onClick={generatePDF} variant="outline" size="sm">
             <Download className="w-4 h-4 mr-2" />
@@ -267,23 +382,23 @@ const DREByProduct: React.FC = () => {
                 </h3>
                 <div className="grid grid-cols-3 gap-2 items-center">
                   <span>Matéria-prima:</span>
-                  <span className="text-center font-medium">{formatNumber(data.productionCosts.caneRawMaterial)}</span>
-                  <span className="text-center font-medium">{formatNumber((data.productionCosts.caneRawMaterial * caneProcessed) / 1000)}</span>
+                  <span className="text-center font-medium">{formatNumber(effectiveData.productionCosts.caneRawMaterial)}</span>
+                  <span className="text-center font-medium">{formatNumber((effectiveData.productionCosts.caneRawMaterial * caneProcessed) / 1000)}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 items-center">
                   <span>CCT:</span>
-                  <span className="text-center font-medium">{formatNumber(data.productionCosts.caneCct)}</span>
-                  <span className="text-center font-medium">{formatNumber((data.productionCosts.caneCct * caneProcessed) / 1000)}</span>
+                  <span className="text-center font-medium">{formatNumber(effectiveData.productionCosts.caneCct)}</span>
+                  <span className="text-center font-medium">{formatNumber((effectiveData.productionCosts.caneCct * caneProcessed) / 1000)}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 items-center">
                   <span>Indústria:</span>
-                  <span className="text-center font-medium">{formatNumber(data.productionCosts.caneIndustry)}</span>
-                  <span className="text-center font-medium">{formatNumber((data.productionCosts.caneIndustry * caneProcessed) / 1000)}</span>
+                  <span className="text-center font-medium">{formatNumber(effectiveData.productionCosts.caneIndustry)}</span>
+                  <span className="text-center font-medium">{formatNumber((effectiveData.productionCosts.caneIndustry * caneProcessed) / 1000)}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 items-center">
                   <span>Dispêndios:</span>
-                  <span className="text-center font-medium">{formatNumber(data.productionCosts.caneExpenses)}</span>
-                  <span className="text-center font-medium">{formatNumber((data.productionCosts.caneExpenses * caneProcessed) / 1000)}</span>
+                  <span className="text-center font-medium">{formatNumber(effectiveData.productionCosts.caneExpenses)}</span>
+                  <span className="text-center font-medium">{formatNumber((effectiveData.productionCosts.caneExpenses * caneProcessed) / 1000)}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 items-center font-bold text-red-700">
                   <span>Total:</span>
@@ -384,18 +499,18 @@ const DREByProduct: React.FC = () => {
                 </h3>
                 <div className="grid grid-cols-3 gap-2 items-center">
                   <span>Matéria-prima:</span>
-                  <span className="text-center font-medium">{formatNumber(data.productionCosts.cornRawMaterial)}</span>
-                  <span className="text-center font-medium">{formatNumber((data.productionCosts.cornRawMaterial * cornProcessed) / 1000)}</span>
+                  <span className="text-center font-medium">{formatNumber(effectiveData.productionCosts.cornRawMaterial)}</span>
+                  <span className="text-center font-medium">{formatNumber((effectiveData.productionCosts.cornRawMaterial * cornProcessed) / 1000)}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 items-center">
                   <span>Indústria:</span>
-                  <span className="text-center font-medium">{formatNumber(data.productionCosts.cornIndustry)}</span>
-                  <span className="text-center font-medium">{formatNumber((data.productionCosts.cornIndustry * cornProcessed) / 1000)}</span>
+                  <span className="text-center font-medium">{formatNumber(effectiveData.productionCosts.cornIndustry)}</span>
+                  <span className="text-center font-medium">{formatNumber((effectiveData.productionCosts.cornIndustry * cornProcessed) / 1000)}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 items-center">
                   <span>Biomassa:</span>
-                  <span className="text-center font-medium">{formatNumber(data.productionCosts.cornBiomass)}</span>
-                  <span className="text-center font-medium">{formatNumber((data.productionCosts.cornBiomass * cornProcessed) / 1000)}</span>
+                  <span className="text-center font-medium">{formatNumber(effectiveData.productionCosts.cornBiomass)}</span>
+                  <span className="text-center font-medium">{formatNumber((effectiveData.productionCosts.cornBiomass * cornProcessed) / 1000)}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 items-center font-bold text-red-700">
                   <span>Total:</span>

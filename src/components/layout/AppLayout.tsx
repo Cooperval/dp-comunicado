@@ -41,9 +41,10 @@ export function AppLayout({ children, sidebar, appName = 'Aplicação' }: AppLay
     'fluxo-de-caixa/movimentacoes': 'Movimentações',
     'fluxo-de-caixa/pendencias': 'Pendências',
     'fluxo-de-caixa/lancamento-futuro': 'Lançamentos Futuros',
+    'fluxo-de-caixa/projecao-dp': 'Projeção DP',
     'fluxo-de-caixa/relatorios': 'Relatórios',
     'fluxo-de-caixa/fluxo-de-caixa': 'Fluxo de Caixa', // nova rota!
-    'fluxo-de-caixa/configuracoes': 'Configurações', 
+    'fluxo-de-caixa/configuracoes': 'Configurações',
 
     // === Controle de Ponto ===
     'controle-ponto': 'Controle de Ponto',

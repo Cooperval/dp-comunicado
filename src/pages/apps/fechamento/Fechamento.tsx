@@ -3,6 +3,7 @@ import { Dashboard } from "@/pages/apps/fechamento/components/dashboard/Dashboar
 import { DashboardStats } from "@/pages/apps/fechamento/components/dashboard/DashboardStats";
 import { ValueTypesSettings } from "@/pages/apps/fechamento/components/settings/ValueTypesSettings";
 import { KanbanBoard } from "@/pages/apps/fechamento/components/kanban/KanbanBoard";
+import { ClosingBoard } from "@/pages/apps/fechamento/components/kanban/ClosingBoard";
 import { TeamManagement } from "@/pages/apps/fechamento/components/team/TeamManagement";
 import { AccessControl } from "@/pages/apps/fechamento/AccessControl";
 import { useProjects } from "@/pages/apps/fechamento/hooks/useProjects";
@@ -89,6 +90,19 @@ const Fechamento = () => {
 
       case 'board':
         if (selectedProject && selectedBoard) {
+          // Projetos do tipo fechamento usam o ClosingBoard
+          if (selectedProject.projectType === 'fechamento') {
+            return (
+              <ClosingBoard
+                board={selectedBoard}
+                project={selectedProject}
+                members={selectedProject.members}
+                onUpdateBoard={(board) => updateBoard(board.id, board)}
+                onBackToProjects={handleBackToProjects}
+              />
+            );
+          }
+          // Outros tipos usam o KanbanBoard genérico
           return (
             <KanbanBoard
               board={selectedBoard}

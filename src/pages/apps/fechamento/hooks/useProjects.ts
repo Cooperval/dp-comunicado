@@ -245,33 +245,72 @@ export const useProjects = () => {
       updatedAt: new Date(),
     };
 
-    // Create an empty board for the project
+    // Colunas diferentes baseado no tipo de projeto
+    const columns: Column[] = projectData.projectType === 'fechamento' 
+      ? [
+          {
+            id: `col-${Date.now()}-1`,
+            title: 'A Fazer',
+            position: 0,
+            boardId: newProject.boardId,
+            cards: [],
+            closingColumnType: 'todo',
+            isFixed: true,
+            backgroundColor: '#fef3c7',
+            titleColor: '#92400e'
+          },
+          {
+            id: `col-${Date.now()}-2`,
+            title: 'Em Andamento',
+            position: 1,
+            boardId: newProject.boardId,
+            cards: [],
+            closingColumnType: 'in-progress',
+            isFixed: true,
+            backgroundColor: '#dbeafe',
+            titleColor: '#1d4ed8'
+          },
+          {
+            id: `col-${Date.now()}-3`,
+            title: 'Concluída',
+            position: 2,
+            boardId: newProject.boardId,
+            cards: [],
+            closingColumnType: 'done',
+            isFixed: true,
+            backgroundColor: '#dcfce7',
+            titleColor: '#166534'
+          }
+        ]
+      : [
+          {
+            id: `col-${Date.now()}-1`,
+            title: 'A Fazer',
+            position: 0,
+            boardId: newProject.boardId,
+            cards: []
+          },
+          {
+            id: `col-${Date.now()}-2`,
+            title: 'Em Andamento',
+            position: 1,
+            boardId: newProject.boardId,
+            cards: []
+          },
+          {
+            id: `col-${Date.now()}-3`,
+            title: 'Concluído',
+            position: 2,
+            boardId: newProject.boardId,
+            cards: []
+          }
+        ];
+
+    // Create board for the project
     const newBoard: Board = {
       id: newProject.boardId,
       projectId: newProject.id,
-      columns: [
-        {
-          id: `col-${Date.now()}-1`,
-          title: 'A Fazer',
-          position: 0,
-          boardId: newProject.boardId,
-          cards: []
-        },
-        {
-          id: `col-${Date.now()}-2`,
-          title: 'Em Andamento',
-          position: 1,
-          boardId: newProject.boardId,
-          cards: []
-        },
-        {
-          id: `col-${Date.now()}-3`,
-          title: 'Concluído',
-          position: 2,
-          boardId: newProject.boardId,
-          cards: []
-        }
-      ]
+      columns
     };
 
     setProjects(prev => [...prev, newProject]);

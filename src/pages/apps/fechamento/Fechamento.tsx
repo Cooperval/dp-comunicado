@@ -7,7 +7,7 @@ import { ClosingBoard } from "@/pages/apps/fechamento/components/kanban/ClosingB
 import { TeamManagement } from "@/pages/apps/fechamento/components/team/TeamManagement";
 import { AccessControl } from "@/pages/apps/fechamento/AccessControl";
 import { useProjects } from "@/pages/apps/fechamento/hooks/useProjects";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const Fechamento = () => {
   const location = useLocation();
@@ -29,8 +29,25 @@ const Fechamento = () => {
     updateProjectMembers,
   } = useProjects();
 
+  // Limpar projeto selecionado quando navegar para outra seção
+  useEffect(() => {
+    const path = location.pathname;
+    // Se não estiver na rota de projetos, limpar o projeto selecionado
+    if (!path.includes('/projetos') && !path.endsWith('/fechamento')) {
+      setSelectedProjectId(null);
+    }
+  }, [location.pathname]);
+
   // Derive active section from URL
   const getActiveSection = () => {
+    // Se tem projeto selecionado E está na rota de projetos, mostrar board
+    if (selectedProjectId) {
+      const path = location.pathname;
+      if (path.includes('/projetos') || path.endsWith('/fechamento')) {
+        return 'board';
+      }
+    }
+    
     const path = location.pathname;
     if (path.includes('/projetos')) return 'projects';
     if (path.includes('/equipe')) return 'team';
@@ -41,7 +58,7 @@ const Fechamento = () => {
     return 'projects';
   };
 
-  const activeSection = selectedProjectId ? 'board' : getActiveSection();
+  const activeSection = getActiveSection();
 
   const handleOpenProject = (projectId: string) => {
     setSelectedProjectId(projectId);

@@ -1,6 +1,6 @@
 import { Toaster } from "@/components/ui/toaster";
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -69,9 +69,6 @@ import ListaTreinamentos from "./pages/apps/sgdnc/treinamentos/ListaTreinamentos
 import ConfirmacaoLeitura from "./pages/apps/sgdnc/treinamentos/ConfirmacaoLeitura";
 import RelatoriosAuditoria from "./pages/apps/sgdnc/relatorios/RelatoriosAuditoria";
 
-
-
-
 import { AuthProviderMeuControle } from "./pages/apps/controle-financeiro/auth/AuthProvider";
 import ProtectedRouteMeuControle from "./pages/apps/controle-financeiro/auth/ProtectedRouteMeuControle";
 import { SidebarProvider as SidebarProviderCF } from "@/components/ui/sidebar";
@@ -95,7 +92,6 @@ import FinancialStatement from "./pages/apps/controle-financeiro/FinancialStatem
 import CashFlow from "./pages/apps/controle-financeiro/CashFlow";
 import HierarchyManagement from "./pages/apps/controle-financeiro/HierarchyManagement";
 import Organization from "./pages/apps/controle-financeiro/Organization";
-
 
 import { FechamentoSidebar } from "./components/layout/FechamentoSidebar";
 import Fechamento from "./pages/apps/fechamento/Fechamento";
@@ -650,19 +646,16 @@ const App = () => (
               }
             />
 
-
             <Route
               path="/apps/fechamento"
               element={
-                <ProtectedRoute requiredModule={17}>
+                <ProtectedRoute>
                   <AppLayout sidebar={<FechamentoSidebar />} appName="Fechamento">
                     <Fechamento />
                   </AppLayout>
                 </ProtectedRoute>
               }
             />
-
-
 
             <Route
               path="/apps/controle-financeiro"
@@ -710,7 +703,6 @@ const App = () => (
               </Route>
             </Route>
 
-
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
           </Routes>
@@ -720,7 +712,7 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
-  </QueryClientProvider >
+  </QueryClientProvider>
 );
 
 export default App;

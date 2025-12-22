@@ -646,14 +646,22 @@ const App = () => (
               }
             />
 
+            {/* Fechamento app routes */}
             <Route
               path="/apps/fechamento"
               element={
                 <AppLayout sidebar={<FechamentoSidebar />} appName="Fechamento">
-                  <Fechamento />
+                  <Outlet />
                 </AppLayout>
               }
-            />
+            >
+              <Route index element={<Fechamento />} />
+              <Route path="projetos" element={<Fechamento />} />
+              <Route path="equipe" element={<Fechamento />} />
+              <Route path="acesso" element={<Fechamento />} />
+              <Route path="configuracoes" element={<Fechamento />} />
+              <Route path="dashboard" element={<Fechamento />} />
+            </Route>
 
             <Route
               path="/apps/controle-financeiro"

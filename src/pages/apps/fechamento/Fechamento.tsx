@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Dashboard } from "@/pages/apps/fechamento/components/dashboard/Dashboard";
 import { DashboardStats } from "@/pages/apps/fechamento/components/dashboard/DashboardStats";
 import { ValueTypesSettings } from "@/pages/apps/fechamento/components/settings/ValueTypesSettings";
@@ -6,9 +6,10 @@ import { KanbanBoard } from "@/pages/apps/fechamento/components/kanban/KanbanBoa
 import { TeamManagement } from "@/pages/apps/fechamento/components/team/TeamManagement";
 import { AccessControl } from "@/pages/apps/fechamento/AccessControl";
 import { useProjects } from "@/pages/apps/fechamento/hooks/useProjects";
-import { UserRole } from "@/pages/apps/fechamento/types";
+import { useState } from "react";
+
 const Fechamento = () => {
-  const [activeSection, setActiveSection] = useState('projects');
+  const location = useLocation();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   
   const {
@@ -27,20 +28,26 @@ const Fechamento = () => {
     updateProjectMembers,
   } = useProjects();
 
-  // Mock current user
-  const currentUser = {
-    name: 'João Silva',
-    role: 'admin' as UserRole
+  // Derive active section from URL
+  const getActiveSection = () => {
+    const path = location.pathname;
+    if (path.includes('/projetos')) return 'projects';
+    if (path.includes('/equipe')) return 'team';
+    if (path.includes('/acesso')) return 'access';
+    if (path.includes('/configuracoes')) return 'settings';
+    if (path.includes('/dashboard')) return 'dashboard';
+    // Default to projects for the base /apps/fechamento route
+    return 'projects';
   };
+
+  const activeSection = selectedProjectId ? 'board' : getActiveSection();
 
   const handleOpenProject = (projectId: string) => {
     setSelectedProjectId(projectId);
-    setActiveSection('board');
   };
 
   const handleBackToProjects = () => {
     setSelectedProjectId(null);
-    setActiveSection('projects');
   };
 
   const selectedProject = selectedProjectId 
@@ -117,6 +124,7 @@ const Fechamento = () => {
 
       case 'access':
         return <AccessControl />;
+
       default:
         return (
           <Dashboard
@@ -133,17 +141,6 @@ const Fechamento = () => {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* <Sidebar
-        currentUser={currentUser}
-        activeSection={activeSection}
-        onSectionChange={(section) => {
-          setActiveSection(section);
-          if (section !== 'board') {
-            setSelectedProjectId(null);
-          }
-        }}
-      />
-       */}
       <div className="flex-1 flex flex-col">
         {renderContent()}
       </div>

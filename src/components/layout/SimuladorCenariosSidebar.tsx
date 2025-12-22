@@ -1,5 +1,5 @@
 import logo from '@/assets/logo-4.png';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Sidebar,
   SidebarContent,
@@ -100,11 +100,11 @@ const menuItems = [
 ];
 
 export function SimuladorCenariosSidebar() {
-
   const { user, logout } = useAuth();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
   const location = useLocation();
+  const navigate = useNavigate();
 
   const isActive = (path: string) => {
     if (path === '/') {

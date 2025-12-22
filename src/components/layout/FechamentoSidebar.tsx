@@ -16,7 +16,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 
 
 
@@ -24,13 +24,13 @@ export const FechamentoSidebar = () => {
   const { acessos, user, logout } = useAuth();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
-
+  const navigate = useNavigate();
 
   const menuItems = [
-    { id: 'dashboard', title: 'Dashboard', icon: BarChart3  },
-    { id: 'projects', title: 'Projetos', icon: Leaf  },
-    { id: 'team', title: 'Equipe', icon: Users },
-    { id: 'settings', title: 'Configurações', icon: Settings },
+    { id: 'dashboard', title: 'Dashboard', icon: BarChart3, url: '/apps/fechamento' },
+    { id: 'projects', title: 'Projetos', icon: Leaf, url: '/apps/fechamento/projetos' },
+    { id: 'team', title: 'Equipe', icon: Users, url: '/apps/fechamento/equipe' },
+    { id: 'settings', title: 'Configurações', icon: Settings, url: '/apps/fechamento/configuracoes' },
   ];
 
   // --- lógica de permissões para o MÓDULO 13 ---

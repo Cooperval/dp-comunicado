@@ -1,7 +1,6 @@
-import { useState } from "react";
 import { User, Users, Settings, BarChart3, Leaf, ShieldCheck } from "lucide-react";
 import { cn } from "@/pages/apps/fechamento/lib/utils";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 type UserRole = "admin" | "manager" | "collaborator";
 
@@ -19,7 +18,7 @@ const roleIcons: Record<UserRole, React.ReactNode> = {
 
 export const FechamentoSidebar = () => {
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState("dashboard");
+  const location = useLocation();
 
   const currentUser = {
     name: "Usuário",
@@ -27,7 +26,7 @@ export const FechamentoSidebar = () => {
   };
 
   const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: <BarChart3 className="w-5 h-5" />, url: "/apps/fechamento" },
+    { id: "dashboard", label: "Dashboard", icon: <BarChart3 className="w-5 h-5" />, url: "/apps/fechamento/dashboard" },
     { id: "projects", label: "Projetos", icon: <Leaf className="w-5 h-5" />, url: "/apps/fechamento/projetos" },
     { id: "team", label: "Equipe", icon: <Users className="w-5 h-5" />, url: "/apps/fechamento/equipe" },
     { id: "access", label: "Controle de Acesso", icon: <ShieldCheck className="w-5 h-5" />, url: "/apps/fechamento/acesso" },
@@ -39,8 +38,21 @@ export const FechamentoSidebar = () => {
     },
   ];
 
+  // Derive active section from current URL
+  const getActiveSection = () => {
+    const path = location.pathname;
+    if (path.includes('/projetos')) return 'projects';
+    if (path.includes('/equipe')) return 'team';
+    if (path.includes('/acesso')) return 'access';
+    if (path.includes('/configuracoes')) return 'settings';
+    if (path.includes('/dashboard')) return 'dashboard';
+    // Default to projects for the base /apps/fechamento route
+    return 'projects';
+  };
+
+  const activeSection = getActiveSection();
+
   const handleSectionChange = (item: (typeof menuItems)[0]) => {
-    setActiveSection(item.id);
     navigate(item.url);
   };
 

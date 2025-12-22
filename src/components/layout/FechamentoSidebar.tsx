@@ -1,7 +1,6 @@
 import { User, Users, Settings, BarChart3, Leaf } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserRole } from "@/types";
-import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 interface SidebarProps {
   currentUser: {
@@ -46,7 +45,6 @@ export const Sidebar = ({ currentUser, activeSection, onSectionChange }: Sidebar
               <p className="text-sm text-sidebar-foreground/70">Gestão Sucroenergética</p>
             </div>
           </div>
-          <ThemeToggle />
         </div>
       </div>
 

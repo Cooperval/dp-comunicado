@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { User, Users, Settings, BarChart3, Leaf } from "lucide-react";
-import { cn } from "@/apps/fechamento/lib/utils";
+import { cn } from "@/pages/apps/fechamento/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 type UserRole = "admin" | "manager" | "collaborator";

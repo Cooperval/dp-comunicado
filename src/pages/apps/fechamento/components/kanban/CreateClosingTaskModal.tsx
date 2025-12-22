@@ -53,6 +53,8 @@ export const CreateClosingTaskModal = ({
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>(editingCard?.priority || 'medium');
   const [assignedToId, setAssignedToId] = useState(editingCard?.assignedTo?.id || '');
   const [selectedDependencies, setSelectedDependencies] = useState<string[]>(editingCard?.dependsOn || []);
+  const [value, setValue] = useState(editingCard?.value?.toString() || '');
+  const [valueType, setValueType] = useState<Card['valueType']>(editingCard?.valueType || undefined);
 
   const allCards = getAllCards(columns).filter(c => c.id !== editingCard?.id);
 
@@ -93,7 +95,9 @@ export const CreateClosingTaskModal = ({
       assignedTo: assignedUser,
       dependsOn: selectedDependencies.length > 0 ? selectedDependencies : undefined,
       startDate,
-      endDate
+      endDate,
+      value: value ? parseFloat(value) : undefined,
+      valueType: valueType || undefined
     });
 
     handleClose();
@@ -106,6 +110,8 @@ export const CreateClosingTaskModal = ({
     setPriority('medium');
     setAssignedToId('');
     setSelectedDependencies([]);
+    setValue('');
+    setValueType(undefined);
     onClose();
   };
 
@@ -166,6 +172,35 @@ export const CreateClosingTaskModal = ({
                       <span className={opt.color}>{opt.label}</span>
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="value">Valor</Label>
+              <Input
+                id="value"
+                type="number"
+                step="0.01"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder="0,00"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tipo de Valor</Label>
+              <Select value={valueType || ''} onValueChange={(v) => setValueType(v as Card['valueType'])}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="currency">Monetário (R$)</SelectItem>
+                  <SelectItem value="tons">Toneladas (t)</SelectItem>
+                  <SelectItem value="hectares">Hectares (ha)</SelectItem>
+                  <SelectItem value="percentage">Percentual (%)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

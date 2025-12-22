@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { User, Users, Settings, BarChart3, Leaf } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/apps/fechamento/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 type UserRole = "admin" | "manager" | "collaborator";
@@ -20,7 +20,7 @@ const roleIcons: Record<UserRole, React.ReactNode> = {
 export const FechamentoSidebar = () => {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("dashboard");
-  
+
   const currentUser = {
     name: "Usuário",
     role: "collaborator" as UserRole,
@@ -30,10 +30,15 @@ export const FechamentoSidebar = () => {
     { id: "dashboard", label: "Dashboard", icon: <BarChart3 className="w-5 h-5" />, url: "/apps/fechamento" },
     { id: "projects", label: "Projetos", icon: <Leaf className="w-5 h-5" />, url: "/apps/fechamento/projetos" },
     { id: "team", label: "Equipe", icon: <Users className="w-5 h-5" />, url: "/apps/fechamento/equipe" },
-    { id: "settings", label: "Configurações", icon: <Settings className="w-5 h-5" />, url: "/apps/fechamento/configuracoes" },
+    {
+      id: "settings",
+      label: "Configurações",
+      icon: <Settings className="w-5 h-5" />,
+      url: "/apps/fechamento/configuracoes",
+    },
   ];
 
-  const handleSectionChange = (item: typeof menuItems[0]) => {
+  const handleSectionChange = (item: (typeof menuItems)[0]) => {
     setActiveSection(item.id);
     navigate(item.url);
   };

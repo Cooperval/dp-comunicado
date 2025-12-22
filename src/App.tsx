@@ -649,10 +649,10 @@ const App = () => (
             <Route
               path="/apps/fechamento"
               element={
-                <ProtectedRoute>
+
                   <AppLayout sidebar={<FechamentoSidebar />} appName="Fechamento">
                     <Fechamento />
-                  </AppLayout>
+
                 </ProtectedRoute>
               }
             />

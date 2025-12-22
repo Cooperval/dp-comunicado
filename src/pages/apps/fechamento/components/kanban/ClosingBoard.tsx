@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { Board, Card, Column, User, Project } from "@/pages/apps/fechamento/types";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, BarChart3 } from "lucide-react";
+import { ArrowLeft, Plus, LayoutGrid, BarChart3, List } from "lucide-react";
 import { ClosingCard } from "./ClosingCard";
 import { CreateClosingTaskModal } from "./CreateClosingTaskModal";
 import { CardDetailsModal } from "./CardDetailsModal";
 import { GanttChart } from "./GanttChart";
+import { ClosingListView } from "./ClosingListView";
 import { ExcelExport } from "./ExcelExport";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   DndContext,
@@ -24,6 +24,8 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { canMoveToColumn, recalculateDates, getAllCards } from "@/pages/apps/fechamento/lib/dependencyUtils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+type ViewMode = 'kanban' | 'gantt' | 'list';
 
 interface ClosingBoardProps {
   board: Board;
@@ -44,7 +46,7 @@ export const ClosingBoard = ({
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
-  const [showGantt, setShowGantt] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('kanban');
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -221,11 +223,38 @@ export const ClosingBoard = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowGantt(true)}>
-              <BarChart3 className="w-4 h-4 mr-2" />
-              Gantt
-            </Button>
+          <div className="flex items-center gap-3">
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+              <Button
+                variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('kanban')}
+                className="h-8"
+              >
+                <LayoutGrid className="w-4 h-4 mr-1.5" />
+                Kanban
+              </Button>
+              <Button
+                variant={viewMode === 'gantt' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('gantt')}
+                className="h-8"
+              >
+                <BarChart3 className="w-4 h-4 mr-1.5" />
+                Gantt
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="h-8"
+              >
+                <List className="w-4 h-4 mr-1.5" />
+                Lista
+              </Button>
+            </div>
+
             <ExcelExport board={{ ...board, columns }} projectName={project.name} />
             <Button size="sm" onClick={() => setIsCreateModalOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
@@ -235,68 +264,85 @@ export const ClosingBoard = ({
         </div>
       </div>
 
-      {/* Board */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex-1 overflow-x-auto p-4">
-          <div className="flex gap-4 h-full min-w-max">
-            {columns.map(column => (
-              <div
-                key={column.id}
-                className="w-80 flex flex-col bg-card/50 rounded-xl border"
-                style={{
-                  backgroundColor: column.backgroundColor ? `${column.backgroundColor}40` : undefined
-                }}
-              >
-                {/* Column Header */}
+      {/* Content based on view mode */}
+      {viewMode === 'kanban' && (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex-1 overflow-x-auto p-4">
+            <div className="flex gap-4 h-full min-w-max">
+              {columns.map(column => (
                 <div
-                  className="p-3 border-b rounded-t-xl"
+                  key={column.id}
+                  className="w-80 flex flex-col bg-card/50 rounded-xl border"
                   style={{
-                    backgroundColor: column.backgroundColor,
-                    color: column.titleColor
+                    backgroundColor: column.backgroundColor ? `${column.backgroundColor}40` : undefined
                   }}
                 >
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold">{column.title}</h3>
-                    <span className="text-sm opacity-70">{column.cards.length}</span>
+                  {/* Column Header */}
+                  <div
+                    className="p-3 border-b rounded-t-xl"
+                    style={{
+                      backgroundColor: column.backgroundColor,
+                      color: column.titleColor
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold">{column.title}</h3>
+                      <span className="text-sm opacity-70">{column.cards.length}</span>
+                    </div>
                   </div>
+
+                  {/* Cards */}
+                  <SortableContext
+                    items={column.cards.map(c => c.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="flex-1 p-2 space-y-2 overflow-y-auto">
+                      {column.cards.map(card => (
+                        <ClosingCard
+                          key={card.id}
+                          card={card}
+                          columns={columns}
+                          doneColumnId={doneColumn?.id || ''}
+                          onClick={() => setSelectedCard(card)}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
                 </div>
-
-                {/* Cards */}
-                <SortableContext
-                  items={column.cards.map(c => c.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="flex-1 p-2 space-y-2 overflow-y-auto">
-                    {column.cards.map(card => (
-                      <ClosingCard
-                        key={card.id}
-                        card={card}
-                        columns={columns}
-                        doneColumnId={doneColumn?.id || ''}
-                        onClick={() => setSelectedCard(card)}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <DragOverlay>
-          {activeCard && (
-            <div className="bg-card border rounded-lg p-3 shadow-xl opacity-90">
-              <p className="font-medium">{activeCard.title}</p>
+              ))}
             </div>
-          )}
-        </DragOverlay>
-      </DndContext>
+          </div>
+
+          <DragOverlay>
+            {activeCard && (
+              <div className="bg-card border rounded-lg p-3 shadow-xl opacity-90">
+                <p className="font-medium">{activeCard.title}</p>
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
+      )}
+
+      {viewMode === 'gantt' && (
+        <div className="flex-1 overflow-auto p-4">
+          <GanttChart board={{ ...board, columns }} />
+        </div>
+      )}
+
+      {viewMode === 'list' && (
+        <div className="flex-1 overflow-auto p-4">
+          <ClosingListView
+            columns={columns}
+            onCardClick={(card) => setSelectedCard(card)}
+          />
+        </div>
+      )}
 
       {/* Modals */}
       <CreateClosingTaskModal
@@ -317,17 +363,6 @@ export const ClosingBoard = ({
           onDelete={() => handleDeleteCard(selectedCard.id)}
         />
       )}
-
-      <Dialog open={showGantt} onOpenChange={setShowGantt}>
-        <DialogContent className="max-w-[95vw] w-full max-h-[90vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Gráfico de Gantt - {project.name}</DialogTitle>
-          </DialogHeader>
-          <div className="overflow-auto max-h-[calc(90vh-100px)]">
-            <GanttChart board={{ ...board, columns }} />
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

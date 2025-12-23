@@ -914,4 +914,59 @@ export const fechamentoService = {
     });
     this.saveData(data);
   },
+
+  // ============ RESET MENSAL ============
+  resetAllTasks(boardId?: string): { boardsReset: number; tasksReset: number } {
+    const data = this.getData();
+    const now = new Date().toISOString();
+    
+    // Determinar quais boards resetar (somente recorrentes)
+    const boardsToReset = boardId 
+      ? data.boards.filter(b => b.id === boardId && b.type === 'recurring')
+      : data.boards.filter(b => b.type === 'recurring');
+    
+    let tasksReset = 0;
+    
+    for (const board of boardsToReset) {
+      const currentCycleId = board.currentCycleId;
+      
+      // Atualizar todas as execuções do ciclo atual
+      data.taskExecutions = data.taskExecutions.map(exec => {
+        if (exec.boardId === board.id && exec.cycleId === currentCycleId) {
+          tasksReset++;
+          return {
+            ...exec,
+            status: 'not-started' as TaskStatus,
+            progress: 0,
+            actualStartDate: undefined,
+            actualEndDate: undefined,
+            updatedAt: now,
+          };
+        }
+        return exec;
+      });
+      
+      // Atualizar timestamps do ciclo para ativo
+      const cycleIndex = data.monthlyCycles.findIndex(c => c.id === currentCycleId);
+      if (cycleIndex !== -1) {
+        data.monthlyCycles[cycleIndex] = {
+          ...data.monthlyCycles[cycleIndex],
+          status: 'active',
+          completedAt: undefined,
+        };
+      }
+    }
+    
+    this.saveData(data);
+    
+    // Recalcular cronograma de cada board resetado
+    for (const board of boardsToReset) {
+      this.recalculateBoardSchedule(board.id, board.currentCycleId);
+    }
+    
+    return { 
+      boardsReset: boardsToReset.length, 
+      tasksReset 
+    };
+  },
 };

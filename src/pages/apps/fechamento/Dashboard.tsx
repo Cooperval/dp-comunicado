@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fechamentoService } from '@/services/fechamentoLocalStorage';
 import { Board, Task, PRIORITY_CONFIG } from '@/types/fechamento';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { 
   LayoutDashboard, 
   Kanban, 
@@ -12,8 +13,34 @@ import {
   Clock, 
   AlertTriangle,
   ArrowRight,
-  Plus 
+  Plus,
+  Users
 } from 'lucide-react';
+import { 
+  PieChart, Pie, Cell, 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, 
+  Tooltip, Legend, ResponsiveContainer 
+} from 'recharts';
+
+const CHART_COLORS = [
+  '#3B82F6', // blue
+  '#10B981', // green
+  '#F59E0B', // amber
+  '#EF4444', // red
+  '#8B5CF6', // violet
+  '#EC4899', // pink
+  '#06B6D4', // cyan
+  '#84CC16', // lime
+];
+
+interface MemberStats {
+  id: string;
+  name: string;
+  total: number;
+  completed: number;
+  inProgress: number;
+  overdue: number;
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -44,6 +71,59 @@ export default function Dashboard() {
   const completionRate = stats.totalTasks > 0 
     ? Math.round((stats.completedTasks / stats.totalTasks) * 100) 
     : 0;
+
+  // Métricas por responsável
+  const memberStats = useMemo<MemberStats[]>(() => {
+    const statsMap = new Map<string, MemberStats>();
+    
+    allTasks.forEach(task => {
+      const assigneeId = task.assignedTo?.id || (task as any).assigneeId || 'unassigned';
+      const assigneeName = task.assignedTo?.name || (task as any).assigneeName || 'Sem responsável';
+      
+      if (!statsMap.has(assigneeId)) {
+        statsMap.set(assigneeId, {
+          id: assigneeId,
+          name: assigneeName,
+          total: 0,
+          completed: 0,
+          inProgress: 0,
+          overdue: 0
+        });
+      }
+      
+      const memberStat = statsMap.get(assigneeId)!;
+      memberStat.total++;
+      
+      if (task.progress === 100) {
+        memberStat.completed++;
+      } else if (task.progress > 0) {
+        memberStat.inProgress++;
+      }
+      
+      if (task.endDate && new Date(task.endDate) < new Date() && task.progress < 100) {
+        memberStat.overdue++;
+      }
+    });
+    
+    return Array.from(statsMap.values()).filter(s => s.total > 0);
+  }, [allTasks]);
+
+  // Dados para gráfico de pizza
+  const pieChartData = useMemo(() => 
+    memberStats.map((member, index) => ({
+      name: member.name,
+      value: member.total,
+      fill: CHART_COLORS[index % CHART_COLORS.length]
+    })), [memberStats]);
+
+  // Dados para gráfico de barras
+  const barChartData = useMemo(() => 
+    memberStats.map(member => ({
+      name: member.name.split(' ')[0],
+      concluídas: member.completed,
+      emAndamento: member.inProgress,
+      atrasadas: member.overdue
+    })), [memberStats]);
 
   return (
     <div className="p-6 space-y-6">
@@ -113,6 +193,116 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Métricas por Responsável */}
+      {allTasks.length > 0 && memberStats.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Métricas por Responsável
+          </h2>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Gráfico de Pizza - Distribuição */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Distribuição de Tarefas</CardTitle>
+                <CardDescription>Quantidade de tarefas por responsável</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={pieChartData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      label={({ name, percent }) => 
+                        `${name.split(' ')[0]} (${(percent * 100).toFixed(0)}%)`
+                      }
+                    >
+                      {pieChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+            
+            {/* Gráfico de Barras - Status por Responsável */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Status por Responsável</CardTitle>
+                <CardDescription>Progresso de tarefas de cada membro</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={barChartData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="name" className="text-xs" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="concluídas" fill="#10B981" stackId="stack" name="Concluídas" />
+                    <Bar dataKey="emAndamento" fill="#3B82F6" stackId="stack" name="Em Andamento" />
+                    <Bar dataKey="atrasadas" fill="#EF4444" stackId="stack" name="Atrasadas" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Tabela de Performance */}
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="text-base">Performance da Equipe</CardTitle>
+              <CardDescription>Ranking de conclusão e alertas de atraso</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {memberStats
+                  .sort((a, b) => {
+                    const rateA = a.total > 0 ? a.completed / a.total : 0;
+                    const rateB = b.total > 0 ? b.completed / b.total : 0;
+                    return rateB - rateA;
+                  })
+                  .map((member) => {
+                    const completionRate = member.total > 0 
+                      ? Math.round((member.completed / member.total) * 100) 
+                      : 0;
+                    
+                    return (
+                      <div key={member.id} className="flex items-center gap-4 p-3 rounded-lg bg-muted/30">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground text-sm font-medium shrink-0">
+                          {member.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium truncate">{member.name}</span>
+                            <span className="text-sm text-muted-foreground">
+                              {member.completed}/{member.total} ({completionRate}%)
+                            </span>
+                          </div>
+                          <Progress value={completionRate} className="h-2" />
+                        </div>
+                        {member.overdue > 0 && (
+                          <Badge variant="destructive" className="shrink-0">
+                            {member.overdue} atrasada{member.overdue > 1 ? 's' : ''}
+                          </Badge>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Boards list */}
       <div>

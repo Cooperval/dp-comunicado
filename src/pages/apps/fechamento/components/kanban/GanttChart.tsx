@@ -2,12 +2,32 @@ import { useState, useMemo } from "react";
 import { Board, Column, Card } from "@/pages/apps/fechamento/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronRight } from "lucide-react";
-import { format, eachDayOfInterval, startOfDay, endOfDay } from "date-fns";
-import { getMinMaxDates, isDateInRange } from "@/pages/apps/fechamento/lib/dateUtils";
+import { ChevronDown, ChevronRight, Link2 } from "lucide-react";
+import { format, eachDayOfInterval } from "date-fns";
+import { getMinMaxDates } from "@/pages/apps/fechamento/lib/dateUtils";
 
 interface GanttChartProps {
   board: Board;
+}
+
+const ROW_HEIGHT = 44;
+const CELL_WIDTH = 48;
+const NAME_COLUMN_WIDTH = 256;
+
+interface CardRowInfo {
+  card: Card;
+  column: Column;
+  rowIndex: number;
+  position: { start: number; span: number } | null;
+}
+
+interface DependencyConnection {
+  fromCard: Card;
+  toCard: Card;
+  fromRowIndex: number;
+  toRowIndex: number;
+  fromPosition: { start: number; span: number };
+  toPosition: { start: number; span: number };
 }
 
 export const GanttChart = ({ board }: GanttChartProps) => {
@@ -70,10 +90,113 @@ export const GanttChart = ({ board }: GanttChartProps) => {
     };
   };
 
-  const today = startOfDay(new Date());
+  // Build card row mapping for dependency arrows
+  const cardRowMapping = useMemo(() => {
+    const mapping: CardRowInfo[] = [];
+    let currentRowIndex = 0;
+
+    board.columns.forEach(column => {
+      const columnCards = column.cards.filter(card => card.startDate || card.endDate);
+      if (columnCards.length === 0) return;
+
+      // Column header row
+      currentRowIndex++;
+
+      if (expandedColumns.has(column.id)) {
+        columnCards.forEach(card => {
+          mapping.push({
+            card,
+            column,
+            rowIndex: currentRowIndex,
+            position: getCardPosition(card)
+          });
+          currentRowIndex++;
+        });
+      }
+    });
+
+    return mapping;
+  }, [board.columns, expandedColumns, dateRange]);
+
+  // Calculate dependency connections
+  const dependencyConnections = useMemo(() => {
+    const connections: DependencyConnection[] = [];
+
+    cardRowMapping.forEach(({ card: toCard, rowIndex: toRowIndex, position: toPosition }) => {
+      const deps = toCard.dependsOn || (toCard as any).dependencyIds || [];
+      
+      deps.forEach((depId: string) => {
+        const fromInfo = cardRowMapping.find(info => info.card.id === depId);
+        if (fromInfo && fromInfo.position && toPosition) {
+          connections.push({
+            fromCard: fromInfo.card,
+            toCard,
+            fromRowIndex: fromInfo.rowIndex,
+            toRowIndex,
+            fromPosition: fromInfo.position,
+            toPosition
+          });
+        }
+      });
+    });
+
+    return connections;
+  }, [cardRowMapping]);
+
+  // Calculate total height for SVG
+  const totalRows = useMemo(() => {
+    let rows = 0;
+    board.columns.forEach(column => {
+      const columnCards = column.cards.filter(card => card.startDate || card.endDate);
+      if (columnCards.length === 0) return;
+      rows++; // Column header
+      if (expandedColumns.has(column.id)) {
+        rows += columnCards.length;
+      }
+    });
+    return rows;
+  }, [board.columns, expandedColumns]);
+
+  const today = new Date();
   const todayIndex = dateRange.findIndex(date => 
     format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')
   );
+
+  // Check if a card has dependencies
+  const hasDependencies = (card: Card) => {
+    const deps = card.dependsOn || (card as any).dependencyIds || [];
+    return deps.length > 0;
+  };
+
+  // Generate arrow path
+  const getArrowPath = (conn: DependencyConnection) => {
+    const startX = (conn.fromPosition.start + conn.fromPosition.span) * CELL_WIDTH;
+    const endX = conn.toPosition.start * CELL_WIDTH;
+    const startY = conn.fromRowIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
+    const endY = conn.toRowIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
+
+    // If target is before source (wrap-around), draw a more complex path
+    if (endX <= startX + 20) {
+      const midY = (startY + endY) / 2;
+      const offset = 30;
+      return `M ${startX} ${startY} 
+              L ${startX + offset} ${startY}
+              Q ${startX + offset + 10} ${startY} ${startX + offset + 10} ${startY + (endY > startY ? 10 : -10)}
+              L ${startX + offset + 10} ${midY}
+              Q ${startX + offset + 10} ${endY + (endY > startY ? -10 : 10)} ${startX + offset} ${endY}
+              L ${endX - offset} ${endY}
+              Q ${endX - offset - 10} ${endY} ${endX - offset - 10} ${endY + (endY > startY ? 10 : -10)}
+              L ${endX - offset - 10} ${endY}
+              L ${endX - 5} ${endY}`;
+    }
+
+    // Normal curved path from end to start
+    const controlOffset = Math.min(40, (endX - startX) / 3);
+    return `M ${startX} ${startY} 
+            C ${startX + controlOffset} ${startY} 
+              ${endX - controlOffset} ${endY} 
+              ${endX - 5} ${endY}`;
+  };
 
   if (cardsWithDates.length === 0) {
     return (
@@ -90,7 +213,7 @@ export const GanttChart = ({ board }: GanttChartProps) => {
     <div className="h-full overflow-auto">
       <div className="inline-block min-w-full">
         {/* Header with dates */}
-        <div className="sticky top-0 z-10 bg-card border-b border-border">
+        <div className="sticky top-0 z-20 bg-card border-b border-border">
           <div className="flex">
             <div className="w-64 flex-shrink-0 p-3 border-r border-border bg-muted/30 font-semibold">
               Tarefas
@@ -113,11 +236,60 @@ export const GanttChart = ({ board }: GanttChartProps) => {
 
         {/* Gantt rows */}
         <div className="relative">
+          {/* SVG overlay for dependency arrows */}
+          <svg 
+            className="absolute pointer-events-none z-30"
+            style={{ 
+              left: `${NAME_COLUMN_WIDTH}px`,
+              top: 0,
+              width: `${dateRange.length * CELL_WIDTH}px`,
+              height: `${totalRows * ROW_HEIGHT}px`,
+              overflow: 'visible'
+            }}
+          >
+            <defs>
+              <marker 
+                id="gantt-arrowhead" 
+                markerWidth="8" 
+                markerHeight="6" 
+                refX="7" 
+                refY="3" 
+                orient="auto"
+              >
+                <polygon points="0 0, 8 3, 0 6" fill="hsl(var(--primary))" />
+              </marker>
+              <marker 
+                id="gantt-arrowhead-muted" 
+                markerWidth="8" 
+                markerHeight="6" 
+                refX="7" 
+                refY="3" 
+                orient="auto"
+              >
+                <polygon points="0 0, 8 3, 0 6" fill="hsl(var(--muted-foreground))" />
+              </marker>
+            </defs>
+            
+            {dependencyConnections.map((conn, index) => (
+              <path
+                key={index}
+                d={getArrowPath(conn)}
+                fill="none"
+                stroke="hsl(var(--primary))"
+                strokeWidth="2"
+                strokeDasharray="4 2"
+                markerEnd="url(#gantt-arrowhead)"
+                opacity="0.7"
+                className="transition-opacity hover:opacity-100"
+              />
+            ))}
+          </svg>
+
           {/* Today line */}
           {todayIndex !== -1 && (
             <div
               className="absolute top-0 bottom-0 w-0.5 bg-primary z-20 pointer-events-none"
-              style={{ left: `${264 + todayIndex * 48 + 24}px` }}
+              style={{ left: `${NAME_COLUMN_WIDTH + 8 + todayIndex * CELL_WIDTH + CELL_WIDTH / 2}px` }}
             />
           )}
 
@@ -161,7 +333,7 @@ export const GanttChart = ({ board }: GanttChartProps) => {
                       </Badge>
                     </Button>
                   </div>
-                  <div className="flex-1 relative" style={{ height: '44px' }}>
+                  <div className="flex-1 relative" style={{ height: `${ROW_HEIGHT}px` }}>
                     {/* Column background grid */}
                     <div className="absolute inset-0 flex">
                       {dateRange.map((_, index) => (
@@ -176,8 +348,8 @@ export const GanttChart = ({ board }: GanttChartProps) => {
                       <div
                         className="absolute top-1 h-1 rounded-full bg-primary/20"
                         style={{
-                          left: `${columnPosition.start * 48}px`,
-                          width: `${columnPosition.span * 48}px`
+                          left: `${columnPosition.start * CELL_WIDTH}px`,
+                          width: `${columnPosition.span * CELL_WIDTH}px`
                         }}
                       >
                         {/* Start marker */}
@@ -194,17 +366,23 @@ export const GanttChart = ({ board }: GanttChartProps) => {
                   const position = getCardPosition(card);
                   if (!position) return null;
 
+                  const cardHasDeps = hasDependencies(card);
+
                   return (
                     <div key={card.id} className="flex hover:bg-muted/30 transition-colors">
                       <div className="w-64 flex-shrink-0 p-3 border-r border-border">
                         <div className="flex items-center space-x-2">
-                          <div className="w-3 h-3 rounded-full bg-primary/20" />
+                          {cardHasDeps ? (
+                            <Link2 className="w-3 h-3 text-primary flex-shrink-0" />
+                          ) : (
+                            <div className="w-3 h-3 rounded-full bg-primary/20 flex-shrink-0" />
+                          )}
                           <span className="text-sm truncate" title={card.title}>
                             {card.title}
                           </span>
                         </div>
                       </div>
-                      <div className="flex-1 relative" style={{ height: '44px' }}>
+                      <div className="flex-1 relative" style={{ height: `${ROW_HEIGHT}px` }}>
                         {/* Background grid */}
                         <div className="absolute inset-0 flex">
                           {dateRange.map((_, index) => (
@@ -218,8 +396,8 @@ export const GanttChart = ({ board }: GanttChartProps) => {
                         <div
                           className="absolute top-2 h-8 rounded flex items-center px-2 text-xs font-medium text-white shadow-md z-10 cursor-pointer hover:shadow-lg transition-shadow"
                           style={{
-                            left: `${position.start * 48}px`,
-                            width: `${position.span * 48}px`,
+                            left: `${position.start * CELL_WIDTH}px`,
+                            width: `${position.span * CELL_WIDTH}px`,
                             backgroundColor: card.priority === 'high' 
                               ? 'hsl(var(--destructive))' 
                               : card.priority === 'medium' 
@@ -237,6 +415,33 @@ export const GanttChart = ({ board }: GanttChartProps) => {
               </div>
             );
           })}
+
+          {/* Legend */}
+          <div className="flex items-center gap-6 p-3 border-t border-border bg-muted/20 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <svg width="24" height="12">
+                <line x1="0" y1="6" x2="20" y2="6" stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="4 2" />
+                <polygon points="20,3 24,6 20,9" fill="hsl(var(--primary))" />
+              </svg>
+              <span>Dependência</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link2 className="w-3 h-3 text-primary" />
+              <span>Tem antecessora</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-3 rounded bg-destructive" />
+              <span>Alta prioridade</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-3 rounded bg-warning" />
+              <span>Média</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-3 rounded bg-success" />
+              <span>Baixa</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

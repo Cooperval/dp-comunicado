@@ -14,8 +14,21 @@ import {
   AlertTriangle,
   ArrowRight,
   Plus,
-  Users
+  Users,
+  RefreshCw
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 import { 
   PieChart, Pie, Cell, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
@@ -132,10 +145,59 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">Visão geral do fechamento</p>
         </div>
-        <Button onClick={() => navigate('/apps/fechamento/quadros')}>
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Quadro
-        </Button>
+        <div className="flex items-center gap-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" className="text-destructive border-destructive hover:bg-destructive/10">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Resetar Mês
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <RefreshCw className="h-5 w-5 text-destructive" />
+                  Confirmar Reset do Mês
+                </AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-3">
+                    <p>
+                      Esta ação irá <strong className="text-foreground">resetar todas as tarefas</strong> de 
+                      todos os quadros recorrentes para o status "A Fazer".
+                    </p>
+                    <ul className="list-disc list-inside text-sm space-y-1">
+                      <li>Progresso será zerado (0%)</li>
+                      <li>Datas de início/término reais serão limpas</li>
+                      <li>Cronograma será recalculado</li>
+                    </ul>
+                    <p className="text-destructive font-medium">
+                      Esta ação não pode ser desfeita!
+                    </p>
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={() => {
+                    const result = fechamentoService.resetAllTasks();
+                    loadData();
+                    toast.success("Mês resetado com sucesso!", {
+                      description: `${result.tasksReset} tarefa(s) de ${result.boardsReset} quadro(s) foram reiniciadas.`
+                    });
+                  }}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Sim, Resetar Tudo
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Button onClick={() => navigate('/apps/fechamento/quadros')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Quadro
+          </Button>
+        </div>
       </div>
 
       {/* Stats cards */}

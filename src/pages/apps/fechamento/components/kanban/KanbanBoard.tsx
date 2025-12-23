@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -17,13 +17,21 @@ import { CreateCardModal } from "./CreateCardModal";
 import { ExcelExport } from "./ExcelExport";
 import { GanttChart } from "./GanttChart";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { 
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, ArrowLeft, BarChart3 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Plus, ArrowLeft, BarChart3, Filter, User, Flag, X } from "lucide-react";
 
 interface KanbanBoardProps {
   board: Board;
@@ -43,6 +51,85 @@ export const KanbanBoard = ({
   const [isCreateCardModalOpen, setIsCreateCardModalOpen] = useState(false);
   const [targetColumnId, setTargetColumnId] = useState<string | null>(null);
   const [isGanttOpen, setIsGanttOpen] = useState(false);
+  
+  // Estados para filtros
+  const [filterAssignee, setFilterAssignee] = useState<string>('all');
+  const [filterPriority, setFilterPriority] = useState<string>('all');
+
+  // Extrair membros únicos das tarefas
+  const projectMembers = useMemo(() => {
+    const membersMap = new Map<string, { id: string; name: string }>();
+    
+    columns.forEach(col => {
+      col.cards.forEach(card => {
+        // Verificar assignedTo (tipo correto)
+        if (card.assignedTo?.id) {
+          membersMap.set(card.assignedTo.id, {
+            id: card.assignedTo.id,
+            name: card.assignedTo.name
+          });
+        }
+        // Verificar assigneeId (compatibilidade com dados mock)
+        const assigneeId = (card as any).assigneeId;
+        const assigneeName = (card as any).assigneeName;
+        if (assigneeId && !membersMap.has(assigneeId)) {
+          membersMap.set(assigneeId, {
+            id: assigneeId,
+            name: assigneeName || `Membro ${assigneeId.slice(0, 4)}`
+          });
+        }
+      });
+    });
+    
+    return Array.from(membersMap.values());
+  }, [columns]);
+
+  // Função para filtrar cards
+  const filterCards = useCallback((cards: CardType[]): CardType[] => {
+    return cards.filter(card => {
+      // Filtro por responsável
+      let assigneeMatch = filterAssignee === 'all';
+      if (!assigneeMatch) {
+        if (filterAssignee === 'unassigned') {
+          assigneeMatch = !card.assignedTo && !(card as any).assigneeId;
+        } else {
+          assigneeMatch = card.assignedTo?.id === filterAssignee || 
+                          (card as any).assigneeId === filterAssignee;
+        }
+      }
+      
+      // Filtro por prioridade
+      const priorityMatch = filterPriority === 'all' || card.priority === filterPriority;
+      
+      return assigneeMatch && priorityMatch;
+    });
+  }, [filterAssignee, filterPriority]);
+
+  // Colunas com cards filtrados (para exibição)
+  const filteredColumns = useMemo(() => {
+    return columns.map(col => ({
+      ...col,
+      cards: filterCards(col.cards)
+    }));
+  }, [columns, filterCards]);
+
+  // Contagem de cards
+  const totalCardsCount = useMemo(() => 
+    columns.reduce((acc, col) => acc + col.cards.length, 0), 
+    [columns]
+  );
+
+  const filteredCardsCount = useMemo(() => 
+    filteredColumns.reduce((acc, col) => acc + col.cards.length, 0), 
+    [filteredColumns]
+  );
+
+  const hasActiveFilters = filterAssignee !== 'all' || filterPriority !== 'all';
+
+  const clearFilters = () => {
+    setFilterAssignee('all');
+    setFilterPriority('all');
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -316,6 +403,81 @@ export const KanbanBoard = ({
         </div>
       </div>
 
+      {/* Barra de Filtros */}
+      <div className="flex items-center gap-4 px-6 py-3 border-b border-border/30 bg-muted/20">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-muted-foreground">Filtros:</span>
+        </div>
+        
+        {/* Filtro por Responsável */}
+        <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+          <SelectTrigger className="w-[180px] h-9 bg-background">
+            <User className="w-4 h-4 mr-2 text-muted-foreground" />
+            <SelectValue placeholder="Responsável" />
+          </SelectTrigger>
+          <SelectContent className="bg-popover z-50">
+            <SelectItem value="all">Todos os responsáveis</SelectItem>
+            <SelectItem value="unassigned">Sem responsável</SelectItem>
+            {projectMembers.map(member => (
+              <SelectItem key={member.id} value={member.id}>
+                {member.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        
+        {/* Filtro por Prioridade */}
+        <Select value={filterPriority} onValueChange={setFilterPriority}>
+          <SelectTrigger className="w-[160px] h-9 bg-background">
+            <Flag className="w-4 h-4 mr-2 text-muted-foreground" />
+            <SelectValue placeholder="Prioridade" />
+          </SelectTrigger>
+          <SelectContent className="bg-popover z-50">
+            <SelectItem value="all">Todas as prioridades</SelectItem>
+            <SelectItem value="high">
+              <span className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                Alta
+              </span>
+            </SelectItem>
+            <SelectItem value="medium">
+              <span className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                Média
+              </span>
+            </SelectItem>
+            <SelectItem value="low">
+              <span className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                Baixa
+              </span>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        
+        {/* Botão Limpar Filtros */}
+        {hasActiveFilters && (
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={clearFilters}
+            className="h-9 text-muted-foreground hover:text-foreground"
+          >
+            <X className="w-4 h-4 mr-1" />
+            Limpar
+          </Button>
+        )}
+        
+        {/* Contagem de resultados */}
+        <Badge 
+          variant={hasActiveFilters ? "default" : "secondary"} 
+          className="ml-auto"
+        >
+          {filteredCardsCount} de {totalCardsCount} tarefas
+        </Badge>
+      </div>
+
       {/* Board */}
       <div className="flex-1 gradient-earth p-6 overflow-x-auto">
         <DndContext
@@ -326,7 +488,7 @@ export const KanbanBoard = ({
         >
           <div className="flex space-x-6 pb-6">
             <SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
-              {columns.map((column) => (
+              {filteredColumns.map((column) => (
                 <KanbanColumn
                   key={column.id}
                   column={column}

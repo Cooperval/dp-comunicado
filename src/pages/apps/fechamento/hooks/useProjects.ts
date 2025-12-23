@@ -199,6 +199,7 @@ const initialBoards: Record<string, Board> = {
             titleColor: '#dc2626',
             startDate: new Date('2024-12-12'),
             endDate: new Date('2024-12-15'),
+            dependencyIds: ['card-done-4'],
             assigneeId: 'user-2'
           },
           {
@@ -309,6 +310,7 @@ const initialBoards: Record<string, Board> = {
             titleColor: '#3b82f6',
             startDate: new Date('2024-12-05'),
             endDate: new Date('2024-12-08'),
+            dependencyIds: ['card-done-1'],
             assigneeId: 'user-1'
           },
           {
@@ -342,6 +344,7 @@ const initialBoards: Record<string, Board> = {
             titleColor: '#3b82f6',
             startDate: new Date('2024-12-06'),
             endDate: new Date('2024-12-09'),
+            dependencyIds: ['card-progress-2'],
             assigneeId: 'user-3'
           },
           {

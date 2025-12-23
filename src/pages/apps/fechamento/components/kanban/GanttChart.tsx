@@ -1,11 +1,48 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Board, Column, Card } from "@/pages/apps/fechamento/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronRight, Link2, LayoutGrid, Calendar, GitBranch } from "lucide-react";
-import { format, eachDayOfInterval } from "date-fns";
+import { 
+  ChevronDown, 
+  ChevronRight, 
+  ChevronLeft, 
+  Link2, 
+  LayoutGrid, 
+  Calendar, 
+  GitBranch, 
+  CalendarCheck, 
+  Download, 
+  Image as ImageIcon, 
+  FileText,
+  AlertTriangle,
+  User
+} from "lucide-react";
+import { format, eachDayOfInterval, differenceInDays, addDays, subDays, startOfDay } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { getMinMaxDates } from "@/pages/apps/fechamento/lib/dateUtils";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { toast } from "@/hooks/use-toast";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 interface GanttChartProps {
   board: Board;
@@ -39,9 +76,103 @@ interface CardWithColumn {
   dependencyLevel?: number;
 }
 
+// Helper to check if task is overdue
+const isOverdue = (card: Card): boolean => {
+  if (!card.endDate) return false;
+  const progress = card.progress || 0;
+  const today = startOfDay(new Date());
+  const endDate = startOfDay(card.endDate);
+  return endDate < today && progress < 100;
+};
+
+// Get dependency arrow color based on status
+const getDependencyColor = (fromCard: Card): { stroke: string; fill: string; colorKey: string } => {
+  const progress = fromCard.progress || 0;
+  
+  if (progress === 100) {
+    return { stroke: '#10B981', fill: '#10B981', colorKey: 'green' };
+  }
+  
+  if (isOverdue(fromCard)) {
+    return { stroke: '#EF4444', fill: '#EF4444', colorKey: 'red' };
+  }
+  
+  if (progress > 0) {
+    return { stroke: '#3B82F6', fill: '#3B82F6', colorKey: 'blue' };
+  }
+  
+  return { stroke: '#9CA3AF', fill: '#9CA3AF', colorKey: 'gray' };
+};
+
+// Card Tooltip Component
+const CardTooltip = ({ card, column }: { card: Card; column: Column }) => {
+  const overdue = isOverdue(card);
+  const daysRemaining = card.endDate 
+    ? differenceInDays(card.endDate, new Date()) 
+    : null;
+  const progress = card.progress || 0;
+  
+  return (
+    <div className="space-y-2 max-w-xs">
+      <div className="font-semibold text-foreground">{card.title}</div>
+      {card.description && (
+        <p className="text-sm text-muted-foreground line-clamp-2">{card.description}</p>
+      )}
+      
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div>
+          <span className="text-muted-foreground">Início:</span>
+          <span className="ml-1 text-foreground">{card.startDate ? format(card.startDate, 'dd/MM/yyyy') : '-'}</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Término:</span>
+          <span className="ml-1 text-foreground">{card.endDate ? format(card.endDate, 'dd/MM/yyyy') : '-'}</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Status:</span>
+          <Badge variant="outline" className="ml-1 text-xs">{column.title}</Badge>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Progresso:</span>
+          <span className="ml-1 text-foreground font-medium">{progress}%</span>
+        </div>
+      </div>
+      
+      {card.assignedTo && (
+        <div className="flex items-center gap-2 text-xs text-foreground">
+          <User className="w-3 h-3" />
+          <span>{card.assignedTo.name}</span>
+        </div>
+      )}
+      
+      {overdue && (
+        <div className="flex items-center gap-1 text-xs text-destructive font-medium">
+          <AlertTriangle className="w-3 h-3" />
+          <span>Atrasada há {Math.abs(daysRemaining || 0)} dia(s)</span>
+        </div>
+      )}
+      
+      {!overdue && daysRemaining !== null && daysRemaining > 0 && (
+        <div className="text-xs text-muted-foreground">
+          {daysRemaining} dia(s) restante(s)
+        </div>
+      )}
+      
+      {!overdue && daysRemaining === 0 && (
+        <div className="text-xs text-warning font-medium">
+          Vence hoje!
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const GanttChart = ({ board }: GanttChartProps) => {
   const [expandedColumns, setExpandedColumns] = useState<Set<string>>(new Set(board.columns.map(col => col.id)));
   const [sortMode, setSortMode] = useState<GanttSortMode>('status');
+  const [viewStartDate, setViewStartDate] = useState<Date | null>(null);
+  const [daysToShow, setDaysToShow] = useState<number>(0); // 0 = show all
+  const ganttRef = useRef<HTMLDivElement>(null);
 
   // Get all cards with dates
   const cardsWithDates = useMemo(() => {
@@ -123,16 +254,96 @@ export const GanttChart = ({ board }: GanttChartProps) => {
     return result;
   }, [cardsWithDates]);
 
-  // Calculate date range
-  const dateRange = useMemo(() => {
+  // Calculate full date range from all cards
+  const fullDateRange = useMemo(() => {
     const allDates: (Date | undefined)[] = [];
     cardsWithDates.forEach(({ card }) => {
       allDates.push(card.startDate, card.endDate);
     });
     
     const { min, max } = getMinMaxDates(allDates);
-    return eachDayOfInterval({ start: min, end: max });
+    return { min, max, days: eachDayOfInterval({ start: min, end: max }) };
   }, [cardsWithDates]);
+
+  // Calculate visible date range based on navigation
+  const dateRange = useMemo(() => {
+    if (daysToShow === 0) {
+      return fullDateRange.days;
+    }
+    
+    const start = viewStartDate || startOfDay(new Date());
+    const end = addDays(start, daysToShow - 1);
+    return eachDayOfInterval({ start, end });
+  }, [fullDateRange, viewStartDate, daysToShow]);
+
+  // Navigation functions
+  const navigatePrevious = () => {
+    const step = daysToShow || 7;
+    setViewStartDate(prev => subDays(prev || startOfDay(new Date()), step));
+  };
+
+  const navigateNext = () => {
+    const step = daysToShow || 7;
+    setViewStartDate(prev => addDays(prev || startOfDay(new Date()), step));
+  };
+
+  const navigateToday = () => {
+    setViewStartDate(startOfDay(new Date()));
+  };
+
+  // Export functions
+  const exportToPNG = async () => {
+    if (!ganttRef.current) return;
+    
+    try {
+      const canvas = await html2canvas(ganttRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+      
+      const link = document.createElement('a');
+      link.download = `gantt-${format(new Date(), 'yyyy-MM-dd')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      
+      toast({ title: 'Gantt exportado como PNG!' });
+    } catch (error) {
+      toast({ title: 'Erro ao exportar PNG', variant: 'destructive' });
+    }
+  };
+
+  const exportToPDF = async () => {
+    if (!ganttRef.current) return;
+    
+    try {
+      const canvas = await html2canvas(ganttRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+      
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const pdf = new jsPDF('l', 'pt', 'a4');
+      
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      
+      const ratio = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
+      const finalWidth = imgWidth * ratio;
+      const finalHeight = imgHeight * ratio;
+      
+      pdf.addImage(imgData, 'JPEG', 0, 0, finalWidth, finalHeight);
+      pdf.save(`gantt-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      
+      toast({ title: 'Gantt exportado como PDF!' });
+    } catch (error) {
+      toast({ title: 'Erro ao exportar PDF', variant: 'destructive' });
+    }
+  };
 
   const toggleColumn = (columnId: string) => {
     setExpandedColumns(prev => {
@@ -159,11 +370,15 @@ export const GanttChart = ({ board }: GanttChartProps) => {
       format(date, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')
     );
     
-    if (startIndex === -1 || endIndex === -1) return null;
+    if (startIndex === -1 && endIndex === -1) return null;
+    
+    // Handle partial visibility
+    const effectiveStart = startIndex === -1 ? 0 : startIndex;
+    const effectiveEnd = endIndex === -1 ? dateRange.length - 1 : endIndex;
     
     return {
-      start: startIndex,
-      span: Math.max(1, endIndex - startIndex + 1)
+      start: effectiveStart,
+      span: Math.max(1, effectiveEnd - effectiveStart + 1)
     };
   };
 
@@ -313,6 +528,13 @@ export const GanttChart = ({ board }: GanttChartProps) => {
     };
   };
 
+  // Get card background color with progress consideration
+  const getCardColor = (card: Card) => {
+    if (card.priority === 'high') return 'hsl(var(--destructive))';
+    if (card.priority === 'medium') return 'hsl(var(--warning))';
+    return 'hsl(var(--success))';
+  };
+
   if (cardsWithDates.length === 0) {
     return (
       <div className="flex items-center justify-center h-96 text-muted-foreground">
@@ -324,12 +546,63 @@ export const GanttChart = ({ board }: GanttChartProps) => {
     );
   }
 
+  const renderCardBar = (card: Card, column: Column, position: { start: number; span: number }) => {
+    const progress = card.progress || 0;
+    const overdue = isOverdue(card);
+    
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className={cn(
+                "absolute top-2 h-8 rounded overflow-hidden flex items-center text-xs font-medium text-white shadow-md z-10 cursor-pointer hover:shadow-lg transition-all",
+                overdue && "ring-2 ring-red-500 ring-offset-1 ring-offset-background animate-pulse"
+              )}
+              style={{
+                left: `${position.start * CELL_WIDTH}px`,
+                width: `${position.span * CELL_WIDTH}px`,
+                backgroundColor: 'rgba(0,0,0,0.2)'
+              }}
+            >
+              {/* Progress fill */}
+              <div 
+                className="absolute inset-y-0 left-0"
+                style={{
+                  width: `${progress}%`,
+                  backgroundColor: getCardColor(card)
+                }}
+              />
+              
+              {/* Overdue icon */}
+              {overdue && (
+                <AlertTriangle className="w-3 h-3 relative z-10 ml-1 flex-shrink-0" />
+              )}
+              
+              {/* Title */}
+              <span className="relative z-10 px-2 truncate flex-1">{card.title}</span>
+              
+              {/* Progress percentage */}
+              <span className="relative z-10 mr-2 text-[10px] opacity-80 flex-shrink-0">
+                {progress}%
+              </span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="p-3">
+            <CardTooltip card={card} column={column} />
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   const renderCardRow = ({ card, column, dependencyLevel }: CardWithColumn, index: number) => {
     const position = getCardPosition(card);
     if (!position) return null;
 
     const cardHasDeps = hasDependencies(card);
     const badgeInfo = getColumnTypeBadge(column);
+    const overdue = isOverdue(card);
 
     return (
       <div key={card.id} className="flex hover:bg-muted/30 transition-colors">
@@ -340,12 +613,14 @@ export const GanttChart = ({ board }: GanttChartProps) => {
                 {dependencyLevel > 0 ? '└' : ''}
               </span>
             )}
-            {cardHasDeps ? (
+            {overdue ? (
+              <AlertTriangle className="w-3 h-3 text-destructive flex-shrink-0" />
+            ) : cardHasDeps ? (
               <Link2 className="w-3 h-3 text-primary flex-shrink-0" />
             ) : (
               <div className="w-3 h-3 rounded-full bg-primary/20 flex-shrink-0" />
             )}
-            <span className="text-sm truncate flex-1" title={card.title}>
+            <span className={cn("text-sm truncate flex-1", overdue && "text-destructive")} title={card.title}>
               {card.title}
             </span>
             <Badge variant="outline" className={badgeInfo.className}>
@@ -362,32 +637,59 @@ export const GanttChart = ({ board }: GanttChartProps) => {
               />
             ))}
           </div>
-          <div
-            className="absolute top-2 h-8 rounded flex items-center px-2 text-xs font-medium text-white shadow-md z-10 cursor-pointer hover:shadow-lg transition-shadow"
-            style={{
-              left: `${position.start * CELL_WIDTH}px`,
-              width: `${position.span * CELL_WIDTH}px`,
-              backgroundColor: card.priority === 'high' 
-                ? 'hsl(var(--destructive))' 
-                : card.priority === 'medium' 
-                ? 'hsl(var(--warning))' 
-                : 'hsl(var(--success))'
-            }}
-            title={`${card.title}\n${card.startDate ? format(card.startDate, 'dd/MM/yyyy') : ''} - ${card.endDate ? format(card.endDate, 'dd/MM/yyyy') : ''}`}
-          >
-            <span className="truncate">{card.title}</span>
-          </div>
+          {renderCardBar(card, column, position)}
         </div>
       </div>
     );
   };
 
+  const zoomOptions = [
+    { label: 'Todas', days: 0 },
+    { label: '1 Semana', days: 7 },
+    { label: '2 Semanas', days: 14 },
+    { label: '1 Mês', days: 30 },
+  ];
+
   return (
     <div className="h-full overflow-auto">
-      <div className="inline-block min-w-full">
-        {/* Sort mode selector */}
+      <div className="inline-block min-w-full" ref={ganttRef}>
+        {/* Navigation and Controls Header */}
         <div className="flex items-center gap-2 p-3 border-b border-border bg-muted/20 sticky top-0 z-30">
-          <span className="text-sm text-muted-foreground mr-2">Ordenar por:</span>
+          {/* Navigation buttons */}
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" onClick={navigatePrevious} className="h-8">
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={navigateToday} className="h-8">
+              <CalendarCheck className="w-4 h-4 mr-1" />
+              Hoje
+            </Button>
+            <Button variant="outline" size="sm" onClick={navigateNext} className="h-8">
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* Zoom selector */}
+          <Select value={String(daysToShow)} onValueChange={(v) => setDaysToShow(Number(v))}>
+            <SelectTrigger className="w-32 h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {zoomOptions.map(opt => (
+                <SelectItem key={opt.days} value={String(opt.days)}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Date range display */}
+          <span className="text-sm text-muted-foreground">
+            {format(dateRange[0], 'dd MMM', { locale: ptBR })} - {format(dateRange[dateRange.length - 1], 'dd MMM yyyy', { locale: ptBR })}
+          </span>
+
+          <div className="flex-1" />
+
+          {/* Sort mode selector */}
+          <span className="text-sm text-muted-foreground mr-2">Ordenar:</span>
           <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
             <Button
               variant={sortMode === 'status' ? 'default' : 'ghost'}
@@ -405,7 +707,7 @@ export const GanttChart = ({ board }: GanttChartProps) => {
               className="h-7 text-xs"
             >
               <Calendar className="w-3.5 h-3.5 mr-1.5" />
-              Data de Início
+              Data
             </Button>
             <Button
               variant={sortMode === 'dependency' ? 'default' : 'ghost'}
@@ -414,10 +716,31 @@ export const GanttChart = ({ board }: GanttChartProps) => {
               className="h-7 text-xs"
             >
               <GitBranch className="w-3.5 h-3.5 mr-1.5" />
-              Dependência
+              Dep.
             </Button>
           </div>
-          <Badge variant="secondary" className="ml-auto text-xs">
+
+          {/* Export dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8">
+                <Download className="w-4 h-4 mr-1" />
+                Exportar
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={exportToPNG}>
+                <ImageIcon className="w-4 h-4 mr-2" />
+                Exportar como PNG
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToPDF}>
+                <FileText className="w-4 h-4 mr-2" />
+                Exportar como PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Badge variant="secondary" className="text-xs">
             {cardsWithDates.length} tarefas
           </Badge>
         </div>
@@ -437,7 +760,7 @@ export const GanttChart = ({ board }: GanttChartProps) => {
                   }`}
                 >
                   <div className="font-semibold">{format(date, 'dd')}</div>
-                  <div className="text-muted-foreground">{format(date, 'MMM')}</div>
+                  <div className="text-muted-foreground">{format(date, 'MMM', { locale: ptBR })}</div>
                 </div>
               ))}
             </div>
@@ -458,31 +781,67 @@ export const GanttChart = ({ board }: GanttChartProps) => {
             }}
           >
             <defs>
+              {/* Colored arrowheads */}
               <marker 
-                id="gantt-arrowhead" 
+                id="gantt-arrowhead-green" 
                 markerWidth="8" 
                 markerHeight="6" 
                 refX="7" 
                 refY="3" 
                 orient="auto"
               >
-                <polygon points="0 0, 8 3, 0 6" fill="hsl(var(--primary))" />
+                <polygon points="0 0, 8 3, 0 6" fill="#10B981" />
+              </marker>
+              <marker 
+                id="gantt-arrowhead-red" 
+                markerWidth="8" 
+                markerHeight="6" 
+                refX="7" 
+                refY="3" 
+                orient="auto"
+              >
+                <polygon points="0 0, 8 3, 0 6" fill="#EF4444" />
+              </marker>
+              <marker 
+                id="gantt-arrowhead-blue" 
+                markerWidth="8" 
+                markerHeight="6" 
+                refX="7" 
+                refY="3" 
+                orient="auto"
+              >
+                <polygon points="0 0, 8 3, 0 6" fill="#3B82F6" />
+              </marker>
+              <marker 
+                id="gantt-arrowhead-gray" 
+                markerWidth="8" 
+                markerHeight="6" 
+                refX="7" 
+                refY="3" 
+                orient="auto"
+              >
+                <polygon points="0 0, 8 3, 0 6" fill="#9CA3AF" />
               </marker>
             </defs>
             
-            {dependencyConnections.map((conn, index) => (
-              <path
-                key={index}
-                d={getArrowPath(conn)}
-                fill="none"
-                stroke="hsl(var(--primary))"
-                strokeWidth="2"
-                strokeDasharray="4 2"
-                markerEnd="url(#gantt-arrowhead)"
-                opacity="0.7"
-                className="transition-opacity hover:opacity-100"
-              />
-            ))}
+            {dependencyConnections.map((conn, index) => {
+              const colors = getDependencyColor(conn.fromCard);
+              const isCompleted = colors.colorKey === 'green';
+              
+              return (
+                <path
+                  key={index}
+                  d={getArrowPath(conn)}
+                  fill="none"
+                  stroke={colors.stroke}
+                  strokeWidth="2"
+                  strokeDasharray={isCompleted ? 'none' : '4 2'}
+                  markerEnd={`url(#gantt-arrowhead-${colors.colorKey})`}
+                  opacity="0.8"
+                  className="transition-opacity hover:opacity-100"
+                />
+              );
+            })}
           </svg>
 
           {/* Today line */}
@@ -561,17 +920,20 @@ export const GanttChart = ({ board }: GanttChartProps) => {
                   if (!position) return null;
 
                   const cardHasDeps = hasDependencies(card);
+                  const overdue = isOverdue(card);
 
                   return (
                     <div key={card.id} className="flex hover:bg-muted/30 transition-colors">
                       <div className="w-64 flex-shrink-0 p-3 border-r border-border">
                         <div className="flex items-center space-x-2">
-                          {cardHasDeps ? (
+                          {overdue ? (
+                            <AlertTriangle className="w-3 h-3 text-destructive flex-shrink-0" />
+                          ) : cardHasDeps ? (
                             <Link2 className="w-3 h-3 text-primary flex-shrink-0" />
                           ) : (
                             <div className="w-3 h-3 rounded-full bg-primary/20 flex-shrink-0" />
                           )}
-                          <span className="text-sm truncate" title={card.title}>
+                          <span className={cn("text-sm truncate", overdue && "text-destructive")} title={card.title}>
                             {card.title}
                           </span>
                         </div>
@@ -585,21 +947,7 @@ export const GanttChart = ({ board }: GanttChartProps) => {
                             />
                           ))}
                         </div>
-                        <div
-                          className="absolute top-2 h-8 rounded flex items-center px-2 text-xs font-medium text-white shadow-md z-10 cursor-pointer hover:shadow-lg transition-shadow"
-                          style={{
-                            left: `${position.start * CELL_WIDTH}px`,
-                            width: `${position.span * CELL_WIDTH}px`,
-                            backgroundColor: card.priority === 'high' 
-                              ? 'hsl(var(--destructive))' 
-                              : card.priority === 'medium' 
-                              ? 'hsl(var(--warning))' 
-                              : 'hsl(var(--success))'
-                          }}
-                          title={`${card.title}\n${card.startDate ? format(card.startDate, 'dd/MM/yyyy') : ''} - ${card.endDate ? format(card.endDate, 'dd/MM/yyyy') : ''}`}
-                        >
-                          <span className="truncate">{card.title}</span>
-                        </div>
+                        {renderCardBar(card, column, position)}
                       </div>
                     </div>
                   );
@@ -654,22 +1002,60 @@ export const GanttChart = ({ board }: GanttChartProps) => {
             </div>
           )}
 
-          {/* Legend */}
-          <div className="flex items-center gap-6 p-3 border-t border-border bg-muted/20 text-xs text-muted-foreground">
+          {/* Enhanced Legend */}
+          <div className="flex flex-wrap items-center gap-4 p-3 border-t border-border bg-muted/20 text-xs text-muted-foreground">
+            {/* Dependency arrow colors */}
             <div className="flex items-center gap-2">
               <svg width="24" height="12">
-                <line x1="0" y1="6" x2="20" y2="6" stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="4 2" />
-                <polygon points="20,3 24,6 20,9" fill="hsl(var(--primary))" />
+                <line x1="0" y1="6" x2="20" y2="6" stroke="#10B981" strokeWidth="2" />
+                <polygon points="20,3 24,6 20,9" fill="#10B981" />
               </svg>
-              <span>Dependência</span>
+              <span>Concluída</span>
             </div>
             <div className="flex items-center gap-2">
-              <Link2 className="w-3 h-3 text-primary" />
-              <span>Tem antecessora</span>
+              <svg width="24" height="12">
+                <line x1="0" y1="6" x2="20" y2="6" stroke="#3B82F6" strokeWidth="2" strokeDasharray="4 2" />
+                <polygon points="20,3 24,6 20,9" fill="#3B82F6" />
+              </svg>
+              <span>Em andamento</span>
             </div>
+            <div className="flex items-center gap-2">
+              <svg width="24" height="12">
+                <line x1="0" y1="6" x2="20" y2="6" stroke="#EF4444" strokeWidth="2" strokeDasharray="4 2" />
+                <polygon points="20,3 24,6 20,9" fill="#EF4444" />
+              </svg>
+              <span>Atrasada</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <svg width="24" height="12">
+                <line x1="0" y1="6" x2="20" y2="6" stroke="#9CA3AF" strokeWidth="2" strokeDasharray="4 2" />
+                <polygon points="20,3 24,6 20,9" fill="#9CA3AF" />
+              </svg>
+              <span>Não iniciada</span>
+            </div>
+            
+            <div className="w-px h-4 bg-border" />
+            
+            {/* Overdue indicator */}
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-4 rounded bg-destructive/50 ring-2 ring-red-500 ring-offset-1 ring-offset-background" />
+              <span>Tarefa atrasada</span>
+            </div>
+            
+            {/* Progress bar */}
+            <div className="flex items-center gap-2">
+              <div className="w-12 h-4 rounded overflow-hidden bg-muted">
+                <div className="w-1/2 h-full bg-primary" />
+              </div>
+              <span>Progresso</span>
+            </div>
+            
+            <div className="w-px h-4 bg-border" />
+            
+            {/* Priority colors */}
             <div className="flex items-center gap-2">
               <div className="w-4 h-3 rounded bg-destructive" />
-              <span>Alta prioridade</span>
+              <span>Alta</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-3 rounded bg-warning" />
